@@ -5,6 +5,7 @@ from __future__ import annotations
 from math import floor, sqrt
 from statistics import fmean
 
+from ..volume_units import to_shares
 from .config import StrategySettings
 from .models import (
     Campaign,
@@ -199,9 +200,9 @@ def choose_targets(direction: Direction, entry_price: float, stop_price: float, 
 
 def estimate_cost_buffer_per_share(item: CandidateItem, entry_price: float) -> float:
     spread_cost = max(item.median_spread_pct * entry_price, item.tick_size)
-    if item.adv20_usd >= 50_000_000:
+    if item.adv20_usd >= 5_000_000_000:
         slippage = 0.01
-    elif item.adv20_usd >= 20_000_000:
+    elif item.adv20_usd >= 2_000_000_000:
         slippage = 0.02
     else:
         slippage = 0.03
@@ -243,8 +244,8 @@ def position_size(
     qty = int(floor(risk_dollars / risk_per_share))
     if qty < 1:
         return None
-    max_participation = settings.thin_participation_30m if item.adv20_usd < 50_000_000 else settings.max_participation_30m
-    max_qty = int(max(item.median_30m_volume, item.average_30m_volume, 1.0) * max_participation)
+    max_participation = settings.thin_participation_30m if item.adv20_usd < 5_000_000_000 else settings.max_participation_30m
+    max_qty = int(to_shares(max(item.median_30m_volume, item.average_30m_volume, 1.0)) * max_participation)
     qty = min(qty, max_qty)
     if qty < 1:
         return None
@@ -282,7 +283,7 @@ def add_position_quantity(
     if risk_per_share <= 0:
         return 0
     qty = int(base / risk_per_share)
-    max_qty = int(max(item.median_30m_volume, item.average_30m_volume, 1.0) * settings.max_participation_30m)
+    max_qty = int(to_shares(max(item.median_30m_volume, item.average_30m_volume, 1.0)) * settings.max_participation_30m)
     return max(0, min(qty, max_qty))
 
 
@@ -318,6 +319,68 @@ def estimate_round_trip_friction(item: CandidateItem, quantity: int, entry_price
 def friction_gate_pass(item: CandidateItem, plan: PositionPlan, settings: StrategySettings) -> bool:
     friction = estimate_round_trip_friction(item, plan.quantity, plan.entry_price)
     return friction <= settings.max_friction_to_risk * plan.risk_dollars
+
+
+def momentum_friction_to_risk(
+    item: CandidateItem,
+    entry_price: float,
+    stop_price: float,
+) -> float:
+    """Return estimated round-trip friction as a fraction of stop risk.
+
+    The ratio is quantity-independent, so live and replay can evaluate it on
+    the completed signal bar before an order is submitted.  Infinite friction
+    is returned for a zero-risk plan so the caller cannot accidentally pass it.
+    """
+    stop_risk_per_share = abs(float(entry_price) - float(stop_price))
+    if stop_risk_per_share <= 0:
+        return float("inf")
+    return estimate_cost_buffer_per_share(item, float(entry_price)) / stop_risk_per_share
+
+
+def momentum_friction_gate_pass(
+    item: CandidateItem,
+    entry_price: float,
+    stop_price: float,
+    settings: StrategySettings,
+) -> bool:
+    """Apply the optional shared momentum friction-to-risk entry veto."""
+    if not settings.use_momentum_friction_gate:
+        return True
+    limit = float(settings.max_friction_to_risk)
+    if limit <= 0:
+        return False
+    return momentum_friction_to_risk(item, entry_price, stop_price) <= limit
+
+
+def failure_stop_price(
+    direction: Direction,
+    entry_price: float,
+    current_stop: float,
+    current_close: float,
+    risk_per_share: float,
+    mfe_r: float,
+    current_r: float,
+    settings: StrategySettings,
+) -> float:
+    """Return a causal early-failure stop update from completed-bar evidence."""
+    if settings.failure_stop_bars <= 0 or risk_per_share <= 0:
+        return current_stop
+    if mfe_r > settings.failure_stop_mfe_max_r or current_r > settings.failure_stop_current_r_max:
+        return current_stop
+
+    buffer_pct = max(0.0, float(settings.failure_stop_close_buffer_pct))
+    target_r = float(settings.failure_stop_to_r)
+    if direction == Direction.LONG:
+        desired = entry_price + target_r * risk_per_share
+        if buffer_pct > 0:
+            desired = min(desired, current_close * (1.0 - buffer_pct))
+        return desired if current_stop < desired < current_close else current_stop
+
+    desired = entry_price - target_r * risk_per_share
+    if buffer_pct > 0:
+        desired = max(desired, current_close * (1.0 + buffer_pct))
+    return desired if current_close < desired < current_stop else current_stop
 
 
 # ---------------------------------------------------------------------------
@@ -590,8 +653,8 @@ def momentum_position_size(
     if qty < 1:
         return None
 
-    max_participation = settings.thin_participation_30m if item.adv20_usd < 50_000_000 else settings.max_participation_30m
-    max_qty = int(max(item.median_30m_volume, item.average_30m_volume, 1.0) * max_participation)
+    max_participation = settings.thin_participation_30m if item.adv20_usd < 5_000_000_000 else settings.max_participation_30m
+    max_qty = int(to_shares(max(item.median_30m_volume, item.average_30m_volume, 1.0)) * max_participation)
     qty = min(qty, max_qty)
     if qty < 1:
         return None

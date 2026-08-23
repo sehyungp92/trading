@@ -1,0 +1,53 @@
+{
+  "folds": {
+    "is_early": {
+      "expectancy": 0.10111476254712974,
+      "expectancy_dollar": 7.396061151079099,
+      "expected_total_r": 56.21980797620414,
+      "losing_trades": 246,
+      "max_drawdown_pct": 0.030348117764409505,
+      "net_profit": 4112.209999999979,
+      "profit_factor": 1.570960266693692,
+      "sharpe": 4.116994131573406,
+      "sortino": 4.975314807579755,
+      "tail_loss_r": -1.0772514357713787,
+      "total_trades": 556,
+      "trades_per_month": 60.22508896797152,
+      "win_rate": 0.5575539568345323,
+      "winning_trades": 310
+    },
+    "is_late": {
+      "expectancy": 0.14970892139122666,
+      "expectancy_dollar": 10.461190965092431,
+      "expected_total_r": 72.90824471752738,
+      "losing_trades": 196,
+      "max_drawdown_pct": 0.041573299974396134,
+      "net_profit": 5094.600000000014,
+      "profit_factor": 1.7961718240876927,
+      "sharpe": 5.583645850345089,
+      "sortino": 7.0029024470116,
+      "tail_loss_r": -1.0619823094430243,
+      "total_trades": 487,
+      "trades_per_month": 82.81040502793296,
+      "win_rate": 0.5975359342915811,
+      "winning_trades": 291
+    },
+    "is_middle": {
+      "expectancy": 0.10360996568401575,
+      "expectancy_dollar": 6.554447058823511,
+      "expected_total_r": 44.03423541570669,
+      "losing_trades": 189,
+      "max_drawdown_pct": 0.027161979814578695,
+      "net_profit": 2785.639999999992,
+      "profit_factor": 1.5080827701932444,
+      "sharpe": 3.655128573209907,
+      "sortino": 3.8786237113546638,
+      "tail_loss_r": -1.0582429795793147,
+      "total_trades": 425,
+      "trades_per_month": 53.899739583333336,
+      "win_rate": 0.5552941176470588,
+      "winning_trades": 236
+    }
+  },
+  "followup_execution_fingerprint": "e3a00295ea96f0454b31f33e551e0efdb330249f74f0115b1adcca1ef3b4bb1a"
+}

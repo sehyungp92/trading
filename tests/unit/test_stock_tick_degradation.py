@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -104,3 +105,51 @@ async def test_stock_data_sources_degrade_10190_without_blacklisting(source_cls,
     assert symbol in source._tick_by_tick_disabled
     assert symbol not in source._blacklisted
     assert len(ib.cancel_tick_by_tick_calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_iaric_requests_and_batches_authoritative_completed_5m_bars() -> None:
+    ib = _FakeIB()
+    factory = _FakeFactory()
+    requests = []
+    delivered = []
+    completed_batches = []
+    start = datetime(2026, 5, 20, 13, 30, tzinfo=timezone.utc)
+
+    async def historical(contract, **kwargs):
+        requests.append((contract.symbol, kwargs))
+        base = 100.0 if contract.symbol == "AAA" else 200.0
+        return [
+            SimpleNamespace(
+                date=start,
+                open=base,
+                high=base + 1.0,
+                low=base - 0.5,
+                close=base + 0.5,
+                volume=1_000.0,
+            )
+        ]
+
+    source = IARICMarketDataSource(
+        ib=ib,
+        contract_factory=factory,
+        on_quote=lambda *_args: None,
+        on_completed_5m_bar=lambda symbol, bar: delivered.append((symbol, bar)),
+        historical_requester=historical,
+        on_bar_batch_complete=completed_batches.append,
+    )
+
+    await source.poll_due_bars(
+        [(_instrument("AAA"), 30), (_instrument("BBB"), 30)],
+        now=datetime(2026, 5, 20, 13, 35, tzinfo=timezone.utc),
+    )
+
+    assert [symbol for symbol, _kwargs in requests] == ["AAA", "BBB"]
+    assert all(kwargs["barSizeSetting"] == "5 mins" for _symbol, kwargs in requests)
+    assert all(kwargs["whatToShow"] == "TRADES" for _symbol, kwargs in requests)
+    assert all(kwargs["useRTH"] is True for _symbol, kwargs in requests)
+    assert all(kwargs["formatDate"] == 2 for _symbol, kwargs in requests)
+    assert all(kwargs["completed_only"] is True for _symbol, kwargs in requests)
+    assert [symbol for symbol, _bar in delivered] == ["AAA", "BBB"]
+    assert all((bar.end_time - bar.start_time).total_seconds() == 300 for _symbol, bar in delivered)
+    assert completed_batches == [datetime(2026, 5, 20, 13, 35, tzinfo=timezone.utc)]

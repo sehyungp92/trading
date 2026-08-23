@@ -2,64 +2,72 @@
   "phases": {
     "1": {
       "status": "completed",
-      "updated_at": "2026-05-23T21:22:19.888904+00:00",
+      "updated_at": "2026-08-16T11:08:38.300986+00:00",
       "completed_phases": [
         1
       ],
       "current_phase": 1,
-      "total_mutations": 35,
-      "base_score": 0.0,
-      "final_score": 0.0,
-      "kept_features": [],
-      "gate_passed": false,
-      "failure_category": "candidates_exhausted",
+      "total_mutations": 50,
+      "base_score": 0.5,
+      "final_score": 0.5237471465876763,
+      "kept_features": [
+        "r2_remove_or5_no_volume_penalty"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
       "scoring_retries": 0,
-      "diagnostic_retries": 1,
-      "focus": "Completed-bar score component discrimination",
-      "candidate_count": 0
+      "diagnostic_retries": 0,
+      "focus": "Execution-cost discrimination and seven-factor score allocation",
+      "candidate_count": 5
     },
     "2": {
       "status": "completed",
-      "updated_at": "2026-05-23T21:22:29.215831+00:00",
+      "updated_at": "2026-08-16T11:27:17.340995+00:00",
       "completed_phases": [
         1,
         2
       ],
       "current_phase": 2,
-      "total_mutations": 35,
-      "base_score": 0.0,
-      "final_score": 0.0,
-      "kept_features": [],
+      "total_mutations": 50,
+      "base_score": 0.5237471465876763,
+      "final_score": 0.744064555577759,
+      "kept_features": [
+        "r2_global_rvol_140",
+        "r2_combined_rvol_200"
+      ],
       "gate_passed": true,
       "failure_category": null,
       "scoring_retries": 0,
       "diagnostic_retries": 0,
-      "focus": "Early-failure protective stop tightening",
-      "candidate_count": 0
+      "focus": "Broad signal-gate alpha recovery",
+      "candidate_count": 4
     },
     "3": {
       "status": "completed",
-      "updated_at": "2026-05-23T21:22:39.610683+00:00",
+      "updated_at": "2026-08-16T11:43:52.348306+00:00",
       "completed_phases": [
         1,
         2,
         3
       ],
       "current_phase": 3,
-      "total_mutations": 35,
-      "base_score": 0.0,
-      "final_score": 0.0,
-      "kept_features": [],
+      "total_mutations": 50,
+      "base_score": 0.744064555577759,
+      "final_score": 0.8156502789964034,
+      "kept_features": [
+        "r2_opening_range_8",
+        "r2_orb_range_cap_150"
+      ],
       "gate_passed": true,
       "failure_category": null,
       "scoring_retries": 0,
       "diagnostic_retries": 0,
-      "focus": "Exit management and profit retention",
-      "candidate_count": 0
+      "focus": "Causal entry timing and geometry",
+      "candidate_count": 4
     },
     "4": {
       "status": "completed",
-      "updated_at": "2026-05-23T21:22:49.712097+00:00",
+      "updated_at": "2026-08-16T12:13:31.186370+00:00",
       "completed_phases": [
         1,
         2,
@@ -67,20 +75,22 @@
         4
       ],
       "current_phase": 4,
-      "total_mutations": 35,
-      "base_score": 0.6788026971477945,
-      "final_score": 0.6788026971477945,
-      "kept_features": [],
+      "total_mutations": 50,
+      "base_score": 0.8156502789964034,
+      "final_score": 0.8225144867497501,
+      "kept_features": [
+        "r2_regime_b_100"
+      ],
       "gate_passed": true,
       "failure_category": null,
       "scoring_retries": 0,
       "diagnostic_retries": 0,
-      "focus": "Quality-preserved frequency recovery",
-      "candidate_count": 0
+      "focus": "Route and regime risk allocation",
+      "candidate_count": 4
     },
     "5": {
       "status": "completed",
-      "updated_at": "2026-05-23T21:23:00.935941+00:00",
+      "updated_at": "2026-08-16T12:32:25.258758+00:00",
       "completed_phases": [
         1,
         2,
@@ -89,20 +99,20 @@
         5
       ],
       "current_phase": 5,
-      "total_mutations": 35,
-      "base_score": 0.7226362291318732,
-      "final_score": 0.7226362291318732,
+      "total_mutations": 50,
+      "base_score": 0.8225144867497501,
+      "final_score": 0.8225144867497501,
       "kept_features": [],
       "gate_passed": true,
       "failure_category": null,
       "scoring_retries": 0,
       "diagnostic_retries": 0,
-      "focus": "Entry geometry retest and extension control",
-      "candidate_count": 0
+      "focus": "Loser containment without clipping runners",
+      "candidate_count": 4
     },
     "6": {
       "status": "completed",
-      "updated_at": "2026-05-23T21:31:34.222657+00:00",
+      "updated_at": "2026-08-16T13:24:38.081124+00:00",
       "completed_phases": [
         1,
         2,
@@ -112,69 +122,20 @@
         6
       ],
       "current_phase": 6,
-      "total_mutations": 35,
-      "base_score": 0.6236431949552981,
-      "final_score": 0.772876175480488,
+      "total_mutations": 50,
+      "base_score": 0.8225144867497501,
+      "final_score": 0.8342874043145414,
       "kept_features": [
-        "r3_archived_value_tune"
+        "r2_capacity_7_heat_450"
       ],
       "gate_passed": true,
       "failure_category": null,
       "scoring_retries": 0,
       "diagnostic_retries": 0,
-      "focus": "Round-3 structural synthesis",
-      "candidate_count": 1
-    },
-    "7": {
-      "status": "completed",
-      "updated_at": "2026-05-23T21:31:39.824784+00:00",
-      "completed_phases": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7
-      ],
-      "current_phase": 7,
-      "total_mutations": 35,
-      "base_score": 0.0,
-      "final_score": 0.0,
-      "kept_features": [],
-      "gate_passed": true,
-      "failure_category": null,
-      "scoring_retries": 0,
-      "diagnostic_retries": 0,
-      "focus": "Causal early trade-maturation protection",
-      "candidate_count": 0
-    },
-    "8": {
-      "status": "completed",
-      "updated_at": "2026-05-23T21:31:48.029559+00:00",
-      "completed_phases": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8
-      ],
-      "current_phase": 8,
-      "total_mutations": 35,
-      "base_score": 0.0,
-      "final_score": 0.0,
-      "kept_features": [],
-      "gate_passed": true,
-      "failure_category": null,
-      "scoring_retries": 0,
-      "diagnostic_retries": 0,
-      "focus": "Delayed entry confirmation and maturation synthesis",
-      "candidate_count": 0
+      "focus": "Aggressive-leaning portfolio and exit synthesis",
+      "candidate_count": 4
     }
   },
-  "last_updated": "2026-05-23T21:31:48.072561+00:00",
-  "current_phase": 8
+  "last_updated": "2026-08-16T13:24:38.097452+00:00",
+  "current_phase": 6
 }

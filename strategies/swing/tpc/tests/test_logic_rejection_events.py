@@ -10,7 +10,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from strategies.swing._shared.etf_core import ETFCoreState
+from strategies.swing._shared.etf_core import BarWindow, ETFCoreState
 from strategies.swing.tpc.config import TPCSymbolConfig
 from strategies.swing.tpc.core import logic
 from strategies.swing.tpc.models import Direction, RegimeGrade
@@ -177,7 +177,7 @@ def test_setup_snapshot_meta_contains_new_keys_when_setup_succeeds():
     bar_input = _BarInput(bar_15m=_Bar(timestamp=_now()), indicators={"atr_4h": 1.0})
     cfg = TPCSymbolConfig(
         symbol="QQQ", longs_enabled=True, shorts_enabled=True, score_a_min=10, score_b_min=8,
-        asset_context_min_score=-1.0,
+        etf_context_min_score=-1.0,
     )
     state = ETFCoreState()
     pullback = SimpleNamespace(
@@ -198,7 +198,7 @@ def test_setup_snapshot_meta_contains_new_keys_when_setup_succeeds():
                return_value=(100.0, "MARKET", 0.0, 0.0, "market_next_bar")), \
          patch("strategies.swing.tpc.core.logic._initial_stop", return_value=99.0), \
          patch("strategies.swing.tpc.core.logic.stops.validate_stop", return_value=True), \
-         patch("strategies.swing.tpc.core.logic.context.score_asset_context",
+         patch("strategies.swing.tpc.core.logic.context.score_etf_context",
                return_value=(2.0, {"detail": 1})), \
          patch("strategies.swing.tpc.core.logic.allocator.score_setup", return_value=18.0), \
          patch("strategies.swing.tpc.core.logic.allocator.compute_risk_pct", return_value=0.0085), \
@@ -215,15 +215,14 @@ def test_setup_snapshot_meta_contains_new_keys_when_setup_succeeds():
     assert setup.meta["orderly_pullback"] is True
 
 
-def test_opposed_daily_asset_context_can_hard_veto_setup():
+def test_low_etf_context_score_can_veto_setup():
     from strategies.swing.tpc.models import PullbackType
 
     bar_input = _BarInput(bar_15m=_Bar(timestamp=_now()), indicators={"atr_4h": 1.0})
     cfg = TPCSymbolConfig(
         symbol="QQQ",
-        asset_context_enabled=True,
-        asset_context_min_score=-1.0,
-        asset_context_block_opposed_daily=True,
+        etf_context_enabled=True,
+        etf_context_min_score=0.0,
     )
     state = ETFCoreState()
     rejections: list[dict] = []
@@ -249,8 +248,8 @@ def test_opposed_daily_asset_context_can_hard_veto_setup():
                return_value=(100.0, "MARKET", 0.0, 0.0, "market_next_bar")), \
          patch("strategies.swing.tpc.core.logic._initial_stop", return_value=99.0), \
          patch("strategies.swing.tpc.core.logic.stops.validate_stop", return_value=True), \
-         patch("strategies.swing.tpc.core.logic.context.score_asset_context",
-               return_value=(0.2, {"votes": {"context_daily": -0.35}})), \
+         patch("strategies.swing.tpc.core.logic.context.score_etf_context",
+               return_value=(-0.25, {"votes": {"etf_4h_di": -0.15, "etf_4h_ma": -0.10}})), \
          patch("strategies.swing.tpc.core.logic._daily_levels", return_value=[101.0, 99.0]):
         setup = logic._evaluate_setup(
             state,
@@ -260,31 +259,51 @@ def test_opposed_daily_asset_context_can_hard_veto_setup():
         )
 
     assert setup is None
-    opposed = [item for item in rejections if item["blocked_by"] == "asset_context_daily_opposed"]
-    assert opposed
-    assert opposed[0]["details"]["asset_context_daily_vote"] == pytest.approx(-0.35)
+    blocked = [item for item in rejections if item["blocked_by"] == "etf_context_score_low"]
+    assert blocked
+    assert blocked[0]["details"]["etf_context_score"] == pytest.approx(-0.25)
 
 
-def test_trend_alignment_is_invariant_to_panama_translation():
-    from strategies.swing.tpc.context import _trend_alignment
+def test_etf_context_ignores_external_context_indicator_keys():
+    from strategies.swing.tpc.context import score_etf_context
 
-    previous_close = 24_950.0
-    translated_previous_close = previous_close - 500.0
-    original = _trend_alignment(
-        Direction.LONG,
-        close=25_200.0,
-        fast=25_100.0,
-        slow=25_000.0,
-        ret=25_200.0 / previous_close - 1.0,
+    cfg = TPCSymbolConfig(symbol="QQQ", etf_context_enabled=True)
+    prices = np.asarray([110.0])
+    bars_4h = BarWindow(
+        opens=prices,
+        highs=prices,
+        lows=prices,
+        closes=prices,
+        volumes=np.asarray([1.0]),
+        times=(_now(),),
     )
-    translated = _trend_alignment(
-        Direction.LONG,
-        close=24_700.0,
-        fast=24_600.0,
-        slow=24_500.0,
-        ret=24_700.0 / translated_previous_close - 1.0,
+    common = {
+        "plus_di_4h": 30.0,
+        "minus_di_4h": 10.0,
+        "ma50_4h": 105.0,
+        "ma100_4h": 100.0,
+    }
+    base = _BarInput(
+        bars_4h=bars_4h,
+        indicators=dict(common),
     )
-    assert original == translated == 1.0
+    with_external_keys = _BarInput(
+        bars_4h=bars_4h,
+        indicators={
+            **common,
+            "context_close_1h": 1.0,
+            "context_sma20_1h": 10_000.0,
+            "context_close_daily": 1.0,
+            "context_sma50_daily": 10_000.0,
+        },
+    )
+
+    base_score, base_details = score_etf_context(base, Direction.LONG, cfg)
+    external_score, external_details = score_etf_context(with_external_keys, Direction.LONG, cfg)
+
+    assert external_score == base_score == pytest.approx(0.25)
+    assert external_details == base_details
+    assert set(base_details["votes"]) == {"etf_4h_di", "etf_4h_ma"}
 
 
 def test_on_bar_common_wraps_rejections_into_events():

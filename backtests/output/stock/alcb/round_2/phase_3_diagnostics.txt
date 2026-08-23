@@ -1,11 +1,11 @@
 ======================================================================
 ALCB ROUND-3 RESIDUAL ALPHA PHASE 3 SNAPSHOT
 ======================================================================
-Focus: Exit management and profit retention
-Score 0.0000 -> 0.0000 with 0 accepted mutations.
+Focus: Causal entry timing and geometry
+Score 0.7441 -> 0.8157 with 2 accepted mutations.
 
-Core: trades=591, net_profit=+11704.46, expectancy_dollar=+19.80, expected_total_r=+147.47, pf=2.069, dd=3.2%, trades/month=22.83
-Quality: signal_quality=0.533, timing_quality=0.947, extended_avwap_inverse=1.000, bar9_inverse=0.865, late_entry_quality=0.975, score_monotonicity=0.333
-Management: profit_protection=0.670, short24_inv=0.316, flow_mfe_inv=0.983, mfe_capture_eff=0.767, sizing_alignment=1.000, long_hold_capture=0.989, inv_dd=0.730
-Focus metric deltas: expected_total_r=+147.467->+147.467, net_profit=+11704.460->+11704.460, profit_factor=+2.069->+2.069, profit_protection=+0.670->+0.670, flow_mfe_exit_inverse=+0.983->+0.983, mfe_capture_efficiency=+0.767->+0.767, long_hold_capture=+0.989->+0.989
-Hard floors: max_dd_pct=4.60%, min_expectancy_dollar=17.0319, min_expected_total_r=138.6192, min_flow_mfe_exit_inverse=0.8359, min_long_hold_capture=0.8408, min_mfe_capture_efficiency=0.7400, min_net_profit=10768.1032, min_pf=1.9036, min_profit_protection=0.5691, min_short_hold_24_drag_inverse=0.3200, min_trades_per_month=20.0888
+Core: trades=1438, net_profit=+14433.56, expectancy_dollar=+10.04, expected_total_r=+164.83, pf=1.578, dd=4.0%, trades/month=62.17
+Quality: signal_quality=0.405, timing_quality=0.601, extended_avwap_inverse=1.000, bar9_inverse=0.500, late_entry_quality=0.303, score_monotonicity=0.349
+Management: profit_protection=0.436, short24_inv=0.000, flow_mfe_inv=0.474, mfe_capture_eff=0.876, sizing_alignment=1.000, long_hold_capture=0.984, inv_dd=0.663
+Focus metric deltas: expected_total_r=+147.628->+164.831, trades_per_month=+58.194->+62.172, expectancy=+0.110->+0.115, profit_factor=+1.509->+1.578, timing_quality=+0.597->+0.601, late_entry_quality=+0.291->+0.303, max_drawdown_pct=+0.043->+0.040
+Hard floors: max_dd_pct=5.00%, min_expectancy_dollar=7.1138, min_expected_total_r=138.7701, min_net_profit=10125.4464, min_pf=1.3585, min_timing_quality=0.5074, min_trades_per_month=56.4486

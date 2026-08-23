@@ -17,6 +17,7 @@ import asyncio
 import logging
 from contextlib import suppress
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime, time, timezone
 from decimal import Decimal
 from typing import Any
@@ -28,8 +29,24 @@ from libs.oms.instrumentation.runtime_refs import fill_runtime_refs
 from strategies.core.actions import CancelAction, FlattenPosition, ReplaceProtectiveStop, SubmitEntry, SubmitMarketExit, SubmitProtectiveStop
 
 from .artifact_store import IntradayStateSnapshot, load_intraday_state, persist_intraday_state
+from .bar_policy import (
+    Completed5mContractError,
+    Completed5mGapError,
+    apply_completed_5m_bar,
+    validate_completed_5m_bar,
+    validate_next_completed_5m_bar,
+)
 from .config import ET, PROXY_SYMBOLS, STRATEGY_ID, StrategySettings, build_proxy_instruments
 from .core import logic as iaric_core_logic
+from .core.lanes import (
+    IssuerEntryCandidate,
+    anchor_exit_enabled,
+    issuer_batch_arbitration,
+    issuer_exposure_decision,
+    lane_daily_cap,
+    lane_id_for_route,
+)
+from .core.residual import causal_relative_dislocation_atr
 from .core.logic import apply_core_state as apply_core_runtime_state
 from .core.logic import build_core_state as build_core_runtime_state
 from .core.state import (
@@ -39,7 +56,6 @@ from .core.state import (
     IARICPartialExitRequest,
     IARICStopUpdateRequest,
 )
-from .data import CanonicalBarBuilder
 from .diagnostics import JsonlDiagnostics
 from .entry_request import build_ready_entry_request
 from .execution import build_entry_order, build_market_exit, build_stock_instrument, build_stop_order
@@ -49,6 +65,7 @@ from .exits import (
     check_v2_partial,
     compute_overnight_stop,
     compute_stale_tighten,
+    partial_exit_quantity,
     run_exit_chain,
     should_carry_overnight,
     update_mfe_stages,
@@ -68,6 +85,18 @@ from .models import (
 from .risk import timing_gate_allows_entry
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class _BatchEntryCandidate:
+    symbol: str
+    bar: Bar
+    timestamp: datetime
+    route: str
+    score: float
+    entry_rank_pct: float
+    entry_rsi: float
+    artifact_index: int
 
 
 class IARICEngine:
@@ -91,8 +120,14 @@ class IARICEngine:
         self._oms = oms_service
         self._artifact = artifact
         self._items = artifact.by_symbol
+        self._artifact_index = {item.symbol: index for index, item in enumerate(artifact.items)}
         self._account_id = account_id
         self._settings = settings or StrategySettings()
+        if str(self._settings.pb_open_scored_fill_timing).lower() != "next_5m_open":
+            raise ValueError(
+                "Live IARIC requires pb_open_scored_fill_timing='next_5m_open'; "
+                "same-open research has no production-parity order path"
+            )
         self._trade_recorder = trade_recorder
         self._diagnostics = diagnostics or JsonlDiagnostics(self._settings.diagnostics_dir, enabled=False)
         self._instrumentation = instrumentation
@@ -101,7 +136,6 @@ class IARICEngine:
         self._symbols: dict[str, PBSymbolState] = {}
         self._markets: dict[str, MarketSnapshot] = {}
         self._session_vwap: dict[str, VWAPLedger] = {}
-        self._bar_builder = CanonicalBarBuilder()
         self._portfolio = PortfolioState(account_equity=nav, base_risk_fraction=self._settings.base_risk_fraction)
         self._symbol_to_sector = {item.symbol: item.sector for item in artifact.items}
         self._active_symbols: set[str] = set()
@@ -112,6 +146,10 @@ class IARICEngine:
         self._last_quote_volume: dict[str, float] = {}
         self._last_save_ts: datetime | None = None
         self._open_scored_count: int = 0
+        self._aperture_family_counts: dict[str, int] = {}
+        self._daily_entry_symbols: list[str] = []
+        self._rescue_entry_count: int = 0
+        self._lane_entry_counts: dict[str, int] = {}
         self._kit_cache = None
 
         self._event_queue = None
@@ -125,6 +163,17 @@ class IARICEngine:
         self._last_bar_ts: datetime | None = None
         self._bars_processed: int = 0
         self._symbol_last_bar_ts: dict[str, datetime] = {}
+        self._pending_5m_batches: dict[datetime, dict[str, Bar]] = {}
+        self._pending_5m_batch_tasks: dict[datetime, asyncio.Task] = {}
+        self._collecting_entry_candidates: list[_BatchEntryCandidate] | None = None
+        self._bar_arrival_latency_s: dict[str, float] = {}
+        self._duplicate_5m_bars: int = 0
+        self._gap_5m_bars: int = 0
+        self._rejected_5m_bars: int = 0
+        self._expected_5m_bars: int = 0
+        self._missing_5m_bars: int = 0
+        self._last_missing_5m_symbols: list[str] = []
+        self._recovery_cutoff_by_symbol: dict[str, datetime] = {}
 
         self._initialize_from_artifact()
 
@@ -138,6 +187,21 @@ class IARICEngine:
             "bars_processed": self._bars_processed,
             "symbol_freshness": {
                 sym: ts.isoformat() for sym, ts in self._symbol_last_bar_ts.items()
+            },
+            "completed_5m": {
+                "arrival_latency_s": dict(self._bar_arrival_latency_s),
+                "duplicates": self._duplicate_5m_bars,
+                "gaps": self._gap_5m_bars,
+                "rejected": self._rejected_5m_bars,
+                "expected": self._expected_5m_bars,
+                "missing": self._missing_5m_bars,
+                "missing_rate": (
+                    self._missing_5m_bars / self._expected_5m_bars
+                    if self._expected_5m_bars
+                    else 0.0
+                ),
+                "last_missing_symbols": list(self._last_missing_5m_symbols),
+                "pending_batches": len(self._pending_5m_batches),
             },
         }
 
@@ -172,6 +236,9 @@ class IARICEngine:
                 cdd_value=item.cdd_value,
                 ema10_daily=item.ema10_daily,
                 rsi14_daily=item.rsi14_daily,
+                entry_rank=int(getattr(item, "entry_rank", 0)),
+                entry_rank_pct=float(getattr(item, "entry_rank_pct", 100.0)),
+                entry_rsi=float(getattr(item, "entry_rsi", 50.0)),
             )
             self._markets[symbol] = MarketSnapshot(symbol=symbol)
             self._session_vwap[symbol] = VWAPLedger()
@@ -233,6 +300,10 @@ class IARICEngine:
 
     async def stop(self) -> None:
         self._running = False
+        for task in self._pending_5m_batch_tasks.values():
+            task.cancel()
+        self._pending_5m_batch_tasks.clear()
+        self._pending_5m_batches.clear()
         await self._save_state("stop")
         for task in (self._pulse_task, self._event_task):
             if task is None:
@@ -253,6 +324,7 @@ class IARICEngine:
                 break
         if restored_core:
             apply_core_runtime_state(self, snapshot)
+            self._arm_completed_5m_recovery()
             return
 
         self._active_symbols = set(snapshot.meta.get("active_symbols", self._active_symbols))
@@ -305,6 +377,14 @@ class IARICEngine:
                 if stored.exit_order is not None and current is not None:
                     current.exit_order = stored.exit_order
                     self._order_index[stored.exit_order.oms_order_id] = (symbol_name, stored.exit_order.role)
+        self._arm_completed_5m_recovery()
+
+    def _arm_completed_5m_recovery(self) -> None:
+        self._recovery_cutoff_by_symbol = {
+            symbol: state.last_5m_bar_time
+            for symbol, state in self._symbols.items()
+            if state.last_5m_bar_time is not None
+        }
 
     def snapshot_state(self) -> IntradayStateSnapshot:
         return build_core_runtime_state(self)
@@ -333,13 +413,13 @@ class IARICEngine:
         requests: list[tuple[Any, int]] = []
         for symbol, item in self._items.items():
             state = self._symbols.get(symbol)
-            if state is None or state.in_position:
+            if state is None:
                 continue
-            if symbol in self._active_symbols:
-                continue  # already streaming
-            if not item.tradable_flag:
+            if not item.tradable_flag and not state.in_position:
                 continue
-            interval = self._settings.warm_poll_interval_s
+            # Quotes remain streaming for HOT symbols; authoritative action
+            # bars for every eligible symbol come from completed 5m history.
+            interval = min(int(self._settings.warm_poll_interval_s), 30)
             requests.append((build_stock_instrument(item), interval))
         return requests
 
@@ -352,9 +432,13 @@ class IARICEngine:
             "open_positions": len(self._portfolio.open_positions),
             "pending_orders": len(self._order_index),
             "open_scored_count": self._open_scored_count,
+            "aperture_family_counts": dict(self._aperture_family_counts),
+            "rescue_entry_count": self._rescue_entry_count,
+            "lane_entry_counts": dict(self._lane_entry_counts),
             "last_decision_code": self._last_decision_code,
             "last_decision_details": self._last_decision_details,
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
+            "completed_5m": self.liveness_payload()["completed_5m"],
         }
 
     # ── Market data callbacks ───────────────────────────────────────
@@ -382,51 +466,175 @@ class IARICEngine:
         if volume_delta > 0:
             market.tick_pressure_window.append((quote.ts, signed))
 
-    def on_bar(self, symbol: str, bar: Bar) -> None:
+    def on_completed_5m_bar(
+        self,
+        symbol: str,
+        bar: Bar,
+        *,
+        received_at: datetime | None = None,
+    ) -> bool:
+        """Queue one authoritative completed 5m bar for timestamp-batched evaluation.
+
+        This is the only action-generating market-bar ingress for IARIC. Quotes
+        remain a separate, non-clock input used for spread and execution context.
+        """
+
         normalized = symbol.upper()
         market = self._markets.get(normalized)
         item = self._items.get(normalized)
         if market is None or item is None:
-            return
+            return False
+        receipt = received_at or datetime.now(timezone.utc)
+        try:
+            validate_completed_5m_bar(bar, received_at=receipt, expected_symbol=normalized)
+        except Completed5mContractError:
+            self._rejected_5m_bars += 1
+            raise
         if bar.start_time.astimezone(ET).date() != self._artifact.trade_date:
+            # A one-day bootstrap request can legitimately include the prior
+            # RTH session. It is completed 5m data, but not input for today's
+            # artifact clock.
+            return False
+
+        pending = self._pending_5m_batches.setdefault(bar.end_time, {})
+        pending_bar = pending.get(normalized)
+        if pending_bar is not None:
+            if pending_bar == bar:
+                self._duplicate_5m_bars += 1
+                return False
+            self._rejected_5m_bars += 1
+            raise Completed5mContractError(
+                f"IARIC received conflicting 5m bars for {normalized} ending {bar.end_time.isoformat()}"
+            )
+        if market.last_5m_bar is not None and bar.start_time == market.last_5m_bar.start_time:
+            self._duplicate_5m_bars += 1
+            return False
+        prior_pending = [
+            queued[normalized]
+            for queued in self._pending_5m_batches.values()
+            if normalized in queued and queued[normalized].start_time < bar.start_time
+        ]
+        later_pending = [
+            queued[normalized]
+            for queued in self._pending_5m_batches.values()
+            if normalized in queued and queued[normalized].start_time > bar.start_time
+        ]
+        if later_pending:
+            self._rejected_5m_bars += 1
+            raise Completed5mContractError(
+                f"IARIC received an out-of-order 5m bar for {normalized} ending {bar.end_time.isoformat()}"
+            )
+        previous = max(
+            ([market.last_5m_bar] if market.last_5m_bar is not None else []) + prior_pending,
+            key=lambda prior: prior.start_time,
+            default=None,
+        )
+        try:
+            validate_next_completed_5m_bar(previous, bar)
+        except Completed5mGapError:
+            self._gap_5m_bars += 1
+            raise
+        except Completed5mContractError:
+            self._rejected_5m_bars += 1
+            raise
+
+        pending[normalized] = bar
+        self._symbol_last_bar_ts[normalized] = receipt
+        self._bar_arrival_latency_s[normalized] = max(0.0, (receipt - bar.end_time).total_seconds())
+        self._schedule_5m_batch_flush(bar.end_time)
+
+        expected = self._expected_5m_batch_symbols()
+        if expected and expected.issubset(pending):
+            self.flush_completed_5m_batch(bar.end_time)
+        return True
+
+    def _expected_5m_batch_symbols(self) -> set[str]:
+        return {
+            symbol
+            for symbol, item in self._items.items()
+            if item.tradable_flag or symbol in self._portfolio.open_positions
+        }
+
+    def _schedule_5m_batch_flush(self, end_time: datetime) -> None:
+        if end_time in self._pending_5m_batch_tasks:
             return
-        if market.last_1m_bar is not None and market.last_1m_bar.start_time >= bar.start_time:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
             return
+        grace_s = max(0.0, float(getattr(self._settings, "completed_5m_batch_grace_s", 30.0)))
+        task = loop.create_task(self._flush_5m_batch_after_grace(end_time, grace_s))
+        task.add_done_callback(self._log_task_exception)
+        self._pending_5m_batch_tasks[end_time] = task
 
-        self._last_bar_ts = datetime.now(timezone.utc)
-        self._bars_processed += 1
-        self._symbol_last_bar_ts[normalized] = self._last_bar_ts
-        self._bar_builder.ingest_bar(bar)
-        market.minute_bars.append(bar)
-        market.last_1m_bar = bar
-        market.last_price = bar.close
-        market.session_high = max(market.session_high or bar.high, bar.high)
-        market.session_low = min(market.session_low or bar.low, bar.low)
-        self._session_vwap[normalized].update(bar)
-        market.session_vwap = self._session_vwap[normalized].value
+    async def _flush_5m_batch_after_grace(self, end_time: datetime, grace_s: float) -> None:
+        if grace_s > 0:
+            await asyncio.sleep(grace_s)
+        self._pending_5m_batch_tasks.pop(end_time, None)
+        self.flush_completed_5m_batch(end_time)
 
-        state = self._symbols.get(normalized)
-        if state is not None:
-            state.last_1m_bar_time = bar.end_time
-            state.session_high = max(state.session_high, bar.high)
-            if state.session_low <= 0:
-                state.session_low = bar.low
-            else:
-                state.session_low = min(state.session_low, bar.low)
+    def flush_completed_5m_batch(self, end_time: datetime) -> int:
+        """Apply all same-close bars before deterministically allocating entries."""
 
-        # Aggregate to 5m bars and process
-        for bar_5m in self._bar_builder.aggregate_new_bars(normalized, 5):
-            market.last_5m_bar = bar_5m
-            market.bars_5m.append(bar_5m)
-            if state is not None:
-                state.bars_seen_today += 1
-                state.last_5m_bar_time = bar_5m.end_time
-                self._process_intraday_bar(normalized, bar_5m, bar_5m.end_time)
+        batch = self._pending_5m_batches.pop(end_time, None)
+        task = self._pending_5m_batch_tasks.pop(end_time, None)
+        current_task = None
+        try:
+            current_task = asyncio.current_task()
+        except RuntimeError:
+            pass
+        if task is not None and task is not current_task:
+            task.cancel()
+        if not batch:
+            return 0
 
-        # 30m bars for volume tracking
-        for bar_30m in self._bar_builder.aggregate_new_bars(normalized, 30):
-            market.last_30m_bar = bar_30m
-            market.bars_30m.append(bar_30m)
+        ordered = sorted(batch.items(), key=lambda row: row[0])
+        expected = self._expected_5m_batch_symbols()
+        missing = sorted(expected.difference(batch))
+        self._expected_5m_bars += len(expected)
+        self._missing_5m_bars += len(missing)
+        self._last_missing_5m_symbols = missing
+        evaluable: list[tuple[str, Bar]] = []
+        for symbol, bar in ordered:
+            market = self._markets[symbol]
+            state = self._symbols.get(symbol)
+            recovery_cutoff = self._recovery_cutoff_by_symbol.get(symbol)
+            recovering = recovery_cutoff is not None and bar.end_time <= recovery_cutoff
+            apply_completed_5m_bar(market, bar, state=None if recovering else state)
+            if not recovering:
+                self._recovery_cutoff_by_symbol.pop(symbol, None)
+                evaluable.append((symbol, bar))
+            self._bars_processed += 1
+
+        self._causal_relative_dislocations = causal_relative_dislocation_atr(
+            {
+                symbol: list(market.bars_5m)
+                for symbol, market in self._markets.items()
+                if market.bars_5m
+            },
+            self._symbol_to_sector,
+            {
+                symbol: float(getattr(item, "daily_atr_estimate", 0.0))
+                for symbol, item in self._items.items()
+            },
+        )
+
+        self._collecting_entry_candidates = []
+        try:
+            for symbol, bar in evaluable:
+                self._last_bar_ts = bar.end_time
+                self._process_intraday_bar(symbol, bar, bar.end_time)
+            candidates = list(self._collecting_entry_candidates)
+        finally:
+            self._collecting_entry_candidates = None
+        self._dispatch_batched_entry_candidates(candidates)
+        return len(ordered)
+
+    def flush_all_completed_5m_batches(self) -> int:
+        applied = 0
+        for end_time in sorted(self._pending_5m_batches):
+            applied += self.flush_completed_5m_batch(end_time)
+        return applied
 
     def get_position_snapshot(self) -> list[dict[str, Any]]:
         snapshots = []
@@ -557,6 +765,14 @@ class IARICEngine:
         elif state.stage == "INVALIDATED":
             return
 
+        if state.stage in {"WATCHING", "APERTURE_CONFIRM_ARMED"}:
+            if self._try_aperture_entry(symbol, bar_5m, now):
+                return
+
+        if state.stage == "RETEST_ARMED":
+            self._try_open_scored_retest(symbol, bar_5m, now)
+            return
+
         if state.stage in {"FLUSH_LOCKED", "RECLAIMING"}:
             self._try_opening_reclaim(symbol, bar_5m, now)
             return
@@ -571,34 +787,36 @@ class IARICEngine:
         if cfg.pb_opening_reclaim_enabled and self._try_opening_reclaim(symbol, bar_5m, now):
             return
 
-        if cfg.pb_open_scored_enabled and bar_idx >= 0:
-            if cfg.pb_v2_enabled or self._open_scored_count < cfg.pb_v2_open_scored_max_slots:
-                if self._try_open_scored_entry(symbol, bar_5m, now):
-                    return
-
         if cfg.pb_delayed_confirm_enabled and self._try_delayed_confirm(symbol, bar_5m, now):
+            return
+
+        first_open = market.bars_5m[0].open if market.bars_5m else bar_5m.open
+        if not iaric_core_logic.opening_gap_eligible(cfg, item.previous_close, first_open):
+            iaric_core_logic.invalidate_route_state(state, "opening_gap_reject", int(state.bars_seen_today) + 78)
+            self._log_missed(symbol=symbol, blocked_by="gap_gate",
+                             block_reason="opening_gap_outside_range", exchange_timestamp=now,
+                             route="ENTRY_CHECK")
             return
 
         if cfg.pb_v2_vwap_bounce_enabled and self._try_vwap_bounce(symbol, bar_5m, now):
             return
 
         if cfg.pb_v2_afternoon_retest_enabled:
-            self._try_afternoon_retest(symbol, bar_5m, now)
+            if self._try_afternoon_retest(symbol, bar_5m, now):
+                return
+
+        open_after_bar = int(getattr(cfg, "pb_v2_open_scored_after_bar", 0)) if cfg.pb_v2_enabled else 0
+        if iaric_core_logic.route_enabled(cfg, "OPEN_SCORED_ENTRY") and bar_idx >= open_after_bar:
+            if self._try_open_scored_entry(symbol, bar_5m, now):
+                return
 
     def _session_atr(self, symbol: str) -> float:
-        """Estimate intraday ATR from accumulated 5m bars."""
-        bars_5m = self._markets[symbol].bars_5m
-        if len(bars_5m) < 3:
-            return self._symbols[symbol].daily_atr
-        trs = []
-        for i in range(1, len(bars_5m)):
-            tr = max(
-                bars_5m[i].high - bars_5m[i].low,
-                abs(bars_5m[i].high - bars_5m[i - 1].close),
-                abs(bars_5m[i].low - bars_5m[i - 1].close),
-            )
-            trs.append(tr)
-        return sum(trs) / len(trs) if trs else self._symbols[symbol].daily_atr
+        """Estimate intraday ATR through the shared causal parity helper."""
+        return iaric_core_logic.estimate_session_atr(
+            self._items[symbol],
+            list(self._markets[symbol].bars_5m),
+            self._symbols[symbol].daily_atr,
+        )
 
     def _initial_stop(self, setup_low: float, daily_atr: float, session_atr: float) -> float:
         """Compute initial stop: session ATR based with daily ATR cap (research parity)."""
@@ -631,41 +849,149 @@ class IARICEngine:
         market = self._markets[symbol]
         cfg = self._settings
 
-        if state.daily_signal_score < cfg.pb_open_scored_min_score:
+        if not iaric_core_logic.open_scored_eligible(
+            cfg,
+            {
+                "daily_signal_score": state.daily_signal_score,
+                "daily_signal_rank_pct": state.entry_rank_pct,
+                "rescue_flow_candidate": state.rescue_flow_candidate,
+                "trigger_types": list(state.trigger_types),
+            },
+        ):
             return False
 
-        session_low = min(state.session_low if state.session_low > 0 else bar_5m.low, bar_5m.low)
-        session_atr = self._session_atr(symbol)
-        reclaim_lvl = state.reclaim_level if state.reclaim_level > 0 else bar_5m.close
-        setup = state.setup_low if state.setup_low > 0 else session_low
-        stop = self._initial_stop(setup, state.daily_atr, session_atr)
-        state.route_family = "OPEN_SCORED_ENTRY"
-        state.setup_low = session_low
-        state.reclaim_level = reclaim_lvl
-        state.stop_level = stop
-        state.flush_bar_idx = 0
-        bundle = iaric_core_logic.compute_route_entry_score_bundle(
+        bar_idx = max(state.bars_seen_today - 1, 0)
+        transition = iaric_core_logic.open_scored_transition(cfg)
+        if transition == "confirmed_retest":
+            after_bar = (
+                int(getattr(cfg, "pb_v2_open_scored_after_bar", 0))
+                if cfg.pb_v2_enabled
+                else 0
+            )
+            if bar_idx != after_bar:
+                return False
+            step = iaric_core_logic.arm_open_scored_retest_route(
+                cfg,
+                state,
+                self._items[symbol],
+                bar_5m,
+                market,
+                bar_idx,
+                self._session_atr(symbol),
+                bars=list(market.bars_5m),
+            )
+            if step is None:
+                self._log_missed(
+                    symbol=symbol,
+                    blocked_by="entry_transition",
+                    block_reason="open_scored_retest_not_armed",
+                    exchange_timestamp=now,
+                    route="OPEN_SCORED_RETEST",
+                )
+                return False
+            state.entry_atr = self._session_atr(symbol)
+            self._record_decision(
+                "RETEST_ARMED",
+                {
+                    "symbol": symbol,
+                    "route": "OPEN_SCORED_RETEST",
+                    "target": state.target_entry_price,
+                    "expires_bar": state.improvement_expires,
+                    "score": state.intraday_score,
+                },
+            )
+            return True
+
+        if transition == "resting_retrace":
+            after_bar = (
+                int(getattr(cfg, "pb_v2_open_scored_after_bar", 0))
+                if cfg.pb_v2_enabled
+                else 0
+            )
+            if bar_idx != after_bar:
+                return False
+            step = iaric_core_logic.arm_open_scored_retrace_limit_route(
+                cfg,
+                state,
+                self._items[symbol],
+                bar_5m,
+                market,
+                bar_idx,
+                self._session_atr(symbol),
+                bars=list(market.bars_5m),
+            )
+            if step is None or step.acceptance is None:
+                self._log_missed(
+                    symbol=symbol,
+                    blocked_by="entry_transition",
+                    block_reason="open_scored_retrace_limit_not_armed",
+                    exchange_timestamp=now,
+                    route="OPEN_SCORED_RETRACE_LIMIT",
+                )
+                return False
+            iaric_core_logic.apply_entry_acceptance(state, step.acceptance)
+            state.entry_atr = self._session_atr(symbol)
+            self._record_decision(
+                "RETRACE_LIMIT_ARMED",
+                {
+                    "symbol": symbol,
+                    "route": "OPEN_SCORED_RETRACE_LIMIT",
+                    "target": state.target_entry_price,
+                    "expires_bar": state.improvement_expires,
+                    "score": state.intraday_score,
+                },
+            )
+            self._fire_entry(symbol, bar_5m, now, "OPEN_SCORED_RETRACE_LIMIT")
+            return True
+
+        step = iaric_core_logic.activate_open_scored_direct_route(
             cfg,
             state,
             self._items[symbol],
             bar_5m,
             market,
-            max(state.bars_seen_today - 1, 0),
+            bar_idx,
+            self._session_atr(symbol),
             bars=list(market.bars_5m),
         )
-        score = float(bundle["score"])
-        components = dict(bundle)
+        if step is None or step.acceptance is None:
+            return False
+        iaric_core_logic.apply_entry_acceptance(state, step.acceptance)
+        state.entry_atr = float(step.acceptance.session_atr)
+        self._fire_entry(symbol, bar_5m, now, step.acceptance.route_family)
+        return True
 
-        if score >= cfg.pb_entry_score_min:
-            state.intraday_score = score
-            state.score_components = components
-            state.entry_atr = session_atr
-            self._fire_entry(symbol, bar_5m, now, "OPEN_SCORED_ENTRY")
-            self._open_scored_count += 1
+    def _try_open_scored_retest(self, symbol: str, bar_5m: Bar, now: datetime) -> bool:
+        """Advance the shared completed-bar retest and submit for next-bar fill."""
+
+        state = self._symbols[symbol]
+        market = self._markets[symbol]
+        step = iaric_core_logic.advance_open_scored_retest_route(
+            self._settings,
+            state,
+            self._items[symbol],
+            bar_5m,
+            market,
+            max(state.bars_seen_today - 1, 0),
+            self._session_atr(symbol),
+            bars=list(market.bars_5m),
+        )
+        if step is None:
+            return False
+        if step.stage == "INVALIDATED":
+            self._log_missed(
+                symbol=symbol,
+                blocked_by="entry_transition",
+                block_reason=step.reason,
+                exchange_timestamp=now,
+                route="OPEN_SCORED_RETEST",
+            )
             return True
-        self._log_missed(symbol=symbol, blocked_by="entry_score",
-                         block_reason=f"score_{score:.0f}_below_{cfg.pb_entry_score_min}",
-                         exchange_timestamp=now, route="OPEN_SCORED_ENTRY")
+        if step.acceptance is not None:
+            iaric_core_logic.apply_entry_acceptance(state, step.acceptance)
+            state.entry_atr = self._session_atr(symbol)
+            self._fire_entry(symbol, bar_5m, now, step.acceptance.route_family)
+            return True
         return False
 
     def _try_delayed_confirm(self, symbol: str, bar_5m: Bar, now: datetime) -> bool:
@@ -722,6 +1048,36 @@ class IARICEngine:
         state.entry_atr = self._session_atr(symbol)
         return True
 
+    def _try_aperture_entry(self, symbol: str, bar_5m: Bar, now: datetime) -> bool:
+        state = self._symbols[symbol]
+        market = self._markets[symbol]
+        step = iaric_core_logic.advance_aperture_route(
+            self._settings,
+            state,
+            self._items[symbol],
+            bar_5m,
+            market,
+            max(state.bars_seen_today - 1, 0),
+            self._session_atr(symbol),
+            bars=list(market.bars_5m),
+            relative_dislocation_atr=getattr(
+                self, "_causal_relative_dislocations", {}
+            ).get(symbol),
+        )
+        if state.opportunity_audit_bar_idx == max(state.bars_seen_today - 1, 0):
+            for audit in state.opportunity_audit_events:
+                self._diagnostics.log_decision(
+                    "APERTURE_LANE_FUNNEL",
+                    {"symbol": symbol, **audit, "exchange_timestamp": now},
+                )
+        if step is None:
+            return False
+        if step.acceptance is not None:
+            iaric_core_logic.apply_entry_acceptance(state, step.acceptance)
+            state.entry_atr = float(step.acceptance.session_atr)
+            self._fire_entry(symbol, bar_5m, now, step.acceptance.route_family)
+        return True
+
     def _try_ready_entry(self, symbol: str, bar_5m: Bar, now: datetime) -> bool:
         state = self._symbols[symbol]
         market = self._markets[symbol]
@@ -746,8 +1102,262 @@ class IARICEngine:
     def _fire_entry(self, symbol: str, bar_5m: Bar, now: datetime, route: str) -> None:
         """Common entry submission for all routes."""
         state = self._symbols[symbol]
+        if self._collecting_entry_candidates is not None:
+            item = self._items[symbol]
+            self._collecting_entry_candidates.append(
+                _BatchEntryCandidate(
+                    symbol=symbol,
+                    bar=bar_5m,
+                    timestamp=now,
+                    route=route,
+                    score=float(state.intraday_score),
+                    entry_rank_pct=float(state.entry_rank_pct),
+                    entry_rsi=float(state.entry_rsi),
+                    artifact_index=self._artifact_index.get(symbol, len(self._artifact_index)),
+                )
+            )
+            return
+        self._dispatch_entry_candidate(
+            _BatchEntryCandidate(
+                symbol=symbol,
+                bar=bar_5m,
+                timestamp=now,
+                route=route,
+                score=float(state.intraday_score),
+                entry_rank_pct=float(state.entry_rank_pct),
+                entry_rsi=float(state.entry_rsi),
+                artifact_index=self._artifact_index.get(symbol, len(self._artifact_index)),
+            )
+        )
+
+    def _dispatch_entry_candidate(self, candidate: _BatchEntryCandidate) -> None:
+        state = self._symbols[candidate.symbol]
+        aperture_family = iaric_core_logic.aperture_family_from_route(candidate.route)
+        if aperture_family:
+            cap = iaric_core_logic.aperture_family_daily_cap(
+                self._settings,
+                aperture_family,
+            )
+            if cap is not None and self._aperture_family_counts.get(aperture_family, 0) >= cap:
+                iaric_core_logic.reset_route_state(state)
+                self._log_missed(
+                    symbol=candidate.symbol,
+                    blocked_by="route_capacity",
+                    block_reason="aperture_family_daily_cap",
+                    exchange_timestamp=candidate.timestamp,
+                    route=candidate.route,
+                )
+                return
+        lane_capacity_reason = self._entry_lane_capacity_reason(candidate)
+        if lane_capacity_reason:
+            iaric_core_logic.reset_route_state(state)
+            self._log_missed(
+                symbol=candidate.symbol,
+                blocked_by=(
+                    "issuer_exposure"
+                    if lane_capacity_reason.startswith("issuer_")
+                    else "route_capacity"
+                ),
+                block_reason=lane_capacity_reason,
+                exchange_timestamp=candidate.timestamp,
+                route=candidate.route,
+            )
+            return
         state.active_order_id = "SUBMITTING_ENTRY"
-        asyncio.create_task(self._submit_entry(symbol, now, route)).add_done_callback(self._log_task_exception)
+        if iaric_core_logic.is_open_scored_route(candidate.route):
+            self._open_scored_count += 1
+        if aperture_family:
+            self._aperture_family_counts[aperture_family] = (
+                self._aperture_family_counts.get(aperture_family, 0) + 1
+            )
+        self._daily_entry_symbols.append(candidate.symbol)
+        if bool(getattr(state, "rescue_flow_candidate", False)):
+            self._rescue_entry_count += 1
+        lane_id = lane_id_for_route(
+            candidate.route,
+            rescue_candidate=bool(getattr(state, "rescue_flow_candidate", False)),
+        )
+        self._lane_entry_counts[lane_id] = self._lane_entry_counts.get(lane_id, 0) + 1
+        task = asyncio.create_task(
+            self._submit_entry(candidate.symbol, candidate.timestamp, candidate.route)
+        )
+        task.add_done_callback(self._log_task_exception)
+
+    def _entry_lane_capacity_reason(self, candidate: _BatchEntryCandidate) -> str:
+        """Return a shared lane/issuer reservation rejection, if any."""
+
+        state = self._symbols[candidate.symbol]
+        active_symbols = list(self._portfolio.open_positions)
+        active_symbols.extend(self._portfolio.pending_entry_risk)
+        active_symbols.extend(
+            symbol
+            for symbol, symbol_state in self._symbols.items()
+            if symbol_state.active_order_id or symbol_state.entry_order is not None
+        )
+        issuer_decision = issuer_exposure_decision(
+            self._settings,
+            candidate.symbol,
+            active_symbols=active_symbols,
+            daily_entry_symbols=self._daily_entry_symbols,
+        )
+        if not issuer_decision.allowed:
+            return issuer_decision.reason
+        lane_id = lane_id_for_route(
+            candidate.route,
+            rescue_candidate=bool(getattr(state, "rescue_flow_candidate", False)),
+        )
+        cap = lane_daily_cap(self._settings, lane_id)
+        if cap is not None and self._lane_entry_counts.get(lane_id, 0) >= cap:
+            return "lane_daily_cap"
+        if bool(getattr(state, "rescue_flow_candidate", False)) and (
+            self._rescue_entry_count
+            >= max(int(getattr(self._settings, "pb_rescue_max_per_day", 1)), 0)
+        ):
+            return "rescue_daily_cap"
+        return ""
+
+    def _dispatch_batched_entry_candidates(self, candidates: list[_BatchEntryCandidate]) -> None:
+        """Apply replay-compatible score priority before portfolio capacity."""
+
+        if not candidates:
+            return
+        cfg = self._settings
+        max_positions = cfg.pb_max_positions
+        if self._artifact.regime.tier == "B":
+            max_positions = min(max_positions, cfg.max_positions_tier_b)
+        used_slots = len(self._portfolio.open_positions) + len(self._portfolio.pending_entry_risk)
+        available_slots = max(max_positions - used_slots, 0)
+        open_scored_cap = iaric_core_logic.open_scored_slot_cap(
+            cfg,
+            available_slots,
+            has_intraday_candidates=any(
+                not iaric_core_logic.is_open_scored_route(candidate.route)
+                for candidate in candidates
+            ) or any(
+                not state.in_position
+                and state.stage
+                in {"WATCHING", "FLUSH_LOCKED", "RECLAIMING", "RETEST_ARMED", "READY"}
+                for state in self._symbols.values()
+            ),
+        )
+        sector_counts: dict[str, int] = {}
+        for symbol in self._portfolio.open_positions:
+            sector = self._symbol_to_sector.get(symbol, "")
+            sector_counts[sector] = sector_counts.get(sector, 0) + 1
+
+        ranked = sorted(
+            candidates,
+            key=lambda candidate: (
+                iaric_core_logic.route_priority_value(
+                    cfg,
+                    candidate.route,
+                    candidate.score,
+                ),
+                candidate.entry_rank_pct,
+                candidate.entry_rsi,
+                candidate.artifact_index,
+            ),
+        )
+        issuer_arbitration = issuer_batch_arbitration(
+            cfg,
+            (
+                IssuerEntryCandidate(
+                    symbol=candidate.symbol,
+                    route_family=candidate.route,
+                    score=candidate.score,
+                    stable_rank=int(round(candidate.entry_rank_pct * 10_000)),
+                )
+                for candidate in ranked
+            ),
+        )
+        for candidate in ranked:
+            state = self._symbols[candidate.symbol]
+            item = self._items[candidate.symbol]
+            reason = ""
+            if candidate.symbol not in issuer_arbitration.selected_symbols:
+                winner = issuer_arbitration.rejected_by_winner.get(candidate.symbol, "")
+                iaric_core_logic.reset_route_state(state)
+                self._log_missed(
+                    symbol=candidate.symbol,
+                    blocked_by="issuer_exposure",
+                    block_reason="issuer_duplicate_event",
+                    exchange_timestamp=candidate.timestamp,
+                    route=candidate.route,
+                )
+                self._record_decision(
+                    "ISSUER_EVENT_DEDUPED",
+                    {"symbol": candidate.symbol, "winner": winner, "route": candidate.route},
+                )
+                continue
+            aperture_family = iaric_core_logic.aperture_family_from_route(
+                candidate.route
+            )
+            aperture_cap = (
+                iaric_core_logic.aperture_family_daily_cap(cfg, aperture_family)
+                if aperture_family
+                else None
+            )
+            lane_capacity_reason = self._entry_lane_capacity_reason(candidate)
+            if lane_capacity_reason:
+                iaric_core_logic.reset_route_state(state)
+                self._log_missed(
+                    symbol=candidate.symbol,
+                    blocked_by=(
+                        "issuer_exposure"
+                        if lane_capacity_reason.startswith("issuer_")
+                        else "route_capacity"
+                    ),
+                    block_reason=lane_capacity_reason,
+                    exchange_timestamp=candidate.timestamp,
+                    route=candidate.route,
+                )
+                continue
+            if aperture_cap is not None and self._aperture_family_counts.get(
+                aperture_family,
+                0,
+            ) >= aperture_cap:
+                iaric_core_logic.reset_route_state(state)
+                self._log_missed(
+                    symbol=candidate.symbol,
+                    blocked_by="route_capacity",
+                    block_reason="aperture_family_daily_cap",
+                    exchange_timestamp=candidate.timestamp,
+                    route=candidate.route,
+                )
+                continue
+            if iaric_core_logic.is_open_scored_route(candidate.route) and (
+                self._open_scored_count >= open_scored_cap
+            ):
+                iaric_core_logic.reset_route_state(state)
+                self._log_missed(
+                    symbol=candidate.symbol,
+                    blocked_by="route_capacity",
+                    block_reason="open_scored_slot_cap",
+                    exchange_timestamp=candidate.timestamp,
+                    route=candidate.route,
+                )
+                continue
+            if used_slots >= max_positions:
+                reason = "slot_cap_reject"
+            elif sector_counts.get(item.sector, 0) >= cfg.max_positions_per_sector:
+                reason = "sector_cap_reject"
+            if reason:
+                iaric_core_logic.invalidate_route_state(
+                    state,
+                    reason,
+                    int(state.bars_seen_today) + 78,
+                )
+                self._log_missed(
+                    symbol=candidate.symbol,
+                    blocked_by="max_positions" if reason.startswith("slot") else "sector_limit",
+                    block_reason=reason,
+                    exchange_timestamp=candidate.timestamp,
+                    route=candidate.route,
+                )
+                continue
+            used_slots += 1
+            sector_counts[item.sector] = sector_counts.get(item.sector, 0) + 1
+            self._dispatch_entry_candidate(candidate)
 
     def _compute_micropressure(self, symbol: str, bar_5m: Bar) -> str:
         """Route-aligned micropressure proxy from completed 5m bars."""
@@ -776,6 +1386,20 @@ class IARICEngine:
         if position is None or market.last_price is None:
             return
 
+        # The protective stop carried into the bar owns all intrabar lows.
+        # A replacement justified by this bar's completed high is active only
+        # for subsequent market data.  Resolve the conservative stop-first
+        # case before crediting the bar's MFE, matching replay semantics.
+        active_stop_level = float(state.stop_level)
+        if bar_5m.low <= active_stop_level:
+            state.stopped_out_today = True
+            self._diagnostics.log_decision(
+                "EXIT",
+                {"symbol": symbol, "reason": "STOP_HIT", "active_stop": active_stop_level},
+            )
+            self._request_full_exit(symbol, "STOP_HIT")
+            return
+
         # Update MFE tracking
         position.max_favorable_price = max(position.max_favorable_price, bar_5m.high)
         position.max_adverse_price = min(position.max_adverse_price, bar_5m.low)
@@ -785,7 +1409,9 @@ class IARICEngine:
         risk_per_share = max(state.risk_per_share, position.initial_risk_per_share, 0.01)
         unrealized_r = (bar_5m.close - entry_price) / risk_per_share
         max_mfe_r = (position.max_favorable_price - entry_price) / risk_per_share
-        entry_atr = max(state.entry_atr, state.daily_atr, 0.01)
+        # Entry-time session ATR is the shared live/replay trail basis.  Daily
+        # ATR is a different scale and made live trails materially looser.
+        entry_atr = max(state.entry_atr, 0.01)
 
         # Update MFE stages (3->2->1 order, uses entry_atr for trail)
         prev_mfe_stage = state.mfe_stage
@@ -844,31 +1470,51 @@ class IARICEngine:
                     adjustment_type="trailing", trigger="mfe_stage_trail",
                 )
 
+        if (
+            anchor_exit_enabled(self._settings, state.route_family)
+            and position.reversion_anchor > position.entry_price
+            and bar_5m.close >= position.reversion_anchor
+        ):
+            self._diagnostics.log_decision(
+                "EXIT",
+                {
+                    "symbol": symbol,
+                    "reason": "REVERSION_ANCHOR",
+                    "anchor": position.reversion_anchor,
+                    "event_id": position.opportunity_event_id,
+                },
+            )
+            self._request_full_exit(symbol, "REVERSION_ANCHOR")
+            return
+
         # V2 partial profit (triggers on MFE, not unrealized -- research parity)
         partial_trigger_r = float(self._settings.pb_v2_partial_profit_trigger_r)
-        if check_v2_partial(max_mfe_r, state.v2_partial_taken, partial_trigger_r):
-            partial_qty = max(1, position.qty_open // 2)
+        if (
+            check_v2_partial(max_mfe_r, state.v2_partial_taken, partial_trigger_r)
+            and position.pending_partial_stop <= 0
+            and state.exit_order is None
+        ):
+            partial_qty = partial_exit_quantity(
+                current_qty=position.qty_open,
+                original_qty=position.qty_entry,
+                fraction=self._settings.pb_v2_partial_profit_fraction,
+                minimum_remaining_size_pct=self._settings.minimum_remaining_size_pct,
+            )
+            if partial_qty <= 0:
+                return
             self._diagnostics.log_decision("V2_PARTIAL", {
                 "symbol": symbol, "mfe_r": round(max_mfe_r, 3),
                 "partial_qty": partial_qty,
             })
             partial_stop = entry_price + self._settings.pb_v2_partial_profit_remainder_stop_r * risk_per_share
-            if partial_stop > state.stop_level:
-                old_sl = state.stop_level
-                state.stop_level = partial_stop
-                position.current_stop = partial_stop
-                kit = self._kit_cache
-                if kit:
-                    kit.log_stop_adjustment(
-                        trade_id=position.trade_id or f"IARIC-{symbol}",
-                        symbol=symbol, old_stop=old_sl, new_stop=partial_stop,
-                        adjustment_type="partial_trail", trigger="v2_partial_profit",
-                    )
+            item = self._items[symbol]
             partial_request = IARICPartialExitRequest(
                 client_order_id=f"{symbol}-partial-{int(now.timestamp())}",
                 symbol=symbol,
                 qty=partial_qty,
                 reason="TP",
+                remainder_stop_price=partial_stop,
+                execution_buffer=item.tick_size,
             )
             core_state = build_core_runtime_state(self)
             new_state, actions, _events = iaric_core_logic.on_bar(
@@ -914,6 +1560,7 @@ class IARICEngine:
             config=self._settings,
             stale_exit_bars=stale_exit_bars,
             stale_exit_min_r=stale_exit_min_r,
+            active_stop_level=active_stop_level,
         )
 
         if should_exit:
@@ -925,7 +1572,7 @@ class IARICEngine:
 
         # EOD carry check (near close)
         et_time = now.astimezone(ET).time()
-        if et_time >= self._settings.close_block_start:
+        if self._settings.pb_carry_enabled and et_time >= self._settings.close_block_start:
             close_in_range = 0.0
             if state.session_high > state.session_low > 0:
                 daily_range = state.session_high - state.session_low
@@ -1033,6 +1680,11 @@ class IARICEngine:
             signal_id=f"{symbol}:{route}:{int(now.timestamp())}",
             bar_id=f"{symbol}:{self._last_bar_ts.isoformat()}" if self._last_bar_ts else "",
             exchange_timestamp=self._last_bar_ts or now,
+            ttl_seconds=(
+                int(getattr(self._settings, "pb_open_scored_retrace_limit_ttl_seconds", 3600))
+                if iaric_core_logic.is_retrace_limit_route(route)
+                else 30
+            ),
         )
         receipt = await self._oms.submit_intent(Intent(intent_type=IntentType.NEW_ORDER, strategy_id=STRATEGY_ID, order=order))
         if receipt.oms_order_id:
@@ -1134,7 +1786,13 @@ class IARICEngine:
                 )
                 self._order_index[receipt.oms_order_id] = (symbol, role.value)
                 self._diagnostics.log_order(symbol, "submit_exit", {"qty": requested_qty, "role": role.value})
+            elif role == OrderRole.TP and state.position is not None:
+                state.position.pending_partial_stop = 0.0
+                state.position.pending_partial_stop_buffer = 0.0
         except Exception as exc:
+            if role == OrderRole.TP and state.position is not None:
+                state.position.pending_partial_stop = 0.0
+                state.position.pending_partial_stop_buffer = 0.0
             logger.error("submit_market_exit failed for %s: %s", symbol, exc, exc_info=exc)
 
     async def _cancel_order(self, oms_order_id: str) -> None:
@@ -1174,9 +1832,10 @@ class IARICEngine:
         for symbol, state in self._symbols.items():
             if state.in_position:
                 # Staleness watchdog
-                if state.last_1m_bar_time is not None:
-                    gap = (now - state.last_1m_bar_time).total_seconds()
-                    if gap > 150.0 and now.astimezone(ET).time() >= time(9, 30):
+                if state.last_5m_bar_time is not None:
+                    gap = (now - state.last_5m_bar_time).total_seconds()
+                    stale_after = float(getattr(self._settings, "completed_5m_stale_after_s", 390.0))
+                    if gap > stale_after and now.astimezone(ET).time() >= time(9, 30):
                         logger.warning("IARIC STALE DATA: %s -- no bar for %.0fs", symbol, gap)
         if self._last_save_ts is None or (now - self._last_save_ts).total_seconds() >= 60:
             await self._save_state("interval")
@@ -1273,13 +1932,6 @@ class IARICEngine:
             if isinstance(action, SubmitProtectiveStop):
                 await self._submit_stop(action.symbol)
             elif isinstance(action, ReplaceProtectiveStop):
-                # TP breakeven floor: engine-side adjustment (core lacks tick_size)
-                if action.reason == "partial_resize":
-                    sym = self._symbols.get(action.symbol)
-                    itm = self._items.get(action.symbol)
-                    if sym and sym.position and itm:
-                        be_floor = sym.position.entry_price - itm.tick_size
-                        sym.position.current_stop = max(sym.position.current_stop, be_floor)
                 await self._replace_stop(action.symbol)
             elif isinstance(action, FlattenPosition):
                 sym = self._symbols.get(action.symbol)

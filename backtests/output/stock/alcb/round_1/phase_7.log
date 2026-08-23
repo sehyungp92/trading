@@ -1,4 +1,0 @@
-2026-05-22 22:00:54,347 INFO research.backtests.shared.auto.phase.dcb603798cb2.7: Starting phase 7 with 5 candidates
-2026-05-22 22:00:54,940 WARNING research.backtests.shared.auto.phase.dcb603798cb2.7: Baseline rejected by hard rejects: phase7_short_hold_24_drag_inverse (0.3158 < 0.3200). Candidates must still beat this score AND pass hard rejects to be accepted.
-2026-05-22 22:16:10,724 INFO research.backtests.shared.auto.phase.dcb603798cb2.7: Round 1 produced no valid candidates; stopping.
-2026-05-22 22:16:10,988 INFO research.backtests.shared.auto.phase.dcb603798cb2.7: Phase 7 complete: 0.0000 -> 0.0000 (0 accepted)

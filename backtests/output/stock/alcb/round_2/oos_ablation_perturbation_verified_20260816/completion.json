@@ -1,0 +1,9 @@
+{
+  "candidate_count": 263,
+  "completed_at_utc": "2026-08-17T00:10:52.489436+00:00",
+  "is_result_count": 103,
+  "oos_result_count": 281,
+  "promotion_authorized": false,
+  "promotion_blocker": "No accepted frozen direct-RTH bundle and OOS was consumed by targeted search.",
+  "recommended_name": "perturb__rvol_threshold__1p1"
+}

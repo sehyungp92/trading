@@ -1,11 +1,11 @@
 ======================================================================
 ALCB ROUND-3 RESIDUAL ALPHA PHASE 1 SNAPSHOT
 ======================================================================
-Focus: Completed-bar score component discrimination
-Score 0.0000 -> 0.0000 with 0 accepted mutations.
+Focus: Execution-cost discrimination and seven-factor score allocation
+Score 0.5000 -> 0.5237 with 1 accepted mutations.
 
-Core: trades=591, net_profit=+11704.46, expectancy_dollar=+19.80, expected_total_r=+147.47, pf=2.069, dd=3.2%, trades/month=22.83
-Quality: signal_quality=0.533, timing_quality=0.947, extended_avwap_inverse=1.000, bar9_inverse=0.865, late_entry_quality=0.975, score_monotonicity=0.333
-Management: profit_protection=0.670, short24_inv=0.316, flow_mfe_inv=0.983, mfe_capture_eff=0.767, sizing_alignment=1.000, long_hold_capture=0.989, inv_dd=0.730
-Focus metric deltas: expected_total_r=+147.467->+147.467, trades_per_month=+22.828->+22.828, expectancy_dollar=+19.805->+19.805, profit_factor=+2.069->+2.069, signal_quality=+0.533->+0.533, score_monotonicity=+0.333->+0.333, sizing_alignment=+1.000->+1.000
-Hard floors: max_dd_pct=4.70%, min_expectancy_dollar=17.8241, min_expected_total_r=138.6192, min_net_profit=10885.1478, min_pf=1.9450, min_score_monotonicity=0.4200, min_signal_quality=0.5000, min_sizing_alignment=0.9000, min_trades_per_month=20.5453
+Core: trades=1155, net_profit=+8061.66, expectancy_dollar=+6.98, expected_total_r=+108.42, pf=1.470, dd=3.5%, trades/month=49.94
+Quality: signal_quality=0.558, timing_quality=0.614, extended_avwap_inverse=1.000, bar9_inverse=0.500, late_entry_quality=0.343, score_monotonicity=0.442
+Management: profit_protection=0.474, short24_inv=0.000, flow_mfe_inv=0.514, mfe_capture_eff=0.870, sizing_alignment=1.000, long_hold_capture=0.978, inv_dd=0.712
+Focus metric deltas: expected_total_r=+106.386->+108.421, net_profit=+7747.940->+8061.660, trades_per_month=+49.980->+49.937, expectancy=+0.092->+0.094, profit_factor=+1.463->+1.470, max_drawdown_pct=+0.034->+0.035, sharpe=+3.130->+3.197
+Hard floors: max_dd_pct=4.50%, min_expectancy_dollar=5.8981, min_expected_total_r=101.0667, min_net_profit=7205.5842, min_pf=1.3462, min_signal_quality=0.5031, min_trades_per_month=46.9810

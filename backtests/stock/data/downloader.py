@@ -39,6 +39,7 @@ ALCB_FORCED_INTRADAY = [
 SECTOR_ETFS = {
     "Technology": "XLK",
     "Health Care": "XLV",
+    "Healthcare": "XLV",
     "Financials": "XLF",
     "Consumer Discretionary": "XLY",
     "Consumer Staples": "XLP",

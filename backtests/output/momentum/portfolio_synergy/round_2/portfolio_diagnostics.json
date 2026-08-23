@@ -13,12 +13,17 @@
       },
       "count": 13,
       "negative_raw_pnl_count": 2,
+      "net_block_value_r": -10.501616551061627,
+      "nonpositive_r_total": -1.3165746083846566,
+      "nonpositive_raw_pnl_count": 2,
       "pct_single_order_exceeds_family_contract_cap": 0.0,
       "pct_single_order_exceeds_heat_cap": 0.0,
       "pct_with_existing_open_position": 0.15384615384615385,
+      "positive_r_total": 11.818191159446283,
       "positive_raw_pnl_count": 11,
       "raw_pnl_dollars": 7176.92,
-      "raw_win_rate": 0.8461538461538461
+      "raw_win_rate": 0.8461538461538461,
+      "total_r_multiple": 10.501616551061627
     },
     "portfolio_daily_stop": {
       "avg_base_mnq_eq": 0.0,
@@ -36,12 +41,17 @@
       },
       "count": 30,
       "negative_raw_pnl_count": 7,
+      "net_block_value_r": -25.141464439217632,
+      "nonpositive_r_total": -4.810012293848349,
+      "nonpositive_raw_pnl_count": 7,
       "pct_single_order_exceeds_family_contract_cap": 0.0,
       "pct_single_order_exceeds_heat_cap": 0.0,
       "pct_with_existing_open_position": 0.0,
+      "positive_r_total": 29.95147673306598,
       "positive_raw_pnl_count": 23,
       "raw_pnl_dollars": 9675.160000000018,
-      "raw_win_rate": 0.7666666666666667
+      "raw_win_rate": 0.7666666666666667,
+      "total_r_multiple": 25.141464439217632
     },
     "portfolio_weekly_stop": {
       "avg_base_mnq_eq": 0.0,
@@ -57,12 +67,17 @@
       },
       "count": 4,
       "negative_raw_pnl_count": 2,
+      "net_block_value_r": -3.435982065252527,
+      "nonpositive_r_total": -1.116439628482972,
+      "nonpositive_raw_pnl_count": 2,
       "pct_single_order_exceeds_family_contract_cap": 0.0,
       "pct_single_order_exceeds_heat_cap": 0.0,
       "pct_with_existing_open_position": 0.0,
+      "positive_r_total": 4.552421693735499,
       "positive_raw_pnl_count": 2,
       "raw_pnl_dollars": 2796.82,
-      "raw_win_rate": 0.5
+      "raw_win_rate": 0.5,
+      "total_r_multiple": 3.435982065252527
     },
     "strategy_daily_stop": {
       "avg_base_mnq_eq": 0.0,
@@ -78,12 +93,17 @@
       },
       "count": 10,
       "negative_raw_pnl_count": 5,
+      "net_block_value_r": -2.0857613006581652,
+      "nonpositive_r_total": -5.035364173744114,
+      "nonpositive_raw_pnl_count": 5,
       "pct_single_order_exceeds_family_contract_cap": 0.0,
       "pct_single_order_exceeds_heat_cap": 0.0,
       "pct_with_existing_open_position": 0.1,
+      "positive_r_total": 7.121125474402279,
       "positive_raw_pnl_count": 5,
       "raw_pnl_dollars": -1759.3,
-      "raw_win_rate": 0.5
+      "raw_win_rate": 0.5,
+      "total_r_multiple": 2.0857613006581652
     }
   },
   "config": {
@@ -166,7 +186,24 @@
     "start_time": "2023-11-29T15:00:00+00:00",
     "timeframe": "5m"
   },
-  "generated_at_utc": "2026-05-25T11:22:01.034188+00:00",
+  "drawdown_path": {
+    "contribution_by_strategy": {
+      "DownturnDominator_v1": 0.0,
+      "NQDTC_v2.1": -982.5,
+      "NQ_REGIME": -4816.493333333334,
+      "VdubusNQ_v4": 71.58000000000084
+    },
+    "duration_hours": 312.1666666666667,
+    "max_drawdown_pct": 0.0755282394349325,
+    "peak_equity": 75831.41585429765,
+    "peak_time": "2024-03-21T19:00:00+00:00",
+    "recovered_in_sample": true,
+    "recovery_time": "2024-04-05T16:00:00+00:00",
+    "risk_basis": "bar_close_mark_to_market",
+    "trough_equity": 70104.00252096432,
+    "trough_time": "2024-04-03T19:10:00+00:00"
+  },
+  "generated_at_utc": "2026-08-23T22:52:29.001591+00:00",
   "headline": {
     "accepted_trades": 1238,
     "block_rate": 0.044015444015444015,
@@ -221,18 +258,16 @@
     "DownturnDominator_v1": {
       "avg_r": null,
       "calmar": 7.407808305713719,
-      "high_value_notes": [
-        "Correction PnL is 134.0% with coverage 57.1%. Bear capture ratio is 11.1%.",
-        "Signal-to-entry ratio is 0.69. Engine health summary: reversal=insufficient_data, breakdown=insufficient_data, fade=healthy.",
-        "Total trades reached 127; reversal/breakdown/fade split is 0/0/127.",
-        "Max drawdown is 7.3%, calmar is 7.41.",
-        "Correction-capture specialist: correction PnL 134.0% (meets target of 60%). Correction attribution ratio 0.92. PF=3.14, DD=7.3%, Calmar=7.41. Exit efficiency 0.73."
-      ],
+      "diagnostics_resolution": "archived_sha256_match",
+      "expected_summary_sha256": "fcb55465cb87f85e50e64325d71459adb9b576fe2af06a93f30c36689a03b0ba",
+      "high_value_notes": [],
       "max_drawdown_pct": 0.07328236072937497,
       "net_profit": null,
       "net_return_pct": 145.6248,
       "profit_factor": 3.1399173568292293,
-      "source": "backtests\\output\\momentum\\downturn\\round_4\\run_summary.json",
+      "source": "backtests\\output\\momentum\\downturn\\archive\\2026-08-08_pre_recovery_reset\\round_4\\run_summary.json",
+      "source_round": 4,
+      "summary_resolution": "archived_sha256_match",
       "total_trades": 127,
       "trades_per_month": null,
       "win_rate": 0.5433070866141733
@@ -240,12 +275,16 @@
     "NQDTC_v2.1": {
       "avg_r": 0.5264204170374605,
       "calmar": 20.771014850509715,
+      "diagnostics_resolution": "manifest_direct",
+      "expected_summary_sha256": "b351324f89638586022642d489d8d1fbb7bef57fb0c53d09307fa729d834bb6e",
       "high_value_notes": [],
       "max_drawdown_pct": 0.16985563899461698,
       "net_profit": null,
       "net_return_pct": 352.80740000000065,
       "profit_factor": 1.8681636685219964,
-      "source": "backtests\\output\\momentum\\nqdtc\\round_5\\run_summary.json",
+      "source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_5\\run_summary.json",
+      "source_round": 5,
+      "summary_resolution": "manifest_direct",
       "total_trades": 161,
       "trades_per_month": null,
       "win_rate": 0.5527950310559007
@@ -253,12 +292,16 @@
     "NQ_REGIME": {
       "avg_r": 0.9147469022812753,
       "calmar": null,
+      "diagnostics_resolution": "manifest_direct",
+      "expected_summary_sha256": "018d9cd071835b7fd20ceb11fef15c81487d9c1adfe0b6d5eaf01b1ebbde3eb2",
       "high_value_notes": [],
       "max_drawdown_pct": null,
       "net_profit": null,
       "net_return_pct": null,
       "profit_factor": 7.458001487967126,
-      "source": "backtests\\output\\momentum\\nq_regime\\round_6\\run_summary.json",
+      "source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nq_regime\\round_6\\run_summary.json",
+      "source_round": 6,
+      "summary_resolution": "manifest_direct",
       "total_trades": 681,
       "trades_per_month": 25.592148148148148,
       "win_rate": 0.73568281938326
@@ -266,18 +309,16 @@
     "VdubusNQ_v4": {
       "avg_r": 0.41424024573216256,
       "calmar": 78.69130916715028,
-      "high_value_notes": [
-        "Fixed-qty headline return is 1373.6% with 212 trades, PF=2.65, fixed-qty DD=17.5%; deployable comparison should use 87.8 total R and 2.59 R/month. Normalized simple return would be 22.0% at 0.25% risk/R, 43.9% at 0.50% risk/R, and 87.8% at 1.00% risk/R over the sample. The fixed-qty run implies about $1,564 per R, which is why raw return is not comparable to dynamically sized strategies.",
-        "Win rate 46.2%, avg R=0.414, capture ratio 0.62. Negative evening flow is contained by the current caps: 4.7% evening trades at +0.070 avgR.",
-        "Fast deaths 25.5%, evening trades 4.7% (avgR=+0.070), trades/month 6.3.",
-        "R-Calmar=4.74, max R drawdown=6.56R, Sharpe=2.34, Sortino=6.73.",
-        "VdubusNQ finishes the round at 2.59 R/month (87.8 total R, 0.414 avgR, 212 trades) with R-normalized score 0.8003. Fixed-qty return is 1373.6%, but that should be treated as a sizing diagnostic, not the like-for-like profitability basis. Capture ratio improved to 0.62."
-      ],
+      "diagnostics_resolution": "manifest_direct",
+      "expected_summary_sha256": "a08a8ad9517dab918f7daf2d94de62fe79b7303df5b0e07afeac87678780c456",
+      "high_value_notes": [],
       "max_drawdown_pct": 0.17456174189225823,
       "net_profit": null,
       "net_return_pct": 1373.649199999998,
       "profit_factor": 2.6473596372605535,
-      "source": "backtests\\output\\momentum\\vdubus\\round_3\\run_summary.json",
+      "source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\vdubus\\round_3\\run_summary.json",
+      "source_round": 3,
+      "summary_resolution": "manifest_direct",
       "total_trades": 212,
       "trades_per_month": 6.257915694414983,
       "win_rate": 0.46226415094339623
@@ -305,6 +346,1261 @@
       "The live-rule replay rejected shared-book conflicts instead of allowing each strategy to maintain an independent position stack.",
       "The same-allocation relaxed-cap scenario shows the signal set has more gross opportunity than the live-rule result, but that opportunity requires accepting unrealistic concurrent heat."
     ]
+  },
+  "monthly_attribution": [
+    {
+      "accepted": 1,
+      "accepted_r": -0.5239085239085239,
+      "adjusted_pnl": -126.62,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "VdubusNQ_v4": {
+          "accepted": 1,
+          "accepted_r": -0.5239085239085239,
+          "adjusted_pnl": -126.62,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2023-11"
+    },
+    {
+      "accepted": 14,
+      "accepted_r": 14.36046874986691,
+      "adjusted_pnl": 2644.7666876310277,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 2,
+          "accepted_r": -1.403225806451613,
+          "adjusted_pnl": -292.5,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 4,
+          "accepted_r": 13.750923915312406,
+          "adjusted_pnl": 2481.2066876310278,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 8,
+          "accepted_r": 2.012770641006118,
+          "adjusted_pnl": 456.05999999999995,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2023-12"
+    },
+    {
+      "accepted": 20,
+      "accepted_r": 43.14753886126875,
+      "adjusted_pnl": 8871.715,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 3,
+          "accepted_r": 14.80624098124098,
+          "adjusted_pnl": 2683.1600000000003,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQDTC_v2.1": {
+          "accepted": 1,
+          "accepted_r": 1.2126666666666666,
+          "adjusted_pnl": 318.325,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 11,
+          "accepted_r": 22.25525378389351,
+          "adjusted_pnl": 3659.7700000000013,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 5,
+          "accepted_r": 4.873377429467597,
+          "adjusted_pnl": 2210.46,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2024-01"
+    },
+    {
+      "accepted": 24,
+      "accepted_r": 35.29423244773124,
+      "adjusted_pnl": 7968.084166666642,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 1,
+          "accepted_r": 2.0306513409961684,
+          "adjusted_pnl": 528.14,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQDTC_v2.1": {
+          "accepted": 8,
+          "accepted_r": 3.9285895265332873,
+          "adjusted_pnl": 1092.9249999999765,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 10,
+          "accepted_r": 23.284431434548978,
+          "adjusted_pnl": 3940.1791666666672,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 5,
+          "accepted_r": 6.050560145652801,
+          "adjusted_pnl": 2406.84,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2024-02"
+    },
+    {
+      "accepted": 45,
+      "accepted_r": 15.439318857472655,
+      "adjusted_pnl": 4406.696666666666,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 6,
+          "accepted_r": 3.2671786183883853,
+          "adjusted_pnl": 569.0,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 30,
+          "accepted_r": 12.434591958653384,
+          "adjusted_pnl": 3887.556666666666,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 9,
+          "accepted_r": -0.2624517195691147,
+          "adjusted_pnl": -49.86,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2024-03"
+    },
+    {
+      "accepted": 33,
+      "accepted_r": 14.077151248284869,
+      "adjusted_pnl": 4812.517142857136,
+      "blocked": 1,
+      "blocked_r": -0.5616666666666668,
+      "blocked_raw_pnl": -67.4,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 1,
+          "accepted_r": -0.0970873786407767,
+          "adjusted_pnl": -33.72,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQDTC_v2.1": {
+          "accepted": 2,
+          "accepted_r": 0.5251908139141934,
+          "adjusted_pnl": 82.57999999999305,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 27,
+          "accepted_r": 10.480118591980476,
+          "adjusted_pnl": 3264.2371428571423,
+          "blocked": 1,
+          "blocked_r": -0.5616666666666668,
+          "blocked_raw_pnl": -67.4
+        },
+        "VdubusNQ_v4": {
+          "accepted": 3,
+          "accepted_r": 3.1689292210309765,
+          "adjusted_pnl": 1499.42,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2024-04"
+    },
+    {
+      "accepted": 54,
+      "accepted_r": 31.609020734640502,
+      "adjusted_pnl": 10239.291612903258,
+      "blocked": 2,
+      "blocked_r": 0.8176560025340515,
+      "blocked_raw_pnl": 149.58,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 1,
+          "accepted_r": 2.5482456140350878,
+          "adjusted_pnl": 579.14,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQDTC_v2.1": {
+          "accepted": 9,
+          "accepted_r": 9.922685403913526,
+          "adjusted_pnl": 3331.120000000027,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 38,
+          "accepted_r": 14.40877976767776,
+          "adjusted_pnl": 4219.291612903225,
+          "blocked": 2,
+          "blocked_r": 0.8176560025340515,
+          "blocked_raw_pnl": 149.58
+        },
+        "VdubusNQ_v4": {
+          "accepted": 6,
+          "accepted_r": 4.729309949014118,
+          "adjusted_pnl": 2109.74,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2024-05"
+    },
+    {
+      "accepted": 59,
+      "accepted_r": 31.90910982484908,
+      "adjusted_pnl": 14034.256923076926,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 5,
+          "accepted_r": 3.948320579297653,
+          "adjusted_pnl": 1886.4300000000017,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 39,
+          "accepted_r": 21.860207195513063,
+          "adjusted_pnl": 9337.60692307692,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 15,
+          "accepted_r": 6.100582050038362,
+          "adjusted_pnl": 2810.2200000000003,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2024-06"
+    },
+    {
+      "accepted": 38,
+      "accepted_r": 35.77392318827144,
+      "adjusted_pnl": 13050.589999999997,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 6,
+          "accepted_r": 2.387174396484733,
+          "adjusted_pnl": 807.3899999999965,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 27,
+          "accepted_r": 31.827497232535148,
+          "adjusted_pnl": 11499.400000000001,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 5,
+          "accepted_r": 1.5592515592515594,
+          "adjusted_pnl": 743.8,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2024-07"
+    },
+    {
+      "accepted": 53,
+      "accepted_r": 59.88349300142423,
+      "adjusted_pnl": 23301.071269841268,
+      "blocked": 5,
+      "blocked_r": 6.894021613216502,
+      "blocked_raw_pnl": 3209.8500000000063,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 13,
+          "accepted_r": -3.268188827247259,
+          "adjusted_pnl": -1327.54,
+          "blocked": 1,
+          "blocked_r": 1.8359375,
+          "blocked_raw_pnl": 233.14
+        },
+        "NQDTC_v2.1": {
+          "accepted": 4,
+          "accepted_r": 2.588180915996076,
+          "adjusted_pnl": 1057.8599999999892,
+          "blocked": 1,
+          "blocked_r": 4.436341463414643,
+          "blocked_raw_pnl": 2728.350000000006
+        },
+        "NQ_REGIME": {
+          "accepted": 36,
+          "accepted_r": 60.56350091267541,
+          "adjusted_pnl": 23570.751269841276,
+          "blocked": 3,
+          "blocked_r": 0.6217426498018594,
+          "blocked_raw_pnl": 248.35999999999999
+        }
+      },
+      "month": "2024-08"
+    },
+    {
+      "accepted": 39,
+      "accepted_r": 22.409335140110674,
+      "adjusted_pnl": 9083.179999999997,
+      "blocked": 1,
+      "blocked_r": 1.8275261324041812,
+      "blocked_raw_pnl": 1047.14,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 4,
+          "accepted_r": 5.607982063853638,
+          "adjusted_pnl": 2369.3999999999996,
+          "blocked": 1,
+          "blocked_r": 1.8275261324041812,
+          "blocked_raw_pnl": 1047.14
+        },
+        "NQDTC_v2.1": {
+          "accepted": 2,
+          "accepted_r": -2.0153806847215128,
+          "adjusted_pnl": -894.0,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 27,
+          "accepted_r": 18.344134262698255,
+          "adjusted_pnl": 7518.839999999998,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 6,
+          "accepted_r": 0.47259949828029146,
+          "adjusted_pnl": 88.93999999999994,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2024-09"
+    },
+    {
+      "accepted": 57,
+      "accepted_r": 45.40996347307849,
+      "adjusted_pnl": 20099.764999999985,
+      "blocked": 1,
+      "blocked_r": 0.11350574712643678,
+      "blocked_raw_pnl": 77.76,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 0,
+          "accepted_r": 0.0,
+          "adjusted_pnl": 0.0,
+          "blocked": 1,
+          "blocked_r": 0.11350574712643678,
+          "blocked_raw_pnl": 77.76
+        },
+        "NQDTC_v2.1": {
+          "accepted": 11,
+          "accepted_r": 9.402318376684056,
+          "adjusted_pnl": 4459.784999999974,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 37,
+          "accepted_r": 26.824936985308053,
+          "adjusted_pnl": 11430.220000000001,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 9,
+          "accepted_r": 9.182708111086379,
+          "adjusted_pnl": 4209.76,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2024-10"
+    },
+    {
+      "accepted": 48,
+      "accepted_r": 20.22745456544068,
+      "adjusted_pnl": 8042.580000000004,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 4,
+          "accepted_r": -2.0580232411266786,
+          "adjusted_pnl": -925.4599999999947,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 36,
+          "accepted_r": 19.615509272769593,
+          "adjusted_pnl": 7631.319999999998,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 8,
+          "accepted_r": 2.6699685337977686,
+          "adjusted_pnl": 1336.7199999999993,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2024-11"
+    },
+    {
+      "accepted": 44,
+      "accepted_r": 45.299960831995165,
+      "adjusted_pnl": 18693.388409090898,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 2,
+          "accepted_r": 2.328158128112403,
+          "adjusted_pnl": 1118.2149999999908,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 32,
+          "accepted_r": 28.29072314192283,
+          "adjusted_pnl": 10747.933409090909,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 10,
+          "accepted_r": 14.681079561959935,
+          "adjusted_pnl": 6827.24,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2024-12"
+    },
+    {
+      "accepted": 34,
+      "accepted_r": 22.738005480085942,
+      "adjusted_pnl": 10233.100508021389,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 2,
+          "accepted_r": 3.1458730158730157,
+          "adjusted_pnl": 1486.425,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 25,
+          "accepted_r": 16.58105676531997,
+          "adjusted_pnl": 7586.355508021392,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 7,
+          "accepted_r": 3.011075698892958,
+          "adjusted_pnl": 1160.32,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2025-01"
+    },
+    {
+      "accepted": 41,
+      "accepted_r": 19.528048357085606,
+      "adjusted_pnl": 8022.795476190456,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 9,
+          "accepted_r": 0.40830788243725724,
+          "adjusted_pnl": 285.10999999998035,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 27,
+          "accepted_r": 15.761124845444488,
+          "adjusted_pnl": 6548.505476190476,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 5,
+          "accepted_r": 3.3586156292038645,
+          "adjusted_pnl": 1189.1799999999998,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2025-02"
+    },
+    {
+      "accepted": 35,
+      "accepted_r": 32.99587214364106,
+      "adjusted_pnl": 13617.960000000001,
+      "blocked": 5,
+      "blocked_r": 9.616177410738507,
+      "blocked_raw_pnl": 4884.710000000012,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 11,
+          "accepted_r": -3.653008114947646,
+          "adjusted_pnl": -1594.62,
+          "blocked": 3,
+          "blocked_r": 4.800395366695579,
+          "blocked_raw_pnl": 1821.42
+        },
+        "NQDTC_v2.1": {
+          "accepted": 1,
+          "accepted_r": -1.0075187969924813,
+          "adjusted_pnl": -469.0,
+          "blocked": 1,
+          "blocked_r": 2.9285093167702008,
+          "blocked_raw_pnl": 2357.4500000000116
+        },
+        "NQ_REGIME": {
+          "accepted": 22,
+          "accepted_r": 33.7707441699263,
+          "adjusted_pnl": 13813.820000000002,
+          "blocked": 1,
+          "blocked_r": 1.887272727272727,
+          "blocked_raw_pnl": 705.8399999999999
+        },
+        "VdubusNQ_v4": {
+          "accepted": 1,
+          "accepted_r": 3.8856548856548856,
+          "adjusted_pnl": 1867.7599999999998,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2025-03"
+    },
+    {
+      "accepted": 41,
+      "accepted_r": 9.22652086104136,
+      "adjusted_pnl": 3239.833333333332,
+      "blocked": 9,
+      "blocked_r": 6.463355353015999,
+      "blocked_raw_pnl": 3898.18,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 23,
+          "accepted_r": -3.401025602163607,
+          "adjusted_pnl": -1560.3200000000004,
+          "blocked": 8,
+          "blocked_r": 4.513412824280366,
+          "blocked_raw_pnl": 3219.6
+        },
+        "NQDTC_v2.1": {
+          "accepted": 2,
+          "accepted_r": -2.0107823761915835,
+          "adjusted_pnl": -932.5,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 16,
+          "accepted_r": 14.63832883939655,
+          "adjusted_pnl": 5732.653333333334,
+          "blocked": 1,
+          "blocked_r": 1.949942528735632,
+          "blocked_raw_pnl": 678.5799999999999
+        }
+      },
+      "month": "2025-04"
+    },
+    {
+      "accepted": 50,
+      "accepted_r": 36.21277589149287,
+      "adjusted_pnl": 13012.562222222225,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 10,
+          "accepted_r": 1.1963126386237801,
+          "adjusted_pnl": 619.0799999999999,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQDTC_v2.1": {
+          "accepted": 4,
+          "accepted_r": 4.670078632673003,
+          "adjusted_pnl": 2072.700000000003,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 31,
+          "accepted_r": 31.771554365754895,
+          "adjusted_pnl": 10937.082222222221,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 5,
+          "accepted_r": -1.4251697455588124,
+          "adjusted_pnl": -616.3000000000001,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2025-05"
+    },
+    {
+      "accepted": 46,
+      "accepted_r": 23.614352768873346,
+      "adjusted_pnl": 8432.87086021506,
+      "blocked": 3,
+      "blocked_r": -0.4462789939260523,
+      "blocked_raw_pnl": -1202.26,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 8,
+          "accepted_r": 1.8466696167330983,
+          "adjusted_pnl": 578.0300000000047,
+          "blocked": 1,
+          "blocked_r": -1.0147058823529411,
+          "blocked_raw_pnl": -345.0
+        },
+        "NQ_REGIME": {
+          "accepted": 30,
+          "accepted_r": 23.69076007521717,
+          "adjusted_pnl": 8789.760860215056,
+          "blocked": 1,
+          "blocked_r": 1.0902564102564105,
+          "blocked_raw_pnl": 403.94000000000005
+        },
+        "VdubusNQ_v4": {
+          "accepted": 8,
+          "accepted_r": -1.923076923076923,
+          "adjusted_pnl": -934.9200000000001,
+          "blocked": 1,
+          "blocked_r": -0.5218295218295218,
+          "blocked_raw_pnl": -1261.2
+        }
+      },
+      "month": "2025-06"
+    },
+    {
+      "accepted": 52,
+      "accepted_r": 20.31103257878706,
+      "adjusted_pnl": 6184.7309090909,
+      "blocked": 13,
+      "blocked_r": 11.465551346972635,
+      "blocked_raw_pnl": 4878.6,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 11,
+          "accepted_r": -1.4753020006053068,
+          "adjusted_pnl": -607.6500000000086,
+          "blocked": 2,
+          "blocked_r": -0.209433962264151,
+          "blocked_raw_pnl": -415.0
+        },
+        "NQ_REGIME": {
+          "accepted": 27,
+          "accepted_r": 17.06817974480151,
+          "adjusted_pnl": 4828.9409090909085,
+          "blocked": 9,
+          "blocked_r": 7.122563615501289,
+          "blocked_raw_pnl": 2294.5200000000004
+        },
+        "VdubusNQ_v4": {
+          "accepted": 14,
+          "accepted_r": 4.718154834590857,
+          "adjusted_pnl": 1963.4400000000003,
+          "blocked": 2,
+          "blocked_r": 4.552421693735499,
+          "blocked_raw_pnl": 2999.0800000000004
+        }
+      },
+      "month": "2025-07"
+    },
+    {
+      "accepted": 52,
+      "accepted_r": 16.784235591328006,
+      "adjusted_pnl": 6739.542792207756,
+      "blocked": 1,
+      "blocked_r": 0.10395010395010396,
+      "blocked_raw_pnl": 243.8,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 2,
+          "accepted_r": 1.0,
+          "adjusted_pnl": 715.3199999999999,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQDTC_v2.1": {
+          "accepted": 12,
+          "accepted_r": 8.07365988200855,
+          "adjusted_pnl": 3704.934999999963,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 32,
+          "accepted_r": 7.485639184428456,
+          "adjusted_pnl": 2282.8477922077914,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 6,
+          "accepted_r": 0.2249365248909978,
+          "adjusted_pnl": 36.43999999999994,
+          "blocked": 1,
+          "blocked_r": 0.10395010395010396,
+          "blocked_raw_pnl": 243.8
+        }
+      },
+      "month": "2025-08"
+    },
+    {
+      "accepted": 53,
+      "accepted_r": 35.199347819297486,
+      "adjusted_pnl": 12796.123333333324,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 6,
+          "accepted_r": 11.378534716075388,
+          "adjusted_pnl": 5398.129999999985,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 33,
+          "accepted_r": 22.982961683761467,
+          "adjusted_pnl": 7071.953333333335,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 14,
+          "accepted_r": 0.8378514194606328,
+          "adjusted_pnl": 326.03999999999996,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2025-09"
+    },
+    {
+      "accepted": 48,
+      "accepted_r": 20.161225360127684,
+      "adjusted_pnl": 8817.081052631585,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 7,
+          "accepted_r": 6.483426205977936,
+          "adjusted_pnl": 3027.725000000003,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 34,
+          "accepted_r": 14.377609103959688,
+          "adjusted_pnl": 6216.8960526315805,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 7,
+          "accepted_r": -0.6998099498099498,
+          "adjusted_pnl": -427.53999999999974,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2025-10"
+    },
+    {
+      "accepted": 30,
+      "accepted_r": 29.826153129214692,
+      "adjusted_pnl": 9563.300512820522,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 3,
+          "accepted_r": 1.6815336849586837,
+          "adjusted_pnl": 645.5800000000077,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 20,
+          "accepted_r": 23.29768302440228,
+          "adjusted_pnl": 7214.640512820512,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 7,
+          "accepted_r": 4.846936419853731,
+          "adjusted_pnl": 1703.0799999999997,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2025-11"
+    },
+    {
+      "accepted": 38,
+      "accepted_r": 14.631026314521307,
+      "adjusted_pnl": 5490.511666666651,
+      "blocked": 2,
+      "blocked_r": 1.6907493540051681,
+      "blocked_raw_pnl": 311.68,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 8,
+          "accepted_r": 1.750059810607528,
+          "adjusted_pnl": 926.2699999999836,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 20,
+          "accepted_r": 15.529617419456889,
+          "adjusted_pnl": 5861.381666666667,
+          "blocked": 2,
+          "blocked_r": 1.6907493540051681,
+          "blocked_raw_pnl": 311.68
+        },
+        "VdubusNQ_v4": {
+          "accepted": 10,
+          "accepted_r": -2.6486509155431097,
+          "adjusted_pnl": -1297.1399999999999,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2025-12"
+    },
+    {
+      "accepted": 44,
+      "accepted_r": 30.037055105797414,
+      "adjusted_pnl": 10426.689411764712,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 3,
+          "accepted_r": 1.616804228689272,
+          "adjusted_pnl": 806.4999999999999,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQDTC_v2.1": {
+          "accepted": 5,
+          "accepted_r": 2.82985884852504,
+          "adjusted_pnl": 1484.3100000000034,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 28,
+          "accepted_r": 20.32787690033861,
+          "adjusted_pnl": 5636.919411764706,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 8,
+          "accepted_r": 5.262515128244492,
+          "adjusted_pnl": 2498.96,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2026-01"
+    },
+    {
+      "accepted": 44,
+      "accepted_r": 34.137327530875076,
+      "adjusted_pnl": 12807.908269230777,
+      "blocked": 7,
+      "blocked_r": -0.24758199319712204,
+      "blocked_raw_pnl": 309.41999999999996,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 19,
+          "accepted_r": 12.205660490174544,
+          "adjusted_pnl": 4589.4,
+          "blocked": 2,
+          "blocked_r": 0.7774807096120595,
+          "blocked_raw_pnl": 630.9
+        },
+        "NQDTC_v2.1": {
+          "accepted": 3,
+          "accepted_r": 3.8010453193240146,
+          "adjusted_pnl": 1778.700000000003,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 20,
+          "accepted_r": 18.754569743593244,
+          "adjusted_pnl": 6740.90826923077,
+          "blocked": 4,
+          "blocked_r": -1.0229837007301796,
+          "blocked_raw_pnl": -310.28000000000003
+        },
+        "VdubusNQ_v4": {
+          "accepted": 2,
+          "accepted_r": -0.6239480222167302,
+          "adjusted_pnl": -301.1,
+          "blocked": 1,
+          "blocked_r": -0.002079002079002079,
+          "blocked_raw_pnl": -11.2
+        }
+      },
+      "month": "2026-02"
+    },
+    {
+      "accepted": 50,
+      "accepted_r": 40.87126341412857,
+      "adjusted_pnl": 14350.191428571434,
+      "blocked": 4,
+      "blocked_r": 2.0832545478603803,
+      "blocked_raw_pnl": 1200.8,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 9,
+          "accepted_r": 8.685245358060586,
+          "adjusted_pnl": 3801.56,
+          "blocked": 4,
+          "blocked_r": 2.0832545478603803,
+          "blocked_raw_pnl": 1200.8
+        },
+        "NQDTC_v2.1": {
+          "accepted": 4,
+          "accepted_r": -2.053053626537178,
+          "adjusted_pnl": -1045.5,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 27,
+          "accepted_r": 31.970465197375106,
+          "adjusted_pnl": 10419.271428571428,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "VdubusNQ_v4": {
+          "accepted": 10,
+          "accepted_r": 2.268606485230052,
+          "adjusted_pnl": 1174.8600000000001,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2026-03"
+    },
+    {
+      "accepted": 49,
+      "accepted_r": 31.443442756604647,
+      "adjusted_pnl": 11033.373333333335,
+      "blocked": 3,
+      "blocked_r": 1.344604398155826,
+      "blocked_raw_pnl": -1052.2600000000002,
+      "by_strategy": {
+        "DownturnDominator_v1": {
+          "accepted": 4,
+          "accepted_r": -0.03797911026171907,
+          "adjusted_pnl": -186.9199999999999,
+          "blocked": 1,
+          "blocked_r": 1.847457627118644,
+          "blocked_raw_pnl": 325.14
+        },
+        "NQDTC_v2.1": {
+          "accepted": 4,
+          "accepted_r": 0.6018705571229523,
+          "adjusted_pnl": 281.679999999993,
+          "blocked": 1,
+          "blocked_r": -1.0034246575342465,
+          "blocked_raw_pnl": -1465.0
+        },
+        "NQ_REGIME": {
+          "accepted": 28,
+          "accepted_r": 23.001550415227236,
+          "adjusted_pnl": 7127.733333333334,
+          "blocked": 1,
+          "blocked_r": 0.5005714285714286,
+          "blocked_raw_pnl": 87.6
+        },
+        "VdubusNQ_v4": {
+          "accepted": 13,
+          "accepted_r": 7.8780008945161715,
+          "adjusted_pnl": 3810.880000000001,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2026-04"
+    },
+    {
+      "accepted": 2,
+      "accepted_r": 3.519836369249776,
+      "adjusted_pnl": 1666.9800000000032,
+      "blocked": 0,
+      "blocked_r": 0.0,
+      "blocked_raw_pnl": 0.0,
+      "by_strategy": {
+        "NQDTC_v2.1": {
+          "accepted": 1,
+          "accepted_r": 3.5988607594936783,
+          "adjusted_pnl": 1705.8600000000033,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        },
+        "NQ_REGIME": {
+          "accepted": 1,
+          "accepted_r": -0.07902439024390243,
+          "adjusted_pnl": -38.879999999999995,
+          "blocked": 0,
+          "blocked_r": 0.0,
+          "blocked_raw_pnl": 0.0
+        }
+      },
+      "month": "2026-05"
+    }
+  ],
+  "outcome_diagnostics": {
+    "accepted_r": {
+      "average": 0.6749229271992553,
+      "count": 1238.0,
+      "maximum": 14.410909090909092,
+      "median": 0.21126339195472005,
+      "minimum": -4.444444444444445,
+      "nonpositive_count": 451.0,
+      "nonpositive_total": -287.28877802227714,
+      "p10": -1.0076107226107225,
+      "p25": -0.3223529411764706,
+      "p75": 1.2094047619047619,
+      "p90": 2.568664516129032,
+      "positive_count": 787.0,
+      "positive_total": 1122.8433618949553,
+      "total": 835.554583872678,
+      "win_rate": 0.635702746365105
+    },
+    "accepted_raw_pnl": {
+      "average": 302.3352504038772,
+      "count": 1238.0,
+      "maximum": 13848.8,
+      "median": 51.3,
+      "minimum": -2531.2,
+      "nonpositive_count": 452.0,
+      "nonpositive_total": -156688.86999999997,
+      "p10": -387.816,
+      "p25": -86.97999999999999,
+      "p75": 377.895,
+      "p90": 1157.2199999999993,
+      "positive_count": 786.0,
+      "positive_total": 530979.9099999999,
+      "total": 374291.04,
+      "win_rate": 0.6348949919224556
+    },
+    "accepted_win_rate_uplift_vs_all_candidates": -0.0036794930171343276,
+    "avoided_loss_r": 12.27839070446009,
+    "avoided_loss_raw_dollars": 6021.32,
+    "block_efficiency_r": 0.18682426519435966,
+    "blocked_r": {
+      "average": 0.7221899009857885,
+      "count": 57.0,
+      "maximum": 4.436341463414643,
+      "median": 0.5690909090909092,
+      "minimum": -1.264957264957265,
+      "nonpositive_count": 16.0,
+      "nonpositive_total": -12.27839070446009,
+      "p10": -1.0115427302996671,
+      "p25": -0.051617343427391604,
+      "p75": 1.816367265469062,
+      "p90": 2.073562639543537,
+      "positive_count": 41.0,
+      "positive_total": 53.44321506065004,
+      "total": 41.164824356189946,
+      "win_rate": 0.7192982456140351
+    },
+    "blocked_raw_pnl": {
+      "average": 313.85263157894764,
+      "count": 57.0,
+      "maximum": 2813.8,
+      "median": 133.76,
+      "minimum": -1465.0,
+      "nonpositive_count": 16.0,
+      "nonpositive_total": -6021.32,
+      "p10": -295.94399999999996,
+      "p25": -23.56,
+      "p75": 582.14,
+      "p90": 914.084,
+      "positive_count": 41.0,
+      "positive_total": 23910.92000000002,
+      "total": 17889.600000000017,
+      "win_rate": 0.7192982456140351
+    },
+    "blocker_precision_nonpositive": 0.2807017543859649,
+    "forgone_gain_r": 53.44321506065004,
+    "forgone_gain_raw_dollars": 23910.92000000002,
+    "net_block_value_r": -41.16482435618995,
+    "net_block_value_raw_dollars": -17889.60000000002,
+    "nonpositive_trade_block_rate": 0.034261241970021415,
+    "positive_trade_block_rate": 0.049516908212560384,
+    "realized_r_discrimination": -0.04726697378653322,
+    "reconciliation": {
+      "accepted": 1238,
+      "blocked": 57,
+      "fired": 1295,
+      "reconciles": true
+    }
   },
   "overlap_summary": {
     "blocked_avg_existing_open_positions": 0.05263157894736842,
@@ -340,217 +1636,518 @@
   },
   "phase_frontier": [
     {
+      "accepted_candidate": "capacity_10_00_contracts_40_positions_8_risk_2_0",
       "block_rate": 0.03177124702144559,
-      "calmar": 16.39310689186779,
-      "max_drawdown_pct": 0.0755282394349325,
+      "calmar": 17.35713620347989,
+      "description": "Stress the high frontier with the larger per-trade cap",
+      "max_drawdown_pct": 0.07068225044042235,
       "name": "capacity_10_00_contracts_40_positions_8_risk_2_0",
       "net_profit": 297274.9530066824,
       "phase": 3,
+      "phase_accepted": true,
       "profit_factor": 3.5446110817321452,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": true,
+      "robust_reason": "",
       "score": 1.1256155581491243,
+      "selected": true,
       "soft_warnings": [],
       "total_trades": 1219.0,
-      "trades_per_month": 41.972072963800905
+      "trades_per_month": 41.972072963800905,
+      "validation_max_drawdown_pct": 0.06839438568849927,
+      "validation_net_profit": 99915.14185843825,
+      "validation_profit_factor": 3.2381210933107627,
+      "validation_score": 0.917491721786283,
+      "win_rate": 0.6505332239540607
     },
     {
+      "accepted_candidate": null,
       "block_rate": 0.04686258935663225,
-      "calmar": 16.21593912838939,
-      "max_drawdown_pct": 0.07599088627427736,
+      "calmar": 17.18446656934298,
+      "description": "Retest Vdubus close-window filter after capacity pressure is reduced",
+      "max_drawdown_pct": 0.07068225044042235,
       "name": "filter_vdubus_close_after_capacity",
       "net_profit": 292685.2422827005,
       "phase": 4,
+      "phase_accepted": false,
       "profit_factor": 3.5650765861876805,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": false,
+      "robust_reason": "signal_filter_sample_below_threshold",
       "score": 1.1194018688369831,
+      "selected": false,
       "soft_warnings": [],
       "total_trades": 1200.0,
-      "trades_per_month": 41.31787330316742
+      "trades_per_month": 41.31787330316742,
+      "validation_max_drawdown_pct": 0.06709358622704126,
+      "validation_net_profit": 101784.43407132341,
+      "validation_profit_factor": 3.39370791430352,
+      "validation_score": 0.9149735753287046,
+      "win_rate": 0.6541666666666667
     },
     {
+      "accepted_candidate": null,
       "block_rate": 0.05003971405877681,
-      "calmar": 16.569594575912454,
-      "max_drawdown_pct": 0.07504821352782484,
+      "calmar": 17.571505449068386,
+      "description": "Retest low-score NQDTC filter after capacity pressure is reduced",
+      "max_drawdown_pct": 0.07068225044042235,
       "name": "filter_nqdtc_score_2_5_after_capacity",
       "net_profit": 303023.0103596236,
       "phase": 4,
+      "phase_accepted": false,
       "profit_factor": 3.76642694941259,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": false,
+      "robust_reason": "signal_filter_sample_below_threshold",
       "score": 1.1180937237186375,
+      "selected": false,
       "soft_warnings": [],
       "total_trades": 1196.0,
-      "trades_per_month": 41.18014705882353
+      "trades_per_month": 41.18014705882353,
+      "validation_max_drawdown_pct": 0.06755609679652468,
+      "validation_net_profit": 101706.41407132341,
+      "validation_profit_factor": 3.364042738623638,
+      "validation_score": 0.9148884626014319,
+      "win_rate": 0.6580267558528428
     },
     {
+      "accepted_candidate": null,
       "block_rate": 0.05480540111199365,
-      "calmar": 16.52032840101331,
-      "max_drawdown_pct": 0.07632887494916005,
+      "calmar": 19.082514062155788,
+      "description": "Retest NQ wide-IB filter after capacity pressure is reduced",
+      "max_drawdown_pct": 0.06554713767109657,
       "name": "filter_nq_regime_wide_ib_after_capacity",
       "net_profit": 306390.8759214994,
       "phase": 4,
+      "phase_accepted": false,
       "profit_factor": 3.6934064599858067,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": false,
+      "robust_reason": "signal_filter_sample_below_threshold",
       "score": 1.1161315060411192,
+      "selected": false,
       "soft_warnings": [],
       "total_trades": 1190.0,
-      "trades_per_month": 40.97355769230769
+      "trades_per_month": 40.97355769230769,
+      "validation_max_drawdown_pct": 0.06761953689300867,
+      "validation_net_profit": 99529.81102510492,
+      "validation_profit_factor": 3.31971994159098,
+      "validation_score": 0.909792504494435,
+      "win_rate": 0.6495798319327731
     },
     {
+      "accepted_candidate": "capacity_10_00_contracts_40_positions_8_risk_2_0",
       "block_rate": 0.03177124702144559,
-      "calmar": 15.50967069838045,
-      "max_drawdown_pct": 0.07518829440047532,
+      "calmar": 16.34240116691218,
+      "description": "High frontier that keeps risk dynamic rather than fixed-full size",
+      "max_drawdown_pct": 0.07068225044042235,
       "name": "capacity_10_00_contracts_40_positions_8_risk_1_75",
       "net_profit": 270813.833735977,
       "phase": 3,
+      "phase_accepted": true,
       "profit_factor": 3.7176607488576923,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": true,
+      "robust_reason": "",
       "score": 1.1090488313156446,
+      "selected": false,
       "soft_warnings": [],
       "total_trades": 1219.0,
-      "trades_per_month": 41.972072963800905
+      "trades_per_month": 41.972072963800905,
+      "validation_max_drawdown_pct": 0.059676186819796466,
+      "validation_net_profit": 94575.99850086446,
+      "validation_profit_factor": 3.442428847520562,
+      "validation_score": 0.9173258652846963,
+      "win_rate": 0.649712879409352
     },
     {
+      "accepted_candidate": null,
       "block_rate": 0.07307386814932486,
-      "calmar": 16.69756118485329,
-      "max_drawdown_pct": 0.07585433270731955,
+      "calmar": 19.45100907172933,
+      "description": "Combined quality overlay using only entry-time metadata",
+      "max_drawdown_pct": 0.06507623621074728,
       "name": "filter_nq_regime_wide_and_nqdtc_low_score",
       "net_profit": 312165.64784457634,
       "phase": 4,
+      "phase_accepted": false,
       "profit_factor": 3.9364393893845757,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": false,
+      "robust_reason": "signal_filter_sample_below_threshold",
       "score": 1.1086096716106326,
+      "selected": false,
       "soft_warnings": [],
       "total_trades": 1167.0,
-      "trades_per_month": 40.18163178733032
+      "trades_per_month": 40.18163178733032,
+      "validation_max_drawdown_pct": 0.06681194015477047,
+      "validation_net_profit": 101311.82323799007,
+      "validation_profit_factor": 3.4569066483941535,
+      "validation_score": 0.9033906255355347,
+      "win_rate": 0.6572407883461868
     },
     {
+      "accepted_candidate": "capacity_10_00_contracts_40_positions_8_risk_2_0",
       "block_rate": 0.03177124702144559,
-      "calmar": 14.737530442863399,
-      "max_drawdown_pct": 0.07552894252245852,
+      "calmar": 15.561841543070638,
+      "description": "Aggressive frontier with higher caps and moderate per-trade cap",
+      "max_drawdown_pct": 0.07068225044042235,
       "name": "capacity_9_00_contracts_34_positions_7_risk_1_75",
       "net_profit": 251291.84459224757,
       "phase": 3,
+      "phase_accepted": true,
       "profit_factor": 3.5472567404115942,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": true,
+      "robust_reason": "",
       "score": 1.0877521158861216,
+      "selected": false,
       "soft_warnings": [],
       "total_trades": 1219.0,
-      "trades_per_month": 41.972072963800905
+      "trades_per_month": 41.972072963800905,
+      "validation_max_drawdown_pct": 0.06254609747006994,
+      "validation_net_profit": 91157.02179756775,
+      "validation_profit_factor": 3.3725246063140406,
+      "validation_score": 0.9135960725174634,
+      "win_rate": 0.649712879409352
     },
     {
+      "accepted_candidate": "capacity_10_00_contracts_40_positions_8_risk_2_0",
       "block_rate": 0.025416997617156472,
-      "calmar": 13.218155480481544,
-      "max_drawdown_pct": 0.07816268076675224,
+      "calmar": 14.52745357391137,
+      "description": "Aggressive-but-controlled live-cap lift with seven total positions",
+      "max_drawdown_pct": 0.07068225044042235,
       "name": "capacity_8_25_contracts_30_positions_7_risk_1_5",
       "net_profit": 226522.31352404758,
       "phase": 3,
+      "phase_accepted": true,
       "profit_factor": 3.624661924403134,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": true,
+      "robust_reason": "",
       "score": 1.063347099502958,
+      "selected": false,
       "soft_warnings": [],
       "total_trades": 1227.0,
-      "trades_per_month": 42.24752545248869
+      "trades_per_month": 42.24752545248869,
+      "validation_max_drawdown_pct": 0.05704307873498108,
+      "validation_net_profit": 81357.24067819692,
+      "validation_profit_factor": 3.337096216832114,
+      "validation_score": 0.9018183487602145,
+      "win_rate": 0.6503667481662592
     },
     {
+      "accepted_candidate": "capacity_10_00_contracts_40_positions_8_risk_2_0",
       "block_rate": 0.025416997617156472,
-      "calmar": 12.655626447443094,
-      "max_drawdown_pct": 0.07774368368242329,
+      "calmar": 13.842956104379056,
+      "description": "Upper-medium live-cap lift with unchanged per-trade cap",
+      "max_drawdown_pct": 0.07068225044042235,
       "name": "capacity_7_25_contracts_26_risk_1_5",
       "net_profit": 210812.92387475917,
       "phase": 3,
+      "phase_accepted": true,
       "profit_factor": 3.472705130451938,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": true,
+      "robust_reason": "",
       "score": 1.046209583521916,
+      "selected": false,
       "soft_warnings": [
         "net_profit_below_target"
       ],
       "total_trades": 1227.0,
-      "trades_per_month": 42.24752545248869
+      "trades_per_month": 42.24752545248869,
+      "validation_max_drawdown_pct": 0.059249906288142085,
+      "validation_net_profit": 77260.34700011031,
+      "validation_profit_factor": 3.234157089516261,
+      "validation_score": 0.8925696935769228,
+      "win_rate": 0.6503667481662592
     },
     {
+      "accepted_candidate": "capacity_10_00_contracts_40_positions_8_risk_2_0",
       "block_rate": 0.025416997617156472,
-      "calmar": 12.630439282917846,
-      "max_drawdown_pct": 0.07559089058832066,
+      "calmar": 13.435299603296347,
+      "description": "Medium live-cap lift with unchanged per-trade cap",
+      "max_drawdown_pct": 0.07068225044042235,
       "name": "capacity_6_75_contracts_24_risk_1_5",
       "net_profit": 201712.35175444154,
       "phase": 3,
+      "phase_accepted": true,
       "profit_factor": 3.3887134546490376,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": false,
+      "robust_reason": "validation_score_not_improved",
       "score": 1.0362816866633877,
+      "selected": false,
       "soft_warnings": [
         "net_profit_below_target"
       ],
       "total_trades": 1227.0,
-      "trades_per_month": 42.24752545248869
+      "trades_per_month": 42.24752545248869,
+      "validation_max_drawdown_pct": 0.06009704783119767,
+      "validation_net_profit": 75039.66590767333,
+      "validation_profit_factor": 3.179289337891933,
+      "validation_score": 0.8875997010597583,
+      "win_rate": 0.6511817440912795
     },
     {
+      "accepted_candidate": null,
       "block_rate": 0.03256552819698173,
-      "calmar": 12.487734800035188,
-      "max_drawdown_pct": 0.07559089058832066,
+      "calmar": 13.392897310449369,
+      "description": "Allow high-throughput Vdubus second concurrent slot",
+      "max_drawdown_pct": 0.07068225044042235,
       "name": "vdubus_second_slot",
       "net_profit": 200776.63636982613,
       "phase": 2,
+      "phase_accepted": false,
       "profit_factor": 3.5032555006629305,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": false,
+      "robust_reason": "validation_score_not_improved",
       "score": 1.03231757972753,
+      "selected": false,
       "soft_warnings": [
         "net_profit_below_target"
       ],
       "total_trades": 1218.0,
-      "trades_per_month": 41.93764140271493
+      "trades_per_month": 41.93764140271493,
+      "validation_max_drawdown_pct": 0.06009704783119767,
+      "validation_net_profit": 75039.66590767333,
+      "validation_profit_factor": 3.179289337891933,
+      "validation_score": 0.8875997010597583,
+      "win_rate": 0.6518883415435139
     },
     {
+      "accepted_candidate": null,
       "block_rate": 0.03256552819698173,
-      "calmar": 12.487734800035188,
-      "max_drawdown_pct": 0.07559089058832066,
+      "calmar": 13.392897310449369,
+      "description": "Add extra slots where blocked pools retained robust edge",
+      "max_drawdown_pct": 0.07068225044042235,
       "name": "selective_extra_slots",
       "net_profit": 200776.63636982613,
       "phase": 2,
+      "phase_accepted": false,
       "profit_factor": 3.5032555006629305,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": false,
+      "robust_reason": "validation_score_not_improved",
       "score": 1.03231757972753,
+      "selected": false,
       "soft_warnings": [
         "net_profit_below_target"
       ],
       "total_trades": 1218.0,
-      "trades_per_month": 41.93764140271493
+      "trades_per_month": 41.93764140271493,
+      "validation_max_drawdown_pct": 0.06009704783119767,
+      "validation_net_profit": 75039.66590767333,
+      "validation_profit_factor": 3.179289337891933,
+      "validation_score": 0.8875997010597583,
+      "win_rate": 0.6518883415435139
     },
     {
+      "accepted_candidate": "capacity_10_00_contracts_40_positions_8_risk_2_0",
       "block_rate": 0.025416997617156472,
-      "calmar": 12.411520005108919,
-      "max_drawdown_pct": 0.07410826943433546,
+      "calmar": 12.950858994779521,
+      "description": "Modest live-cap lift after extra slots",
+      "max_drawdown_pct": 0.07068225044042235,
       "name": "capacity_6_25_contracts_22_risk_1_5",
       "net_profit": 191143.44342200266,
       "phase": 3,
+      "phase_accepted": true,
       "profit_factor": 3.3007321119555835,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": false,
+      "robust_reason": "validation_score_not_improved",
       "score": 1.0220002451090546,
+      "selected": false,
       "soft_warnings": [
         "net_profit_below_target"
       ],
       "total_trades": 1227.0,
-      "trades_per_month": 42.24752545248869
+      "trades_per_month": 42.24752545248869,
+      "validation_max_drawdown_pct": 0.0593133726247966,
+      "validation_net_profit": 72481.81656962233,
+      "validation_profit_factor": 3.123709934793728,
+      "validation_score": 0.8822288476770002,
+      "win_rate": 0.6511817440912795
     },
     {
+      "accepted_candidate": null,
       "block_rate": 0.13264495631453535,
-      "calmar": 12.872871678289659,
-      "max_drawdown_pct": 0.07614202608934319,
+      "calmar": 14.640010750112962,
+      "description": "Test NQ regime wide-IB subset that failed validation in diagnostics",
+      "max_drawdown_pct": 0.06626086988716874,
       "name": "filter_nq_regime_wide_ib",
       "net_profit": 208143.0032096762,
       "phase": 1,
+      "phase_accepted": false,
       "profit_factor": 3.7653177141283614,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": false,
+      "robust_reason": "signal_filter_sample_below_threshold",
       "score": 0.9991470450522104,
+      "selected": false,
       "soft_warnings": [
         "frequency_below_target",
         "net_profit_below_target"
       ],
       "total_trades": 1092.0,
-      "trades_per_month": 37.599264705882355
+      "trades_per_month": 37.599264705882355,
+      "validation_max_drawdown_pct": 0.060098166442289415,
+      "validation_net_profit": 75073.48924100667,
+      "validation_profit_factor": 3.2978892430604083,
+      "validation_score": 0.8812243125839019,
+      "win_rate": 0.6648351648351648
     },
     {
+      "accepted_candidate": null,
       "block_rate": 0.11119936457505956,
-      "calmar": 12.43188383752846,
-      "max_drawdown_pct": 0.07559089058832066,
+      "calmar": 13.210625572202547,
+      "description": "Allow NQ regime third concurrent slot",
+      "max_drawdown_pct": 0.07068225044042235,
       "name": "nq_regime_third_slot",
       "net_profit": 196777.61217954275,
       "phase": 2,
+      "phase_accepted": false,
       "profit_factor": 3.5834089278163934,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": false,
+      "robust_reason": "validation_score_not_improved",
       "score": 0.9955784162045334,
+      "selected": false,
       "soft_warnings": [
         "frequency_below_target",
         "net_profit_below_target"
       ],
       "total_trades": 1119.0,
-      "trades_per_month": 38.52891685520362
+      "trades_per_month": 38.52891685520362,
+      "validation_max_drawdown_pct": 0.06009704783119767,
+      "validation_net_profit": 75039.66590767333,
+      "validation_profit_factor": 3.179289337891933,
+      "validation_score": 0.8875997010597583,
+      "win_rate": 0.6666666666666666
+    },
+    {
+      "accepted_candidate": null,
+      "block_rate": 0.11675933280381255,
+      "calmar": 13.066077414317697,
+      "description": "Test Vdubus close-window quality issue",
+      "max_drawdown_pct": 0.07068225044042235,
+      "name": "filter_vdubus_close",
+      "net_profit": 193633.03217954273,
+      "phase": 1,
+      "phase_accepted": false,
+      "profit_factor": 3.544688155794857,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": false,
+      "robust_reason": "signal_filter_sample_below_threshold",
+      "score": 0.9898587113383378,
+      "selected": false,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1112.0,
+      "trades_per_month": 38.28789592760181,
+      "validation_max_drawdown_pct": 0.059009518643884096,
+      "validation_net_profit": 75703.68590767334,
+      "validation_profit_factor": 3.281503510170078,
+      "validation_score": 0.882853706661894,
+      "win_rate": 0.6663669064748201
+    },
+    {
+      "accepted_candidate": null,
+      "block_rate": 0.13264495631453535,
+      "calmar": 13.276581226956166,
+      "description": "Block the only time-split weak NQDTC score bucket",
+      "max_drawdown_pct": 0.07068225044042235,
+      "name": "filter_nqdtc_score_2_5",
+      "net_profit": 198220.31717954273,
+      "phase": 1,
+      "phase_accepted": false,
+      "profit_factor": 3.8036411517561026,
+      "reject_reason": "",
+      "rejected": false,
+      "robust_pass": false,
+      "robust_reason": "signal_filter_sample_below_threshold",
+      "score": 0.9883222966557013,
+      "selected": false,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1092.0,
+      "trades_per_month": 37.599264705882355,
+      "validation_max_drawdown_pct": 0.05939919188887056,
+      "validation_net_profit": 76224.75475382719,
+      "validation_profit_factor": 3.339759486802216,
+      "validation_score": 0.8861268871753591,
+      "win_rate": 0.673992673992674
     }
   ],
+  "phase_progression": [
+    {
+      "accepted": false,
+      "accepted_candidate": null,
+      "best_candidate": "filter_nq_regime_wide_ib",
+      "best_score": 0.9991470450522104,
+      "candidate_count": 3,
+      "current_score": 0.9955784162045334,
+      "phase": 1,
+      "rejected_count": 0,
+      "robust_pass_count": 0
+    },
+    {
+      "accepted": false,
+      "accepted_candidate": null,
+      "best_candidate": "vdubus_second_slot",
+      "best_score": 1.03231757972753,
+      "candidate_count": 3,
+      "current_score": 0.9955784162045334,
+      "phase": 2,
+      "rejected_count": 0,
+      "robust_pass_count": 0
+    },
+    {
+      "accepted": true,
+      "accepted_candidate": "capacity_10_00_contracts_40_positions_8_risk_2_0",
+      "best_candidate": "capacity_10_00_contracts_40_positions_8_risk_2_0",
+      "best_score": 1.1256155581491243,
+      "candidate_count": 7,
+      "current_score": 1.1256155581491243,
+      "phase": 3,
+      "rejected_count": 0,
+      "robust_pass_count": 5
+    },
+    {
+      "accepted": false,
+      "accepted_candidate": null,
+      "best_candidate": "filter_vdubus_close_after_capacity",
+      "best_score": 1.1194018688369831,
+      "candidate_count": 4,
+      "current_score": 1.1256155581491243,
+      "phase": 4,
+      "rejected_count": 0,
+      "robust_pass_count": 0
+    }
+  ],
+  "round": 2,
+  "round_name": "round_2_momentum_portfolio_synergy_standardized",
   "rule_blocks": {
     "dynamic_capacity_floor": 13,
     "portfolio_daily_stop": 30,
@@ -581,6 +2178,23 @@
         "start_time": "2023-11-29T15:00:00+00:00",
         "timeframe": "5m"
       },
+      "drawdown_path": {
+        "contribution_by_strategy": {
+          "DownturnDominator_v1": 0.0,
+          "NQDTC_v2.1": -2378.5,
+          "NQ_REGIME": -5613.596666666672,
+          "VdubusNQ_v4": -457.3799999999983
+        },
+        "duration_hours": 622.5833333333334,
+        "max_drawdown_pct": 0.09947772787708446,
+        "peak_equity": 84938.3761268343,
+        "peak_time": "2024-03-08T20:35:00+00:00",
+        "recovered_in_sample": true,
+        "recovery_time": "2024-04-05T16:55:00+00:00",
+        "risk_basis": "bar_close_mark_to_market",
+        "trough_equity": 76488.89946016762,
+        "trough_time": "2024-04-03T19:10:00+00:00"
+      },
       "metrics": {
         "active_strategies": 4.0,
         "block_rate": 0.044787644787644784,
@@ -607,6 +2221,94 @@
         "total_trades": 1237.0,
         "trades_per_month": 42.59184106334842,
         "win_rate": 0.6345998383185125
+      },
+      "outcome_diagnostics": {
+        "accepted_r": {
+          "average": 0.674849097714372,
+          "count": 1237.0,
+          "maximum": 14.410909090909092,
+          "median": 0.21098039215686276,
+          "minimum": -4.444444444444445,
+          "nonpositive_count": 451.0,
+          "nonpositive_total": -287.28877802227714,
+          "p10": -1.0076223776223776,
+          "p25": -0.3223529411764706,
+          "p75": 1.21,
+          "p90": 2.5688860215053766,
+          "positive_count": 786.0,
+          "positive_total": 1122.0771118949551,
+          "total": 834.7883338726781,
+          "win_rate": 0.635408245755861
+        },
+        "accepted_raw_pnl": {
+          "average": 302.35170573969276,
+          "count": 1237.0,
+          "maximum": 13848.8,
+          "median": 51.3,
+          "minimum": -2531.2,
+          "nonpositive_count": 452.0,
+          "nonpositive_total": -156688.86999999997,
+          "p10": -388.128,
+          "p25": -87.24,
+          "p75": 378.41999999999996,
+          "p90": 1158.360000000001,
+          "positive_count": 785.0,
+          "positive_total": 530697.9299999999,
+          "total": 374009.05999999994,
+          "win_rate": 0.6345998383185125
+        },
+        "accepted_win_rate_uplift_vs_all_candidates": -0.003973993626378403,
+        "avoided_loss_r": 12.27839070446009,
+        "avoided_loss_raw_dollars": 6021.32,
+        "block_efficiency_r": 0.18467117886667123,
+        "blocked_r": {
+          "average": 0.7229495578653439,
+          "count": 58.0,
+          "maximum": 4.436341463414643,
+          "median": 0.5925942350332596,
+          "minimum": -1.264957264957265,
+          "nonpositive_count": 16.0,
+          "nonpositive_total": -12.27839070446009,
+          "p10": -1.0110155382907882,
+          "p25": -0.03923275809029422,
+          "p75": 1.8076034809109416,
+          "p90": 2.0426576118415625,
+          "positive_count": 42.0,
+          "positive_total": 54.20946506065004,
+          "total": 41.931074356189946,
+          "win_rate": 0.7241379310344828
+        },
+        "blocked_raw_pnl": {
+          "average": 313.3031034482762,
+          "count": 58.0,
+          "maximum": 2813.8,
+          "median": 134.44,
+          "minimum": -1465.0,
+          "nonpositive_count": 16.0,
+          "nonpositive_total": -6021.32,
+          "p10": -287.768,
+          "p25": -20.47,
+          "p75": 576.89,
+          "p90": 912.5980000000001,
+          "positive_count": 42.0,
+          "positive_total": 24192.900000000016,
+          "total": 18171.58000000002,
+          "win_rate": 0.7241379310344828
+        },
+        "blocker_precision_nonpositive": 0.27586206896551724,
+        "forgone_gain_r": 54.20946506065004,
+        "forgone_gain_raw_dollars": 24192.900000000016,
+        "net_block_value_r": -41.93107435618995,
+        "net_block_value_raw_dollars": -18171.580000000016,
+        "nonpositive_trade_block_rate": 0.034261241970021415,
+        "positive_trade_block_rate": 0.050724637681159424,
+        "realized_r_discrimination": -0.04810046015097191,
+        "reconciliation": {
+          "accepted": 1237,
+          "blocked": 58,
+          "fired": 1295,
+          "reconciles": true
+        }
       },
       "rule_blocks": {
         "dynamic_capacity_floor": 13,
@@ -649,6 +2351,23 @@
         "start_time": "2023-11-29T15:00:00+00:00",
         "timeframe": "5m"
       },
+      "drawdown_path": {
+        "contribution_by_strategy": {
+          "DownturnDominator_v1": 0.0,
+          "NQDTC_v2.1": 0.0,
+          "NQ_REGIME": -6963.66,
+          "VdubusNQ_v4": -165.0
+        },
+        "duration_hours": 19.0,
+        "max_drawdown_pct": 0.11686274226937968,
+        "peak_equity": 61000.280000000006,
+        "peak_time": "2023-12-13T20:00:00+00:00",
+        "recovered_in_sample": true,
+        "recovery_time": "2024-01-04T13:35:00+00:00",
+        "risk_basis": "bar_close_mark_to_market",
+        "trough_equity": 53871.62000000001,
+        "trough_time": "2023-12-14T15:00:00+00:00"
+      },
       "metrics": {
         "active_strategies": 4.0,
         "block_rate": 0.044787644787644784,
@@ -675,6 +2394,94 @@
         "total_trades": 1237.0,
         "trades_per_month": 42.59184106334842,
         "win_rate": 0.6345998383185125
+      },
+      "outcome_diagnostics": {
+        "accepted_r": {
+          "average": 0.674849097714372,
+          "count": 1237.0,
+          "maximum": 14.410909090909092,
+          "median": 0.21098039215686276,
+          "minimum": -4.444444444444445,
+          "nonpositive_count": 451.0,
+          "nonpositive_total": -287.28877802227714,
+          "p10": -1.0076223776223776,
+          "p25": -0.3223529411764706,
+          "p75": 1.21,
+          "p90": 2.5688860215053766,
+          "positive_count": 786.0,
+          "positive_total": 1122.0771118949551,
+          "total": 834.7883338726781,
+          "win_rate": 0.635408245755861
+        },
+        "accepted_raw_pnl": {
+          "average": 302.35170573969276,
+          "count": 1237.0,
+          "maximum": 13848.8,
+          "median": 51.3,
+          "minimum": -2531.2,
+          "nonpositive_count": 452.0,
+          "nonpositive_total": -156688.86999999997,
+          "p10": -388.128,
+          "p25": -87.24,
+          "p75": 378.41999999999996,
+          "p90": 1158.360000000001,
+          "positive_count": 785.0,
+          "positive_total": 530697.9299999999,
+          "total": 374009.05999999994,
+          "win_rate": 0.6345998383185125
+        },
+        "accepted_win_rate_uplift_vs_all_candidates": -0.003973993626378403,
+        "avoided_loss_r": 12.27839070446009,
+        "avoided_loss_raw_dollars": 6021.32,
+        "block_efficiency_r": 0.18467117886667123,
+        "blocked_r": {
+          "average": 0.7229495578653439,
+          "count": 58.0,
+          "maximum": 4.436341463414643,
+          "median": 0.5925942350332596,
+          "minimum": -1.264957264957265,
+          "nonpositive_count": 16.0,
+          "nonpositive_total": -12.27839070446009,
+          "p10": -1.0110155382907882,
+          "p25": -0.03923275809029422,
+          "p75": 1.8076034809109416,
+          "p90": 2.0426576118415625,
+          "positive_count": 42.0,
+          "positive_total": 54.20946506065004,
+          "total": 41.931074356189946,
+          "win_rate": 0.7241379310344828
+        },
+        "blocked_raw_pnl": {
+          "average": 313.3031034482762,
+          "count": 58.0,
+          "maximum": 2813.8,
+          "median": 134.44,
+          "minimum": -1465.0,
+          "nonpositive_count": 16.0,
+          "nonpositive_total": -6021.32,
+          "p10": -287.768,
+          "p25": -20.47,
+          "p75": 576.89,
+          "p90": 912.5980000000001,
+          "positive_count": 42.0,
+          "positive_total": 24192.900000000016,
+          "total": 18171.58000000002,
+          "win_rate": 0.7241379310344828
+        },
+        "blocker_precision_nonpositive": 0.27586206896551724,
+        "forgone_gain_r": 54.20946506065004,
+        "forgone_gain_raw_dollars": 24192.900000000016,
+        "net_block_value_r": -41.93107435618995,
+        "net_block_value_raw_dollars": -18171.580000000016,
+        "nonpositive_trade_block_rate": 0.034261241970021415,
+        "positive_trade_block_rate": 0.050724637681159424,
+        "realized_r_discrimination": -0.04810046015097191,
+        "reconciliation": {
+          "accepted": 1237,
+          "blocked": 58,
+          "fired": 1295,
+          "reconciles": true
+        }
       },
       "rule_blocks": {
         "dynamic_capacity_floor": 13,
@@ -717,6 +2524,23 @@
         "start_time": "2023-11-29T15:00:00+00:00",
         "timeframe": "5m"
       },
+      "drawdown_path": {
+        "contribution_by_strategy": {
+          "DownturnDominator_v1": 0.0,
+          "NQDTC_v2.1": -982.5,
+          "NQ_REGIME": -4816.493333333334,
+          "VdubusNQ_v4": 71.58000000000084
+        },
+        "duration_hours": 312.1666666666667,
+        "max_drawdown_pct": 0.0755282394349325,
+        "peak_equity": 75831.41585429765,
+        "peak_time": "2024-03-21T19:00:00+00:00",
+        "recovered_in_sample": true,
+        "recovery_time": "2024-04-05T16:00:00+00:00",
+        "risk_basis": "bar_close_mark_to_market",
+        "trough_equity": 70104.00252096432,
+        "trough_time": "2024-04-03T19:10:00+00:00"
+      },
       "metrics": {
         "active_strategies": 4.0,
         "block_rate": 0.044015444015444015,
@@ -743,6 +2567,94 @@
         "total_trades": 1238.0,
         "trades_per_month": 42.626272624434385,
         "win_rate": 0.6348949919224556
+      },
+      "outcome_diagnostics": {
+        "accepted_r": {
+          "average": 0.6749229271992553,
+          "count": 1238.0,
+          "maximum": 14.410909090909092,
+          "median": 0.21126339195472005,
+          "minimum": -4.444444444444445,
+          "nonpositive_count": 451.0,
+          "nonpositive_total": -287.28877802227714,
+          "p10": -1.0076107226107225,
+          "p25": -0.3223529411764706,
+          "p75": 1.2094047619047619,
+          "p90": 2.568664516129032,
+          "positive_count": 787.0,
+          "positive_total": 1122.8433618949553,
+          "total": 835.554583872678,
+          "win_rate": 0.635702746365105
+        },
+        "accepted_raw_pnl": {
+          "average": 302.3352504038772,
+          "count": 1238.0,
+          "maximum": 13848.8,
+          "median": 51.3,
+          "minimum": -2531.2,
+          "nonpositive_count": 452.0,
+          "nonpositive_total": -156688.86999999997,
+          "p10": -387.816,
+          "p25": -86.97999999999999,
+          "p75": 377.895,
+          "p90": 1157.2199999999993,
+          "positive_count": 786.0,
+          "positive_total": 530979.9099999999,
+          "total": 374291.04,
+          "win_rate": 0.6348949919224556
+        },
+        "accepted_win_rate_uplift_vs_all_candidates": -0.0036794930171343276,
+        "avoided_loss_r": 12.27839070446009,
+        "avoided_loss_raw_dollars": 6021.32,
+        "block_efficiency_r": 0.18682426519435966,
+        "blocked_r": {
+          "average": 0.7221899009857885,
+          "count": 57.0,
+          "maximum": 4.436341463414643,
+          "median": 0.5690909090909092,
+          "minimum": -1.264957264957265,
+          "nonpositive_count": 16.0,
+          "nonpositive_total": -12.27839070446009,
+          "p10": -1.0115427302996671,
+          "p25": -0.051617343427391604,
+          "p75": 1.816367265469062,
+          "p90": 2.073562639543537,
+          "positive_count": 41.0,
+          "positive_total": 53.44321506065004,
+          "total": 41.164824356189946,
+          "win_rate": 0.7192982456140351
+        },
+        "blocked_raw_pnl": {
+          "average": 313.85263157894764,
+          "count": 57.0,
+          "maximum": 2813.8,
+          "median": 133.76,
+          "minimum": -1465.0,
+          "nonpositive_count": 16.0,
+          "nonpositive_total": -6021.32,
+          "p10": -295.94399999999996,
+          "p25": -23.56,
+          "p75": 582.14,
+          "p90": 914.084,
+          "positive_count": 41.0,
+          "positive_total": 23910.92000000002,
+          "total": 17889.600000000017,
+          "win_rate": 0.7192982456140351
+        },
+        "blocker_precision_nonpositive": 0.2807017543859649,
+        "forgone_gain_r": 53.44321506065004,
+        "forgone_gain_raw_dollars": 23910.92000000002,
+        "net_block_value_r": -41.16482435618995,
+        "net_block_value_raw_dollars": -17889.60000000002,
+        "nonpositive_trade_block_rate": 0.034261241970021415,
+        "positive_trade_block_rate": 0.049516908212560384,
+        "realized_r_discrimination": -0.04726697378653322,
+        "reconciliation": {
+          "accepted": 1238,
+          "blocked": 57,
+          "fired": 1295,
+          "reconciles": true
+        }
       },
       "rule_blocks": {
         "dynamic_capacity_floor": 13,
@@ -785,6 +2697,23 @@
         "start_time": "2023-11-29T15:00:00+00:00",
         "timeframe": "5m"
       },
+      "drawdown_path": {
+        "contribution_by_strategy": {
+          "DownturnDominator_v1": 0.0,
+          "NQDTC_v2.1": -1047.0,
+          "NQ_REGIME": -5402.106666666659,
+          "VdubusNQ_v4": 71.57999999999993
+        },
+        "duration_hours": 312.1666666666667,
+        "max_drawdown_pct": 0.07803615239874624,
+        "peak_equity": 81725.2833542976,
+        "peak_time": "2024-03-21T19:00:00+00:00",
+        "recovered_in_sample": true,
+        "recovery_time": "2024-04-05T16:55:00+00:00",
+        "risk_basis": "bar_close_mark_to_market",
+        "trough_equity": 75347.75668763091,
+        "trough_time": "2024-04-03T19:10:00+00:00"
+      },
       "metrics": {
         "active_strategies": 4.0,
         "block_rate": 0.010038610038610039,
@@ -812,6 +2741,94 @@
         "trades_per_month": 44.141261312217196,
         "win_rate": 0.6365054602184087
       },
+      "outcome_diagnostics": {
+        "accepted_r": {
+          "average": 0.6756769045848724,
+          "count": 1282.0,
+          "maximum": 14.410909090909092,
+          "median": 0.21217236104028558,
+          "minimum": -4.444444444444445,
+          "nonpositive_count": 465.0,
+          "nonpositive_total": -298.2505941183525,
+          "p10": -1.0076923076923077,
+          "p25": -0.32383147853736094,
+          "p75": 1.2190490196078432,
+          "p90": 2.569993548387097,
+          "positive_count": 817.0,
+          "positive_total": 1164.4683857961588,
+          "total": 866.2177916778064,
+          "win_rate": 0.6372854914196567
+        },
+        "accepted_raw_pnl": {
+          "average": 300.3149141965678,
+          "count": 1282.0,
+          "maximum": 13848.8,
+          "median": 54.230000000000004,
+          "minimum": -2531.2,
+          "nonpositive_count": 466.0,
+          "nonpositive_total": -161892.71,
+          "p10": -380.716,
+          "p25": -86.2,
+          "p75": 377.895,
+          "p90": 1140.0020000000009,
+          "positive_count": 816.0,
+          "positive_total": 546896.4299999999,
+          "total": 385003.72,
+          "win_rate": 0.6365054602184087
+        },
+        "accepted_win_rate_uplift_vs_all_candidates": -0.0020967479625826346,
+        "avoided_loss_r": 1.3165746083846566,
+        "avoided_loss_raw_dollars": 817.48,
+        "block_efficiency_r": 0.1002358650056136,
+        "blocked_r": {
+          "average": 0.8078166577739712,
+          "count": 13.0,
+          "maximum": 1.8505154639175259,
+          "median": 1.0354609929078014,
+          "minimum": -1.264957264957265,
+          "nonpositive_count": 2.0,
+          "nonpositive_total": -1.3165746083846566,
+          "p10": -0.02141169506591915,
+          "p25": 0.11350574712643678,
+          "p75": 1.7813121272365806,
+          "p90": 1.8252943590171573,
+          "positive_count": 11.0,
+          "positive_total": 11.81819115944628,
+          "total": 10.501616551061625,
+          "win_rate": 0.8461538461538461
+        },
+        "blocked_raw_pnl": {
+          "average": 552.0707692307694,
+          "count": 13.0,
+          "maximum": 2152.14,
+          "median": 582.14,
+          "minimum": -741.24,
+          "nonpositive_count": 2.0,
+          "nonpositive_total": -817.48,
+          "p10": -45.43999999999997,
+          "p25": 108.76,
+          "p75": 894.14,
+          "p90": 1019.3400000000001,
+          "positive_count": 11.0,
+          "positive_total": 7994.4000000000015,
+          "total": 7176.920000000002,
+          "win_rate": 0.8461538461538461
+        },
+        "blocker_precision_nonpositive": 0.15384615384615385,
+        "forgone_gain_r": 11.81819115944628,
+        "forgone_gain_raw_dollars": 7994.4000000000015,
+        "net_block_value_r": -10.501616551061623,
+        "net_block_value_raw_dollars": -7176.920000000002,
+        "nonpositive_trade_block_rate": 0.004282655246252677,
+        "positive_trade_block_rate": 0.013285024154589372,
+        "realized_r_discrimination": -0.13213975318909876,
+        "reconciliation": {
+          "accepted": 1282,
+          "blocked": 13,
+          "fired": 1295,
+          "reconciles": true
+        }
+      },
       "rule_blocks": {
         "dynamic_capacity_floor": 13
       },
@@ -826,12 +2843,100 @@
       }
     }
   },
+  "schema_version": "momentum_portfolio_synergy_comprehensive_diagnostics.v2",
+  "score_diagnostics": {
+    "final_validation_score": 0.917491721786283,
+    "known_gap": "The immutable score penalizes aggregate block rate but has no direct component for blocker outcome discrimination or forgone winning R.",
+    "optimized": {
+      "components": {
+        "drawdown_control": 1.0,
+        "expected_return": 1.3,
+        "live_rule_health": 0.7217664092664091,
+        "profit_quality": 1.2,
+        "risk_efficiency": 1.25,
+        "strategy_balance": 1.0,
+        "trade_frequency": 1.0656568156108597
+      },
+      "reject_reason": "",
+      "rejected": false,
+      "score": 1.1259065472732752,
+      "soft_warnings": []
+    },
+    "relaxed_shared_caps": {
+      "components": {
+        "drawdown_control": 1.0,
+        "expected_return": 1.3,
+        "live_rule_health": 0.8689993564993564,
+        "profit_quality": 1.2,
+        "risk_efficiency": 1.25,
+        "strategy_balance": 1.0,
+        "trade_frequency": 1.1035315328054298
+      },
+      "reject_reason": "",
+      "rejected": false,
+      "score": 1.1400856437299451,
+      "soft_warnings": []
+    },
+    "selection_rule": "weighted seven-component score; hard reject for non-positive PnL, MTM drawdown above 20%, PF below 1.35, or inactive sleeve",
+    "targets": {
+      "calmar": 8.0,
+      "max_block_rate": 0.15,
+      "max_drawdown_pct": 0.18,
+      "min_strategy_trades": 80.0,
+      "net_profit": 220000.0,
+      "profit_factor": 2.8,
+      "trades_per_month": 40.0
+    },
+    "weights": {
+      "drawdown_control": 0.18,
+      "expected_return": 0.24,
+      "live_rule_health": 0.05,
+      "profit_quality": 0.13,
+      "risk_efficiency": 0.12,
+      "strategy_balance": 0.1,
+      "trade_frequency": 0.18
+    }
+  },
   "strategy_summary": {
     "DownturnDominator_v1": {
       "accept_rate": 0.832,
       "accepted": 104,
       "accepted_adjusted_pnl": 11988.58,
+      "accepted_r_distribution": {
+        "average": 0.3773062854078178,
+        "count": 104.0,
+        "maximum": 13.277777777777779,
+        "median": -0.009259259259259259,
+        "minimum": -4.444444444444445,
+        "nonpositive_count": 53.0,
+        "nonpositive_total": -43.4813930903873,
+        "p10": -1.0106331168831169,
+        "p25": -1.004480122324159,
+        "p75": 1.0258821713932993,
+        "p90": 2.0088508966805114,
+        "positive_count": 51.0,
+        "positive_total": 82.72124677280037,
+        "total": 39.23985368241305,
+        "win_rate": 0.49038461538461536
+      },
       "accepted_raw_pnl": 7487.66,
+      "accepted_raw_pnl_distribution": {
+        "average": 71.99673076923077,
+        "count": 104.0,
+        "maximum": 2139.84,
+        "median": -2.24,
+        "minimum": -483.72,
+        "nonpositive_count": 53.0,
+        "nonpositive_total": -6161.72,
+        "p10": -182.476,
+        "p25": -83.49,
+        "p75": 151.545,
+        "p90": 446.1400000000001,
+        "positive_count": 51.0,
+        "positive_total": 13649.38,
+        "total": 7487.66,
+        "win_rate": 0.49038461538461536
+      },
       "accepted_win_rate": 0.49038461538461536,
       "adjusted_to_raw_pnl_ratio": 1.6011116957767848,
       "avg_accepted_base_qty": 4.384615384615385,
@@ -848,17 +2953,88 @@
         "strategy_daily_stop": 6
       },
       "blocked": 21,
+      "blocked_r_distribution": {
+        "average": 0.8475700216713165,
+        "count": 21.0,
+        "maximum": 2.258992805755396,
+        "median": 1.042857142857143,
+        "minimum": -1.264957264957265,
+        "nonpositive_count": 4.0,
+        "nonpositive_total": -3.3243742799774316,
+        "p10": -1.003831417624521,
+        "p25": 0.11350574712643678,
+        "p75": 1.8275261324041812,
+        "p90": 1.8505154639175259,
+        "positive_count": 17.0,
+        "positive_total": 21.12334473507508,
+        "total": 17.798970455097646,
+        "win_rate": 0.8095238095238095
+      },
       "blocked_rate": 0.168,
       "blocked_raw_pnl": 8555.9,
+      "blocked_raw_pnl_distribution": {
+        "average": 407.4238095238095,
+        "count": 21.0,
+        "maximum": 2152.14,
+        "median": 325.14,
+        "minimum": -741.24,
+        "nonpositive_count": 4.0,
+        "nonpositive_total": -1334.96,
+        "p10": -254.24,
+        "p25": 108.76,
+        "p75": 728.14,
+        "p90": 908.14,
+        "positive_count": 17.0,
+        "positive_total": 9890.86,
+        "total": 8555.9,
+        "win_rate": 0.8095238095238095
+      },
       "blocked_raw_win_rate": 0.8095238095238095,
       "fired": 125,
-      "fired_raw_pnl": 16043.56
+      "fired_raw_pnl": 16043.56,
+      "nonpositive_trade_block_rate": 0.07017543859649122,
+      "positive_trade_block_rate": 0.25,
+      "realized_r_discrimination": -0.4702637362634989
     },
     "NQDTC_v2.1": {
       "accept_rate": 0.9620253164556962,
       "accepted": 152,
       "accepted_adjusted_pnl": 32932.474999999875,
+      "accepted_r_distribution": {
+        "average": 0.5115589199024656,
+        "count": 152.0,
+        "maximum": 6.358,
+        "median": 0.7346153846153847,
+        "minimum": -1.5,
+        "nonpositive_count": 68.0,
+        "nonpositive_total": -64.78070879859175,
+        "p10": -1.0128787878787877,
+        "p25": -1.0075757575757576,
+        "p75": 1.3984394039934833,
+        "p90": 2.4047275405007356,
+        "positive_count": 84.0,
+        "positive_total": 142.53766462376652,
+        "total": 77.75695582517477,
+        "win_rate": 0.5526315789473685
+      },
       "accepted_raw_pnl": 46417.29999999993,
+      "accepted_raw_pnl_distribution": {
+        "average": 305.37697368421004,
+        "count": 152.0,
+        "maximum": 4162.200000000012,
+        "median": 122.5,
+        "minimum": -1530.0,
+        "nonpositive_count": 68.0,
+        "nonpositive_total": -41410.149999999994,
+        "p10": -875.0,
+        "p25": -553.75,
+        "p75": 969.1125000000029,
+        "p90": 1556.7900000000056,
+        "positive_count": 84.0,
+        "positive_total": 87827.44999999992,
+        "total": 46417.29999999993,
+        "win_rate": 0.5526315789473685
+      },
       "accepted_win_rate": 0.5526315789473685,
       "adjusted_to_raw_pnl_ratio": 0.7094870877883876,
       "avg_accepted_base_qty": 9.81578947368421,
@@ -874,17 +3050,88 @@
         "strategy_daily_stop": 4
       },
       "blocked": 6,
+      "blocked_r_distribution": {
+        "average": 0.8562143796722509,
+        "count": 6.0,
+        "maximum": 4.436341463414643,
+        "median": -0.10171232876712322,
+        "minimum": -1.0147058823529411,
+        "nonpositive_count": 3.0,
+        "nonpositive_total": -3.0275645021513387,
+        "p10": -1.012069922308546,
+        "p25": -1.007931636081675,
+        "p75": 2.3963819875776506,
+        "p90": 3.6824253900924218,
+        "positive_count": 3.0,
+        "positive_total": 8.164850780184844,
+        "total": 5.137286278033505,
+        "win_rate": 0.5
+      },
       "blocked_rate": 0.0379746835443038,
       "blocked_raw_pnl": 2860.8000000000175,
+      "blocked_raw_pnl_distribution": {
+        "average": 476.8000000000029,
+        "count": 6.0,
+        "maximum": 2728.350000000006,
+        "median": -112.5,
+        "minimum": -1465.0,
+        "nonpositive_count": 3.0,
+        "nonpositive_total": -2345.0,
+        "p10": -1000.0,
+        "p25": -487.5,
+        "p75": 1798.0875000000087,
+        "p90": 2542.9000000000087,
+        "positive_count": 3.0,
+        "positive_total": 5205.8000000000175,
+        "total": 2860.8000000000175,
+        "win_rate": 0.5
+      },
       "blocked_raw_win_rate": 0.5,
       "fired": 158,
-      "fired_raw_pnl": 49278.09999999995
+      "fired_raw_pnl": 49278.09999999995,
+      "nonpositive_trade_block_rate": 0.04225352112676056,
+      "positive_trade_block_rate": 0.034482758620689655,
+      "realized_r_discrimination": -0.3446554597697853
     },
     "NQ_REGIME": {
       "accept_rate": 0.96875,
       "accepted": 775,
       "accepted_adjusted_pnl": 219959.10298836735,
+      "accepted_r_distribution": {
+        "average": 0.8191887813466437,
+        "count": 775.0,
+        "maximum": 14.410909090909092,
+        "median": 0.2963636363636364,
+        "minimum": -1.774,
+        "nonpositive_count": 218.0,
+        "nonpositive_total": -124.71635453525994,
+        "p10": -0.7473959183673469,
+        "p25": -0.0795121951219512,
+        "p75": 1.2309575163398692,
+        "p90": 2.8003987274655358,
+        "positive_count": 557.0,
+        "positive_total": 759.5876600789088,
+        "total": 634.8713055436489,
+        "win_rate": 0.7187096774193549
+      },
       "accepted_raw_pnl": 181764.3,
+      "accepted_raw_pnl_distribution": {
+        "average": 234.53458064516127,
+        "count": 775.0,
+        "maximum": 5389.68,
+        "median": 70.56,
+        "minimum": -583.8399999999999,
+        "nonpositive_count": 218.0,
+        "nonpositive_total": -28718.460000000003,
+        "p10": -148.536,
+        "p25": -19.439999999999998,
+        "p75": 305.96000000000004,
+        "p90": 835.152,
+        "positive_count": 557.0,
+        "positive_total": 210482.75999999998,
+        "total": 181764.3,
+        "win_rate": 0.7187096774193549
+      },
       "accepted_win_rate": 0.7187096774193549,
       "adjusted_to_raw_pnl_ratio": 1.2101336895549202,
       "avg_accepted_base_qty": 20.469677419354838,
@@ -900,17 +3147,88 @@
         "portfolio_weekly_stop": 2
       },
       "blocked": 25,
+      "blocked_r_distribution": {
+        "average": 0.5638441739712686,
+        "count": 25.0,
+        "maximum": 3.2054545454545456,
+        "median": 0.5288888888888889,
+        "minimum": -1.0511764705882352,
+        "nonpositive_count": 7.0,
+        "nonpositive_total": -5.402543398422797,
+        "p10": -1.0349594434074325,
+        "p25": -0.06526315789473684,
+        "p75": 1.1618604651162792,
+        "p90": 1.9248746081504702,
+        "positive_count": 18.0,
+        "positive_total": 19.498647747704517,
+        "total": 14.096104349281717,
+        "win_rate": 0.72
+      },
       "blocked_rate": 0.03125,
       "blocked_raw_pnl": 4502.42,
+      "blocked_raw_pnl_distribution": {
+        "average": 180.0968,
+        "count": 25.0,
+        "maximum": 923.0,
+        "median": 87.6,
+        "minimum": -363.70000000000005,
+        "nonpositive_count": 7.0,
+        "nonpositive_total": -1068.96,
+        "p10": -150.70799999999997,
+        "p25": -23.56,
+        "p75": 313.28,
+        "p90": 694.9359999999999,
+        "positive_count": 18.0,
+        "positive_total": 5571.38,
+        "total": 4502.42,
+        "win_rate": 0.72
+      },
       "blocked_raw_win_rate": 0.72,
       "fired": 800,
-      "fired_raw_pnl": 186266.72
+      "fired_raw_pnl": 186266.72,
+      "nonpositive_trade_block_rate": 0.03111111111111111,
+      "positive_trade_block_rate": 0.03130434782608696,
+      "realized_r_discrimination": 0.255344607375375
     },
     "VdubusNQ_v4": {
       "accept_rate": 0.9764150943396226,
       "accepted": 207,
       "accepted_adjusted_pnl": 36676.68,
+      "accepted_r_distribution": {
+        "average": 0.4042824580745961,
+        "count": 207.0,
+        "maximum": 7.683870967741935,
+        "median": -0.005319148936170213,
+        "minimum": -4.01010101010101,
+        "nonpositive_count": 112.0,
+        "nonpositive_total": -54.310321598038136,
+        "p10": -0.9106437093910995,
+        "p25": -0.4040915915915916,
+        "p75": 0.6247401247401247,
+        "p90": 2.172942172942173,
+        "positive_count": 95.0,
+        "positive_total": 137.9967904194795,
+        "total": 83.6864688214414,
+        "win_rate": 0.45893719806763283
+      },
       "accepted_raw_pnl": 138621.78,
+      "accepted_raw_pnl_distribution": {
+        "average": 669.6704347826088,
+        "count": 207.0,
+        "maximum": 13848.8,
+        "median": -11.2,
+        "minimum": -2531.2,
+        "nonpositive_count": 113.0,
+        "nonpositive_total": -80398.54000000001,
+        "p10": -1251.2,
+        "p25": -608.4000000000001,
+        "p75": 992.21,
+        "p90": 3780.8000000000006,
+        "positive_count": 94.0,
+        "positive_total": 219020.31999999995,
+        "total": 138621.78000000003,
+        "win_rate": 0.45410628019323673
+      },
       "accepted_win_rate": 0.45410628019323673,
       "adjusted_to_raw_pnl_ratio": 0.264580933818625,
       "avg_accepted_base_qty": 2.468599033816425,
@@ -926,11 +3244,73 @@
         "portfolio_weekly_stop": 2
       },
       "blocked": 5,
+      "blocked_r_distribution": {
+        "average": 0.8264926547554158,
+        "count": 5.0,
+        "maximum": 4.40625,
+        "median": 0.10395010395010396,
+        "minimum": -0.5218295218295218,
+        "nonpositive_count": 2.0,
+        "nonpositive_total": -0.5239085239085239,
+        "p10": -0.3139293139293139,
+        "p25": -0.002079002079002079,
+        "p75": 0.14617169373549885,
+        "p90": 2.7022186774942,
+        "positive_count": 3.0,
+        "positive_total": 4.656371797685603,
+        "total": 4.132463273777079,
+        "win_rate": 0.6
+      },
       "blocked_rate": 0.02358490566037736,
       "blocked_raw_pnl": 1970.4800000000002,
+      "blocked_raw_pnl_distribution": {
+        "average": 394.096,
+        "count": 5.0,
+        "maximum": 2813.8,
+        "median": 185.28,
+        "minimum": -1261.2,
+        "nonpositive_count": 2.0,
+        "nonpositive_total": -1272.4,
+        "p10": -761.2,
+        "p25": -11.2,
+        "p75": 243.8,
+        "p90": 1785.8000000000004,
+        "positive_count": 3.0,
+        "positive_total": 3242.8800000000006,
+        "total": 1970.48,
+        "win_rate": 0.6
+      },
       "blocked_raw_win_rate": 0.6,
       "fired": 212,
-      "fired_raw_pnl": 140592.26
+      "fired_raw_pnl": 140592.26,
+      "nonpositive_trade_block_rate": 0.017543859649122806,
+      "positive_trade_block_rate": 0.030612244897959183,
+      "realized_r_discrimination": -0.4222101966808197
     }
+  },
+  "synergy_assessment": {
+    "blocker_quality_passes": false,
+    "calmar_delta_vs_relaxed": -2.293952524108999,
+    "criteria": {
+      "accepted_average_r_exceeds_blocked": false,
+      "all_four_strategies_active": true,
+      "block_net_value_r_nonnegative": false,
+      "block_rate_within_15pct_target": true,
+      "frequency_at_least_40_per_month": true,
+      "nonpositive_block_rate_exceeds_positive_block_rate": false,
+      "optimized_calmar_at_least_relaxed": false,
+      "optimized_drawdown_no_worse_than_relaxed": true,
+      "optimized_profit_factor_at_least_relaxed": false,
+      "optimized_score_at_least_relaxed": false,
+      "trade_capture_at_least_90pct": true
+    },
+    "drawdown_delta_vs_relaxed": -0.002507912963813738,
+    "maximized": false,
+    "profit_capture_vs_relaxed": 0.7708742214820243,
+    "profit_factor_delta_vs_relaxed": -0.5072649131562303,
+    "profit_gap_vs_relaxed": -89631.28269961855,
+    "risk_return_passes": false,
+    "trade_capture_vs_relaxed": 0.9656786271450858,
+    "verdict": "high_opportunity_capture_but_blocker_discrimination_not_synergistic"
   }
 }

@@ -52,7 +52,6 @@ DATA_DIR = ROOT / "backtests" / "swing" / "data" / "raw"
 ROUND7_CONFIG = ROOT / "backtests" / "output" / "swing" / "tpc" / "round_7" / "optimized_config.json"
 DEFAULT_OUTPUT_ROOT = ROOT / "backtests" / "output" / "swing" / "tpc"
 SYMBOLS = ("QQQ", "GLD")
-CONTEXT_SYMBOLS = {"QQQ": "NQ", "GLD": "GC"}
 INITIAL_EQUITY = 100_000.0
 ET_TZ = ZoneInfo("America/New_York")
 
@@ -240,8 +239,6 @@ def build_replay_data(data_mode: str, *, end_date: pd.Timestamp | None) -> dict[
             "idx_1h": idx_1h,
             "idx_4h": align_completed(df15.index, df4h.index, "15min", "4h"),
             "idx_daily": align_daily_previous_session(df15.index, dfd.index),
-            "context_symbol": CONTEXT_SYMBOLS.get(symbol, ""),
-            "context_indicators": build_context_arrays(symbol, df15, end_ts=end_ts),
         }
     return data
 
@@ -969,49 +966,6 @@ def compute_frame_indicators(df: pd.DataFrame) -> dict[str, np.ndarray]:
     }
 
 
-def build_context_arrays(symbol: str, df15: pd.DataFrame, *, end_ts: pd.Timestamp | None) -> dict[str, np.ndarray]:
-    context_symbol = CONTEXT_SYMBOLS.get(symbol, "")
-    if not context_symbol:
-        return {}
-    path_1h = DATA_DIR / f"{context_symbol}_1h.parquet"
-    path_1d = DATA_DIR / f"{context_symbol}_1d.parquet"
-    if not path_1h.exists() or not path_1d.exists():
-        return {}
-    context_1h = slice_timestamp_index(normalize_timezone(load_bars(path_1h)), None, end_ts)
-    context_daily = slice_timestamp_index(normalize_timezone(load_bars(path_1d)), None, end_ts)
-    if context_1h.empty or context_daily.empty:
-        return {}
-    close_1h = context_1h["close"].astype(float)
-    close_daily = context_daily["close"].astype(float)
-    hourly = pd.DataFrame(
-        {
-            "context_close_1h": close_1h,
-            "context_sma20_1h": close_1h.rolling(20, min_periods=20).mean(),
-            "context_sma50_1h": close_1h.rolling(50, min_periods=50).mean(),
-            "context_ret12_1h": close_1h.pct_change(12),
-            "context_ret24_1h": close_1h.pct_change(24),
-        },
-        index=context_1h.index,
-    )
-    daily = pd.DataFrame(
-        {
-            "context_close_daily": close_daily,
-            "context_sma20_daily": close_daily.rolling(20, min_periods=20).mean(),
-            "context_sma50_daily": close_daily.rolling(50, min_periods=50).mean(),
-            "context_ret20_daily": close_daily.pct_change(20),
-        },
-        index=context_daily.index,
-    )
-    idx_1h = align_completed(df15.index, context_1h.index, "15min", "1h")
-    idx_daily = align_daily_previous_session(df15.index, context_daily.index)
-    out: dict[str, np.ndarray] = {}
-    for key in hourly:
-        out[key] = take_aligned(hourly[key].to_numpy(dtype=float), idx_1h)
-    for key in daily:
-        out[key] = take_aligned(daily[key].to_numpy(dtype=float), idx_daily)
-    return out
-
-
 def align_completed(
     lower_times: pd.DatetimeIndex,
     higher_times: pd.DatetimeIndex,
@@ -1033,13 +987,6 @@ def align_daily_previous_session(lower_times: pd.DatetimeIndex, daily_times: pd.
         return np.full(len(lower_dates), -1, dtype=np.int64)
     idx = np.searchsorted(daily_dates, lower_dates, side="left").astype(np.int64) - 1
     return np.minimum(idx, len(daily_dates) - 1)
-
-
-def take_aligned(values: np.ndarray, idx: np.ndarray) -> np.ndarray:
-    out = np.full(len(idx), np.nan, dtype=float)
-    mask = (idx >= 0) & (idx < len(values))
-    out[mask] = values[idx[mask]]
-    return out
 
 
 def session_ok(timestamp: pd.Timestamp, cfg: TPCSymbolConfig) -> bool:
@@ -1110,7 +1057,7 @@ def format_report(full_rows: list[dict[str, Any]], event_rows: list[dict[str, An
     lines.extend(
         [
             "## Interpretation Guardrails",
-            "- Full replay uses the round-7 TPC implementation and includes available QQQ->NQ / GLD->GC context indicators.",
+            "- Full replay is ETF-only and uses no external futures context indicators.",
             "- Event-study R is a conservative 1R/stop probe, not the production T1/T2/runner exit model.",
             "- Holdout rows are the post-2025-11-01 sample and remain small; strong-looking low-N rows are research leads, not promotion evidence.",
         ]

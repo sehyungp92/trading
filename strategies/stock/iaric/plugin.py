@@ -10,7 +10,7 @@ from strategies.core.capital import resolve_plugin_nav
 from .artifact_store import coerce_intraday_state_snapshot
 from .config import StrategySettings
 from .diagnostics import JsonlDiagnostics
-from .engine import IARICEngine
+from .router import IARICEngineRouter
 
 logger = logging.getLogger(__name__)
 
@@ -42,23 +42,96 @@ class IARICPlugin:
         self._trade_recorder = trade_recorder
         self._diagnostics = diagnostics
         self._instrumentation = ctx.instrumentation
-        self._engine: IARICEngine | None = None
+        self._engine: Any | None = None
         self._pending_snapshot: Any | None = None
 
     # -- lifecycle --------------------------------------------------------
 
-    def _build_engine(self) -> IARICEngine:
+    def _build_engine(self) -> Any:
         if self._artifact is None:
             raise RuntimeError(
                 f"{self.strategy_id}: artifact must be set before start(). "
                 "The family coordinator should call plugin._artifact = artifact."
             )
-        return IARICEngine(
+        settings = self._settings
+        if getattr(self._artifact, "strategy_mode", "") == "daily_residual_reversion":
+            parameters = dict(self._artifact.strategy_parameters)
+            settings = dataclasses.replace(
+                settings,
+                strategy_mode="daily_residual_reversion",
+                daily_residual_factor_model=str(parameters["factor_model"]),
+                daily_residual_formation_sessions=int(parameters["formation_sessions"]),
+                daily_residual_minimum_z=float(parameters["minimum_z"]),
+                daily_residual_minimum_score=float(
+                    parameters.get("minimum_score", 0.0)
+                ),
+                daily_residual_minimum_failed_continuation_r=float(
+                    parameters.get("minimum_failed_continuation_r", 0.0)
+                ),
+                daily_residual_lane_id=str(
+                    parameters.get("lane_id", "daily_residual_generic")
+                ),
+                daily_residual_minimum_sector_return_5d=float(
+                    parameters.get("minimum_sector_return_5d", -0.15)
+                ),
+                daily_residual_score_components=tuple(parameters["score_components"]),
+                daily_residual_ranking_score_components=tuple(
+                    parameters.get("ranking_score_components", ())
+                ),
+                daily_residual_max_positions=int(parameters["max_positions"]),
+                daily_residual_max_positions_per_sector=int(
+                    parameters["max_positions_per_sector"]
+                ),
+                daily_residual_sector_overflow_slots=int(
+                    parameters.get("sector_overflow_slots", 0)
+                ),
+                daily_residual_sector_overflow_minimum_score=float(
+                    parameters.get("sector_overflow_minimum_score", 50.0)
+                ),
+                daily_residual_sector_overflow_minimum_z=float(
+                    parameters.get("sector_overflow_minimum_z", 1.0)
+                ),
+                daily_residual_sector_overflow_risk_multiplier=float(
+                    parameters.get("sector_overflow_risk_multiplier", 1.0)
+                ),
+                daily_residual_risk_fraction=float(parameters["risk_fraction"]),
+                daily_residual_maximum_notional_fraction=float(
+                    parameters["maximum_notional_fraction"]
+                ),
+                daily_residual_catastrophic_stop_atr=float(
+                    parameters.get("catastrophic_stop_atr", 2.5)
+                ),
+                daily_residual_catastrophic_stop_residual_r=float(
+                    parameters.get("catastrophic_stop_residual_r", 4.0)
+                ),
+                daily_residual_partial_normalization_fraction=float(
+                    parameters["partial_normalization_fraction"]
+                ),
+                daily_residual_full_normalization_fraction=float(
+                    parameters["full_normalization_fraction"]
+                ),
+                daily_residual_structural_failure_extension_fraction=float(
+                    parameters["structural_failure_extension_fraction"]
+                ),
+                daily_residual_profit_retention_activation_fraction=float(
+                    parameters.get("profit_retention_activation_fraction", 99.0)
+                ),
+                daily_residual_profit_retention_giveback_fraction=float(
+                    parameters.get("profit_retention_giveback_fraction", 99.0)
+                ),
+                daily_residual_maximum_holding_sessions=int(
+                    parameters["maximum_holding_sessions"]
+                ),
+                daily_residual_partial_exit_fraction=float(
+                    parameters["partial_exit_fraction"]
+                ),
+            )
+        return IARICEngineRouter(
             oms_service=self._ctx.oms,
             artifact=self._artifact,
             account_id=self._account_id,
             nav=self._nav,
-            settings=self._settings,
+            settings=settings,
             trade_recorder=self._trade_recorder,
             diagnostics=self._diagnostics,
             instrumentation=self._instrumentation,

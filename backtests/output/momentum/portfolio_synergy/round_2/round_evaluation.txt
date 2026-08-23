@@ -10,6 +10,13 @@ Net profit: $301,556.84
 Net return: 603.11%
 MTM max DD: 7.55%
 PF / WR: 3.40 / 63.49%
+Synergy verdict: high_opportunity_capture_but_blocker_discrimination_not_synergistic
+Synergy maximized in tested evidence: False
+Trade/profit capture vs relaxed: 96.57% / 77.09%
+Blocked winners / all blocks: 41 / 57
+Positive/non-positive trade block rates: 4.95% / 3.43%
+Avoided loss / forgone gain / net block value: 12.28R / 53.44R / -41.16R
+Accepted-minus-blocked average R: -0.047R
 Replay contract: completed_source_trade_replay_live_portfolio_rules.v1
 Evidence scope: portfolio_sizing_evidence_not_full_source_execution_simulation
 Source artifacts fingerprint: 544f777ad2c435c9597006568740bf1580beed558fe76464069dc7c70d1b1f4f

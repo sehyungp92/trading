@@ -75,112 +75,6 @@ class SnapshotCache:
         return self.get(key, max_age_s=max_age_s, now=now) is None
 
 
-class _MinuteAccumulator:
-    def __init__(self) -> None:
-        self.current_minute: datetime | None = None
-        self.open = 0.0
-        self.high = 0.0
-        self.low = 0.0
-        self.close = 0.0
-        self.volume = 0.0
-        self.last_cumulative_volume = 0.0
-
-    def update(self, symbol: str, ts: datetime, price: float, cumulative_volume: float) -> Bar | None:
-        minute = ts.replace(second=0, microsecond=0)
-        volume_delta = max(0.0, cumulative_volume - self.last_cumulative_volume)
-        self.last_cumulative_volume = max(self.last_cumulative_volume, cumulative_volume)
-        if self.current_minute is None:
-            self._reset(minute, price, volume_delta)
-            return None
-        if minute == self.current_minute:
-            self.high = max(self.high, price)
-            self.low = min(self.low, price)
-            self.close = price
-            self.volume += volume_delta
-            return None
-        closed = Bar(
-            symbol=symbol,
-            start_time=self.current_minute,
-            end_time=self.current_minute + timedelta(minutes=1),
-            open=self.open,
-            high=self.high,
-            low=self.low,
-            close=self.close,
-            volume=self.volume,
-        )
-        self._reset(minute, price, volume_delta)
-        return closed
-
-    def _reset(self, minute: datetime, price: float, volume_delta: float) -> None:
-        self.current_minute = minute
-        self.open = price
-        self.high = price
-        self.low = price
-        self.close = price
-        self.volume = volume_delta
-
-
-class CanonicalBarBuilder:
-    def __init__(self) -> None:
-        self._accumulators: dict[str, _MinuteAccumulator] = {}
-        self.completed_1m: dict[str, list[Bar]] = {}
-        self._last_scanned_index: dict[tuple[str, int], int] = {}
-        self._last_emitted_end: dict[tuple[str, int], datetime] = {}
-
-    def ingest_tick(self, symbol: str, ts: datetime, price: float, cumulative_volume: float) -> Bar | None:
-        accumulator = self._accumulators.setdefault(symbol, _MinuteAccumulator())
-        bar = accumulator.update(symbol, ts, price, cumulative_volume)
-        if bar is not None:
-            self.completed_1m.setdefault(symbol, []).append(bar)
-        return bar
-
-    def ingest_bar(self, bar: Bar) -> None:
-        bars = self.completed_1m.setdefault(bar.symbol, [])
-        if bars and bars[-1].start_time >= bar.start_time:
-            return
-        bars.append(bar)
-
-    def aggregate_new_bars(self, symbol: str, timeframe_minutes: int) -> list[Bar]:
-        bars = self.completed_1m.get(symbol, [])
-        key = (symbol, timeframe_minutes)
-        scan_index = self._last_scanned_index.get(key, 0)
-        last_emitted_end = self._last_emitted_end.get(key)
-        produced: list[Bar] = []
-        for index in range(scan_index, len(bars)):
-            end_time = bars[index].end_time
-            if end_time.minute % timeframe_minutes != 0:
-                continue
-            start_index = index - timeframe_minutes + 1
-            if start_index < 0:
-                continue
-            chunk = bars[start_index : index + 1]
-            if len(chunk) < timeframe_minutes:
-                continue
-            if chunk[0].start_time != end_time - timedelta(minutes=timeframe_minutes):
-                continue
-            if any(chunk[pos].end_time != chunk[pos + 1].start_time for pos in range(len(chunk) - 1)):
-                continue
-            if last_emitted_end is not None and end_time <= last_emitted_end:
-                continue
-            produced.append(
-                Bar(
-                    symbol=symbol,
-                    start_time=chunk[0].start_time,
-                    end_time=end_time,
-                    open=chunk[0].open,
-                    high=max(bar.high for bar in chunk),
-                    low=min(bar.low for bar in chunk),
-                    close=chunk[-1].close,
-                    volume=sum(bar.volume for bar in chunk),
-                )
-            )
-            last_emitted_end = end_time
-        self._last_scanned_index[key] = len(bars)
-        if last_emitted_end is not None:
-            self._last_emitted_end[key] = last_emitted_end
-        return produced
-
-
 class TradeFlowWindow:
     def __init__(self, window_seconds: int = 90) -> None:
         self._window = timedelta(seconds=window_seconds)
@@ -212,16 +106,17 @@ class IBMarketDataSource:
         ib: IB,
         contract_factory: ContractFactory,
         on_quote: Callable[[str, QuoteSnapshot], Any] | Callable[[str, QuoteSnapshot], Awaitable[Any]],
-        on_bar: Callable[[str, Bar], Any] | Callable[[str, Bar], Awaitable[Any]],
+        on_completed_5m_bar: Callable[[str, Bar], Any] | Callable[[str, Bar], Awaitable[Any]],
         historical_requester: Callable[..., Awaitable[Any]] | None = None,
+        on_bar_batch_complete: Callable[[datetime], Any] | Callable[[datetime], Awaitable[Any]] | None = None,
     ) -> None:
         self._ib = ib
         self._factory = contract_factory
         self._on_quote = on_quote
-        self._on_bar = on_bar
+        self._on_completed_5m_bar = on_completed_5m_bar
+        self._on_bar_batch_complete = on_bar_batch_complete
         self._historical_requester = historical_requester
         self._contracts: dict[str, Any] = {}
-        self._builders: dict[str, _MinuteAccumulator] = {}
         self._logical_symbol_by_conid: dict[int, str] = {}
         self._logical_symbol_by_broker_symbol: dict[str, str] = {}
         self._tick_by_tick_disabled: set[str] = set()
@@ -257,7 +152,6 @@ class IBMarketDataSource:
         re-resolve and re-subscribe everything.
         """
         self._contracts.clear()
-        self._builders.clear()
         self._last_history_end.clear()
         self._blacklisted.clear()
         self._logical_symbol_by_conid.clear()
@@ -270,7 +164,6 @@ class IBMarketDataSource:
             self._ib.cancelTickByTickData(contract, "Last")
             self._ib.cancelTickByTickData(contract, "BidAsk")
             self._ib.cancelMktData(contract)
-        self._builders.pop(symbol, None)
         for con_id, logical_symbol in list(self._logical_symbol_by_conid.items()):
             if logical_symbol == symbol:
                 self._logical_symbol_by_conid.pop(con_id, None)
@@ -399,24 +292,33 @@ class IBMarketDataSource:
             contract, _ = await self._factory.resolve(symbol=instrument.root or instrument.symbol, instrument=instrument)
             self._contracts[symbol] = contract
             self._register_contract_symbol(symbol, contract)
-            self._builders[symbol] = _MinuteAccumulator()
             self._ib.reqMktData(contract)
             if symbol not in self._tick_by_tick_disabled:
                 self._ib.reqTickByTickData(contract, "Last")
                 self._ib.reqTickByTickData(contract, "BidAsk")
 
-    async def request_recent_bars(self, instrument: Instrument, duration: str = "1 D") -> list[Bar]:
+    async def request_recent_bars(
+        self,
+        instrument: Instrument,
+        duration: str = "1 D",
+        *,
+        as_of: datetime | None = None,
+    ) -> list[Bar]:
+        """Request authoritative completed IBKR five-minute TRADES bars."""
         contract, _ = await self._factory.resolve(symbol=instrument.root or instrument.symbol, instrument=instrument)
         if self._historical_requester is not None:
             rows = await self._historical_requester(
                 contract,
                 endDateTime="",
                 durationStr=duration,
-                barSizeSetting="1 min",
+                barSizeSetting="5 mins",
                 whatToShow="TRADES",
                 useRTH=True,
+                formatDate=2,
                 keepUpToDate=False,
                 request_kind="recurring",
+                completed_only=True,
+                as_of=as_of,
             )
         else:
             # Raw IB fallback for standalone tools/tests without UnifiedIBSession.
@@ -424,11 +326,20 @@ class IBMarketDataSource:
                 contract,
                 endDateTime="",
                 durationStr=duration,
-                barSizeSetting="1 min",
+                barSizeSetting="5 mins",
                 whatToShow="TRADES",
                 useRTH=True,
+                formatDate=2,
                 keepUpToDate=False,
                 timeout=20,
+            )
+            from libs.config.completed_bar_policy import filter_completed_live_bars
+
+            rows = filter_completed_live_bars(
+                rows,
+                bar_size_setting="5 mins",
+                use_rth=True,
+                as_of=as_of,
             )
         bars: list[Bar] = []
         for row in rows:
@@ -441,7 +352,7 @@ class IBMarketDataSource:
                 Bar(
                     symbol=instrument.symbol,
                     start_time=start,
-                    end_time=start + timedelta(minutes=1),
+                    end_time=start + timedelta(minutes=5),
                     open=float(row.open),
                     high=float(row.high),
                     low=float(row.low),
@@ -453,6 +364,7 @@ class IBMarketDataSource:
 
     async def poll_due_bars(self, requests: Iterable[tuple[Instrument, int]], now: datetime | None = None) -> None:
         current = now or datetime.now(timezone.utc)
+        emitted: list[tuple[str, Bar]] = []
         for instrument, interval_s in requests:
             symbol = instrument.symbol.upper()
             cache_key = f"hist:{symbol}"
@@ -460,17 +372,33 @@ class IBMarketDataSource:
                 continue
             self._snapshot_cache.put(cache_key, "pending", now=current)
             await self._poll_budget.wait_for()
-            duration = "1 D" if symbol not in self._last_history_end else "1800 S"
+            last_end = self._last_history_end.get(symbol)
+            if last_end is None:
+                duration = "1 D"
+            else:
+                elapsed_s = max(0.0, (current - last_end).total_seconds())
+                duration = "1 D" if elapsed_s > 1800.0 else f"{max(1800, int(elapsed_s) + 600)} S"
             try:
-                bars = await self.request_recent_bars(instrument, duration=duration)
+                bars = await self.request_recent_bars(instrument, duration=duration, as_of=current)
             except Exception:
                 continue
-            last_end = self._last_history_end.get(symbol)
             new_bars = [bar for bar in bars if last_end is None or bar.end_time > last_end]
-            if new_bars:
-                self._last_history_end[symbol] = new_bars[-1].end_time
             for bar in new_bars:
-                self._dispatch(self._on_bar(symbol, bar))
+                emitted.append((symbol, bar))
+
+        emitted.sort(key=lambda item: (item[1].end_time, item[0]))
+        batch_end: datetime | None = None
+        for symbol, bar in emitted:
+            if batch_end is not None and bar.end_time != batch_end and self._on_bar_batch_complete is not None:
+                await self._dispatch_awaitable(self._on_bar_batch_complete(batch_end))
+            # Advance the cursor only after the production handler completes.
+            # A strict gap exception therefore retries the same history window
+            # instead of silently skipping past the gap.
+            await self._dispatch_awaitable(self._on_completed_5m_bar(symbol, bar))
+            self._last_history_end[symbol] = bar.end_time
+            batch_end = bar.end_time
+        if batch_end is not None and self._on_bar_batch_complete is not None:
+            await self._dispatch_awaitable(self._on_bar_batch_complete(batch_end))
 
     def _handle_pending_tickers(self, tickers) -> None:
         now = datetime.now(timezone.utc)
@@ -498,14 +426,13 @@ class IBMarketDataSource:
                 spread_pct=spread_pct,
             )
             self._dispatch(self._on_quote(symbol, quote))
-            accumulator = self._builders.get(symbol)
-            if accumulator is None or quote.last <= 0:
-                continue
-            bar = accumulator.update(symbol, now, quote.last, quote.cumulative_volume)
-            if bar is not None:
-                self._dispatch(self._on_bar(symbol, bar))
 
     @staticmethod
     def _dispatch(result: Any) -> None:
         if inspect.isawaitable(result):
             asyncio.create_task(result)
+
+    @staticmethod
+    async def _dispatch_awaitable(result: Any) -> None:
+        if inspect.isawaitable(result):
+            await result

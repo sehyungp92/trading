@@ -59,9 +59,15 @@ class StrategySettings:
     cold_poll_interval_s: int = 120
 
     min_price: float = 10.0
-    min_adv_usd: float = 10_000_000.0
+    # Effective floor the promoted config was fitted under: the pre-fix code
+    # compared lot-scale dollars against $10M, i.e. a genuine $1bn floor.
+    min_adv_usd: float = 1_000_000_000.0
     max_median_spread_pct: float = 0.0050
     max_friction_to_risk: float = 0.10
+    use_momentum_friction_gate: bool = False
+    use_daily_stop: bool = True
+    use_orb_entry_range_gate: bool = True
+    use_breakout_distance_cap: bool = False
     earnings_block_days: int = 3
     allow_adrs: bool = False
     allow_biotech: bool = False
@@ -106,17 +112,19 @@ class StrategySettings:
     base_risk_fraction: float = 0.00702
     volatile_base_risk_fraction: float = 0.0035
     daily_stop_r: float = 2.35
-    heat_cap_r: float = 4.0
+    heat_cap_r: float = 4.5
     portfolio_daily_stop_r: float = 3.5
     max_portfolio_heat_fraction: float = 0.03
     final_risk_min_mult: float = 0.20
     final_risk_max_mult: float = 1.00
     atr_stop_mult_std: float = 1.0
     atr_stop_mult_volatile: float = 1.2
-    max_participation_30m: float = 0.01
-    thin_participation_30m: float = 0.005
+    # Fractions of 30m SHARE volume.  Pre-fix these were applied to lot-scale
+    # volume, so the fitted caps are 100x smaller than they read.
+    max_participation_30m: float = 0.0001
+    thin_participation_30m: float = 0.00005
 
-    max_positions: int = 6
+    max_positions: int = 7
     max_positions_per_sector: int = 3
     max_adds: int = 2
     max_campaign_risk_mult: float = 1.5
@@ -157,10 +165,10 @@ class StrategySettings:
     dirty_reset_days: int = 5
 
     # --- Momentum continuation (T1) ---
-    opening_range_bars: int = 9             # 9 x 5m = 45 min
+    opening_range_bars: int = 8             # 8 x 5m = 40 min
     entry_window_start: time = time(10, 0)
     entry_window_end: time = time(12, 30)
-    rvol_threshold: float = 1.7
+    rvol_threshold: float = 1.4
     cpr_threshold: float = 0.6
     momentum_score_min: int = 2
     momentum_size_mult_score_3: float = 1.00
@@ -181,7 +189,7 @@ class StrategySettings:
     carry_regime_required: tuple[str, ...] = ("A", "B")
     max_carry_days: int = 2
     regime_mult_a: float = 1.0
-    regime_mult_b: float = 0.7
+    regime_mult_b: float = 1.0
     regime_mult_c: float = 0.6
     block_combined_regime_b: bool = True           # Block COMBINED_BREAKOUT in Tier B
     # Flow reversal tuning
@@ -218,7 +226,7 @@ class StrategySettings:
 
     # B. COMBINED_BREAKOUT quality gate (separate thresholds)
     combined_breakout_score_min: int = 5       # Min momentum score for COMBINED entries (0=use global)
-    combined_breakout_min_rvol: float = 2.5    # Min RVOL for COMBINED entries (0=use global)
+    combined_breakout_min_rvol: float = 2.0    # Min RVOL for COMBINED entries (0=use global)
 
     # C. Signal filters
     avwap_distance_cap_pct: float = 0.0        # Max % above AVWAP at entry (0=disabled)
@@ -245,7 +253,7 @@ class StrategySettings:
     pdh_breakout_score_min: int = 0            # Min momentum score for PDH entries (0=disabled)
     pdh_breakout_min_rvol: float = 0.0         # Min RVOL for PDH entries (0=use global)
     pdh_entry_window_end: time = time(15, 30)  # Extra PDH-specific entry cutoff
-    pdh_avwap_cap_pct: float = 0.005           # Max AVWAP premium for PDH entries (0=disabled)
+    pdh_avwap_cap_pct: float = 0.0             # Max AVWAP premium for PDH entries (0=disabled)
     pdh_size_mult: float = 0.75                # Size multiplier for PDH entries
 
     # --- Phase 10: MFE Conviction Exit ---
@@ -262,7 +270,7 @@ class StrategySettings:
     adaptive_trail_late_distance_r: float = 0.04
 
     # --- Phase 10: COMBINED-Specific Entry Filters ---
-    combined_avwap_cap_pct: float = 0.003     # Max AVWAP distance for COMBINED entries (0=disabled)
+    combined_avwap_cap_pct: float = 0.0       # Max AVWAP distance for COMBINED entries (0=disabled)
     combined_breakout_cap_r: float = 0.0      # Max breakout distance for COMBINED entries in R (0=disabled)
     or_breakout_cap_r: float = 0.0            # Max OR breakout distance in R (0=disabled)
     pdh_breakout_cap_r: float = 0.0           # Max PDH breakout distance in R (0=disabled)
@@ -276,7 +284,7 @@ class StrategySettings:
     entry_score_blocklist: tuple[str, ...] = ("COMBINED_BREAKOUT:5",)
     entry_score_size_mults: dict = field(default_factory=lambda: {"OR_BREAKOUT:5": 0.75, "COMBINED_BREAKOUT:7": 1.15, "PDH_BREAKOUT:6": 0.5})
     entry_detail_blocklist: tuple[str, ...] = ()
-    entry_detail_size_mults: dict = field(default_factory=lambda: {"OR_BREAKOUT:5:!bar_vol_surge": 0.55})
+    entry_detail_size_mults: dict = field(default_factory=dict)
     sector_entry_blocklist: tuple[str, ...] = ()
     sector_entry_size_mults: dict = field(default_factory=dict)
 
@@ -333,7 +341,7 @@ class StrategySettings:
     orb_gap_tight_pct: float = 0.05           # Mild gap threshold
     orb_gap_caution_mult: float = 0.65        # Size multiplier for caution gaps
     orb_gap_tight_mult: float = 0.80          # Size multiplier for mild gaps
-    orb_entry_range_cap_r: float = 1.25
+    orb_entry_range_cap_r: float = 1.5
     orb_entry_range_taper_start_r: float = 0.0 # Start continuous range-based sizing (0=disabled)
     orb_entry_range_taper_end_r: float = 0.0   # Reach floor at this completed signal-bar range
     orb_entry_range_taper_floor: float = 1.0   # Minimum size multiplier at/above taper end

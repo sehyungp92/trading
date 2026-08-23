@@ -1,0 +1,109 @@
+resume: loaded baseline diagnostics
+phase 1: screen 233 granular ablation/perturbation candidates on OOS
+evaluate oos_phase1_screen: 1-8 of 233 pending
+checkpointed 8 result(s) in 223.4s
+evaluate oos_phase1_screen: 9-16 of 233 pending
+checkpointed 16 result(s) in 44.2s
+evaluate oos_phase1_screen: 17-24 of 233 pending
+checkpointed 24 result(s) in 41.9s
+evaluate oos_phase1_screen: 25-32 of 233 pending
+checkpointed 32 result(s) in 41.0s
+evaluate oos_phase1_screen: 33-40 of 233 pending
+checkpointed 40 result(s) in 35.7s
+evaluate oos_phase1_screen: 41-48 of 233 pending
+checkpointed 48 result(s) in 44.9s
+evaluate oos_phase1_screen: 49-56 of 233 pending
+checkpointed 56 result(s) in 38.6s
+evaluate oos_phase1_screen: 57-64 of 233 pending
+checkpointed 64 result(s) in 42.4s
+evaluate oos_phase1_screen: 65-72 of 233 pending
+checkpointed 72 result(s) in 46.4s
+evaluate oos_phase1_screen: 73-80 of 233 pending
+checkpointed 80 result(s) in 45.4s
+evaluate oos_phase1_screen: 81-88 of 233 pending
+checkpointed 88 result(s) in 45.0s
+evaluate oos_phase1_screen: 89-96 of 233 pending
+checkpointed 96 result(s) in 48.0s
+evaluate oos_phase1_screen: 97-104 of 233 pending
+checkpointed 104 result(s) in 42.4s
+evaluate oos_phase1_screen: 105-112 of 233 pending
+checkpointed 112 result(s) in 48.1s
+evaluate oos_phase1_screen: 113-120 of 233 pending
+checkpointed 120 result(s) in 84.2s
+evaluate oos_phase1_screen: 121-128 of 233 pending
+checkpointed 128 result(s) in 87.1s
+evaluate oos_phase1_screen: 129-136 of 233 pending
+checkpointed 136 result(s) in 85.9s
+evaluate oos_phase1_screen: 137-144 of 233 pending
+checkpointed 144 result(s) in 83.7s
+evaluate oos_phase1_screen: 145-152 of 233 pending
+checkpointed 152 result(s) in 79.4s
+evaluate oos_phase1_screen: 153-160 of 233 pending
+checkpointed 160 result(s) in 82.6s
+evaluate oos_phase1_screen: 161-168 of 233 pending
+checkpointed 168 result(s) in 87.1s
+evaluate oos_phase1_screen: 169-176 of 233 pending
+checkpointed 176 result(s) in 78.0s
+evaluate oos_phase1_screen: 177-184 of 233 pending
+checkpointed 184 result(s) in 44.3s
+evaluate oos_phase1_screen: 185-192 of 233 pending
+checkpointed 192 result(s) in 39.5s
+evaluate oos_phase1_screen: 193-200 of 233 pending
+checkpointed 200 result(s) in 39.0s
+evaluate oos_phase1_screen: 201-208 of 233 pending
+checkpointed 208 result(s) in 39.3s
+evaluate oos_phase1_screen: 209-216 of 233 pending
+checkpointed 216 result(s) in 46.8s
+evaluate oos_phase1_screen: 217-224 of 233 pending
+checkpointed 224 result(s) in 89.1s
+evaluate oos_phase1_screen: 225-232 of 233 pending
+checkpointed 232 result(s) in 84.6s
+evaluate oos_phase1_screen: 233-233 of 233 pending
+checkpointed 233 result(s) in 47.8s
+phase 2: screen 30 weakness-targeted candidates after baseline attribution
+evaluate oos_targeted_screen: 1-8 of 30 pending
+checkpointed 8 result(s) in 211.6s
+evaluate oos_targeted_screen: 9-16 of 30 pending
+checkpointed 16 result(s) in 39.7s
+evaluate oos_targeted_screen: 17-24 of 30 pending
+checkpointed 24 result(s) in 41.6s
+evaluate oos_targeted_screen: 25-30 of 30 pending
+checkpointed 30 result(s) in 31.9s
+validate 93 candidates on full IS
+evaluate is_validation: 1-8 of 93 pending
+checkpointed 8 result(s) in 674.1s
+evaluate is_validation: 9-16 of 93 pending
+checkpointed 16 result(s) in 576.2s
+evaluate is_validation: 17-24 of 93 pending
+checkpointed 24 result(s) in 515.5s
+evaluate is_validation: 25-32 of 93 pending
+checkpointed 32 result(s) in 494.7s
+evaluate is_validation: 33-40 of 93 pending
+checkpointed 40 result(s) in 815.9s
+evaluate is_validation: 41-48 of 93 pending
+checkpointed 48 result(s) in 922.0s
+evaluate is_validation: 49-56 of 93 pending
+checkpointed 56 result(s) in 629.1s
+evaluate is_validation: 57-64 of 93 pending
+checkpointed 64 result(s) in 963.9s
+evaluate is_validation: 65-72 of 93 pending
+checkpointed 72 result(s) in 692.2s
+evaluate is_validation: 73-80 of 93 pending
+checkpointed 80 result(s) in 775.2s
+evaluate is_validation: 81-88 of 93 pending
+checkpointed 88 result(s) in 985.6s
+evaluate is_validation: 89-93 of 93 pending
+checkpointed 93 result(s) in 615.4s
+evaluate combination_oos: 1-8 of 18 pending
+checkpointed 8 result(s) in 229.7s
+evaluate combination_oos: 9-16 of 18 pending
+checkpointed 16 result(s) in 50.0s
+evaluate combination_oos: 17-18 of 18 pending
+checkpointed 18 result(s) in 17.8s
+evaluate combination_is: 1-8 of 10 pending
+checkpointed 8 result(s) in 966.6s
+evaluate combination_is: 9-10 of 10 pending
+checkpointed 10 result(s) in 315.9s
+run final trade-level diagnostics for perturb__rvol_threshold__1p1
+complete: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\alcb\round_2\oos_ablation_perturbation_verified_20260816
+recommended exploratory config: perturb__rvol_threshold__1p1

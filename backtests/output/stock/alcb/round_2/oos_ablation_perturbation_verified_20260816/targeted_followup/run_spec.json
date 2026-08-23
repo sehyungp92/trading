@@ -1,0 +1,24 @@
+{
+  "candidate_count": 56,
+  "folds": [
+    {
+      "end": "2024-12-31",
+      "name": "is_early",
+      "start": "2024-03-25"
+    },
+    {
+      "end": "2025-08-31",
+      "name": "is_middle",
+      "start": "2025-01-01"
+    },
+    {
+      "end": "2026-03-01",
+      "name": "is_late",
+      "start": "2025-09-01"
+    }
+  ],
+  "followup_execution_fingerprint": "e3a00295ea96f0454b31f33e551e0efdb330249f74f0115b1adcca1ef3b4bb1a",
+  "parent_execution_fingerprint": "e6c91b1b5e1c372021fe3cd653bc230f5d75a4fb8c40b69fa3f016c92f4413c8",
+  "parent_verified_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\oos_ablation_perturbation_verified_20260816",
+  "promotion_authorized": false
+}

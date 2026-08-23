@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 
 from strategies.momentum.nq_regime import config
-from strategies.scalp._shared.time_utils import to_et
+from strategies.momentum.nq_regime.time_utils import to_et
 
 
 class SessionPhase(str, Enum):

@@ -177,11 +177,11 @@ def _phase_2_regime_and_room_discrimination() -> list[tuple[str, dict[str, Any]]
         ("all_extension175", {"all.max_extension_atr_mult": 1.75}),
         ("gld_extension150", {"GLD.max_extension_atr_mult": 1.50}),
         ("gld_room30_extension175", {"GLD.daily_room_min_r": 3.0, "GLD.max_extension_atr_mult": 1.75}),
-        ("qqq_context_min_neg010", {"QQQ.asset_context_min_score": -0.10}),
-        ("qqq_context_min010", {"QQQ.asset_context_min_score": 0.10}),
-        ("qqq_context_min025", {"QQQ.asset_context_min_score": 0.25}),
-        ("gld_context_min_neg050", {"GLD.asset_context_enabled": True, "GLD.asset_context_min_score": -0.50}),
-        ("gld_context_min_neg025", {"GLD.asset_context_enabled": True, "GLD.asset_context_min_score": -0.25}),
+        ("qqq_etf_context_min_neg010", {"QQQ.etf_context_min_score": -0.10}),
+        ("qqq_etf_context_min010", {"QQQ.etf_context_min_score": 0.10}),
+        ("qqq_etf_context_min025", {"QQQ.etf_context_min_score": 0.25}),
+        ("gld_etf_context_min_neg050", {"GLD.etf_context_enabled": True, "GLD.etf_context_min_score": -0.50}),
+        ("gld_etf_context_min_neg025", {"GLD.etf_context_enabled": True, "GLD.etf_context_min_score": -0.25}),
     ]
 
 
@@ -399,22 +399,22 @@ def _phase_7_qqq_excellent_supply() -> list[tuple[str, dict[str, Any]]]:
             "QQQ.score_b_min": 16,
             "QQQ.confirmation_required": 2,
         }),
-        ("qqq_context_neg010_alpha7_supply", {
-            "QQQ.asset_context_min_score": -0.10,
+        ("qqq_etf_context_neg010_alpha7_supply", {
+            "QQQ.etf_context_min_score": -0.10,
             "QQQ.daily_room_min_r": 1.5,
             "QQQ.max_extension_atr_mult": 2.50,
             "QQQ.score_a_min": 10,
             "QQQ.score_b_min": 9,
         }),
-        ("qqq_context010_alpha7_quality", {
-            "QQQ.asset_context_min_score": 0.10,
+        ("qqq_etf_context010_alpha7_quality", {
+            "QQQ.etf_context_min_score": 0.10,
             "QQQ.daily_room_min_r": 1.6,
             "QQQ.max_extension_atr_mult": 2.25,
             "QQQ.score_a_min": 11,
             "QQQ.score_b_min": 10,
         }),
-        ("qqq_aplus_short_context_neg010", {
-            "QQQ.asset_context_min_score": -0.10,
+        ("qqq_aplus_short_etf_context_neg010", {
+            "QQQ.etf_context_min_score": -0.10,
             "QQQ.shorts_enabled": True,
             "QQQ.shorts_require_a_plus": True,
             "QQQ.min_short_score": 12,

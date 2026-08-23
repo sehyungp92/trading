@@ -23,6 +23,8 @@ from backtests.stock.analysis.alcb_shadow_tracker import (
 from backtests.shared.parity.legacy_result_outputs import trade_outcomes_from_records
 from backtests.stock.config import SlippageConfig
 from backtests.stock.config_alcb import ALCBBacktestConfig
+from backtests.stock.data.calendar import bar_open_in_session
+from strategies.stock.volume_units import to_shares
 from backtests.stock.engine.research_replay import ResearchReplayEngine
 from backtests.shared.parity.decision_capture import normalize_decision_stream
 from backtests.shared.parity.replay_driver import ReplayStep, run_replay
@@ -57,6 +59,8 @@ from strategies.stock.alcb.models import (
 from strategies.stock.alcb.risk import (
     conditional_entry_blocked,
     conditional_entry_size_mult,
+    failure_stop_price,
+    momentum_friction_gate_pass,
     momentum_regime_mult,
     momentum_size_mult,
     momentum_stop_price,
@@ -102,6 +106,7 @@ class _Position:
     signal_bar_index: int
     fill_bar_index: int
     reentry_sequence: int
+    current_stop_reason: str = "CLOSE_STOP"
     commission_entry: float = 0.0
     slippage_entry: float = 0.0
     partial_taken: bool = False
@@ -121,6 +126,7 @@ class _Position:
     entry_geometry_size_mult: float = 1.0
     entry_expected_volume_5m: float = 0.0
     entry_signal_rvol: float = 0.0
+    signal_features: dict[str, float] = field(default_factory=dict)
 
     def unrealized_r(self, price: float) -> float:
         if self.risk_per_share <= 0:
@@ -155,6 +161,7 @@ class _PendingEntry:
     opened_date: date
     reentry_sequence: int
     entry_geometry_size_mult: float = 1.0
+    signal_features: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -228,6 +235,15 @@ class ALCBIntradayEngine:
         self._decision_events.extend(result.events)
         return result
 
+    def _bars_for_date(self, symbol: str, trade_date: date) -> list:
+        """Return only bars belonging to ALCB's configured session."""
+        bars = self.replay.get_5m_bar_objects_for_date(symbol, trade_date)
+        return [
+            bar
+            for bar in bars
+            if bar_open_in_session(bar.start_time, self.config.intraday_session_policy)
+        ]
+
     # ------------------------------------------------------------------
     # Main run
     # ------------------------------------------------------------------
@@ -262,7 +278,14 @@ class ALCBIntradayEngine:
             # Phase 1: Daily Setup
             # ----------------------------------------------------------
             try:
-                artifact = self.replay.alcb_selection_for_date(current, settings)
+                if getattr(self.replay, "supports_alcb_session_policy", False):
+                    artifact = self.replay.alcb_selection_for_date(
+                        current,
+                        settings,
+                        session_policy=self.config.intraday_session_policy,
+                    )
+                else:
+                    artifact = self.replay.alcb_selection_for_date(current, settings)
             except Exception:
                 current += timedelta(days=1)
                 continue
@@ -274,13 +297,13 @@ class ALCBIntradayEngine:
             if ablation.use_regime_gate and regime_tier == "C":
                 for sym in list(positions):
                     pos = positions[sym]
-                    bars_5m = self.replay.get_5m_bar_objects_for_date(sym, current)
+                    bars_5m = self._bars_for_date(sym, current)
                     if bars_5m:
                         exit_price = bars_5m[0].open
                         exit_time = bars_5m[0].start_time
                     else:
                         exit_price = pos.entry_price
-                        exit_time = datetime.combine(current, time(9, 30))
+                        exit_time = datetime.combine(current, time(9, 30), tzinfo=_ET)
                     closed = self._close_position(
                         pos, exit_price, exit_time, "REGIME_GATE_FLATTEN", settings,
                     )
@@ -310,11 +333,11 @@ class ALCBIntradayEngine:
             # ----------------------------------------------------------
             for sym in list(positions):
                 pos = positions[sym]
-                bars_5m = self.replay.get_5m_bar_objects_for_date(sym, current)
+                bars_5m = self._bars_for_date(sym, current)
                 if not bars_5m:
                     closed = self._close_position(
                         pos, pos.entry_price,
-                        datetime.combine(current, time(9, 30)),
+                        datetime.combine(current, time(9, 30), tzinfo=_ET),
                         "DATA_GAP", settings,
                     )
                     trades.append(closed)
@@ -375,12 +398,12 @@ class ALCBIntradayEngine:
             # Gather 5m bars per symbol
             all_bars: dict[str, list] = {}
             for sym in today_symbols:
-                bars = self.replay.get_5m_bar_objects_for_date(sym, current)
+                bars = self._bars_for_date(sym, current)
                 if bars:
                     all_bars[sym] = bars
             for sym in positions:
                 if sym not in all_bars:
-                    bars = self.replay.get_5m_bar_objects_for_date(sym, current)
+                    bars = self._bars_for_date(sym, current)
                     if bars:
                         all_bars[sym] = bars
 
@@ -444,8 +467,10 @@ class ALCBIntradayEngine:
                                 be_price = pos.entry_price + 0.01 if pos.direction == Direction.LONG else pos.entry_price - 0.01
                                 if pos.direction == Direction.LONG and be_price > pos.current_stop:
                                     pos.current_stop = be_price
+                                    pos.current_stop_reason = "BREAKEVEN_STOP"
                                 elif pos.direction == Direction.SHORT and be_price < pos.current_stop:
                                     pos.current_stop = be_price
+                                    pos.current_stop_reason = "BREAKEVEN_STOP"
 
                         exited = self._exit_cascade(
                             pos, sym, bar, session_bars, positions,
@@ -504,7 +529,7 @@ class ALCBIntradayEngine:
             pos = positions[sym]
             closed = self._close_position(
                 pos, pos.entry_price,
-                datetime.combine(end, time(16, 0)),
+                datetime.combine(end, time(16, 0), tzinfo=_ET),
                 "BACKTEST_END", settings,
             )
             trades.append(closed)
@@ -548,7 +573,11 @@ class ALCBIntradayEngine:
         )
         if stop_hit:
             closed = self._close_position(
-                pos, pos.current_stop, bar.start_time, "CLOSE_STOP", settings,
+                pos,
+                pos.current_stop,
+                bar.start_time,
+                pos.current_stop_reason,
+                settings,
             )
             trades.append(closed)
             del positions[sym]
@@ -610,28 +639,20 @@ class ALCBIntradayEngine:
         # 1c. EARLY-FAILURE PROTECTIVE STOP TIGHTENING
         # Completed-bar evidence only: this updates the live protective stop for
         # future bars instead of creating an optimistic same-bar market exit.
-        if settings.failure_stop_bars > 0 and pos.risk_per_share > 0:
-            if pos.hold_bars >= settings.failure_stop_bars:
-                mfe_r = pos.unrealized_r(pos.max_favorable)
-                current_r = pos.unrealized_r(bar.close)
-                if (
-                    mfe_r <= settings.failure_stop_mfe_max_r
-                    and current_r <= settings.failure_stop_current_r_max
-                ):
-                    target_r = settings.failure_stop_to_r
-                    buffer_pct = max(0.0, settings.failure_stop_close_buffer_pct)
-                    if pos.direction == Direction.LONG:
-                        desired_stop = pos.entry_price + target_r * pos.risk_per_share
-                        if buffer_pct > 0:
-                            desired_stop = min(desired_stop, bar.close * (1.0 - buffer_pct))
-                        if desired_stop > pos.current_stop and desired_stop < bar.close:
-                            pos.current_stop = desired_stop
-                    else:
-                        desired_stop = pos.entry_price - target_r * pos.risk_per_share
-                        if buffer_pct > 0:
-                            desired_stop = max(desired_stop, bar.close * (1.0 + buffer_pct))
-                        if desired_stop < pos.current_stop and desired_stop > bar.close:
-                            pos.current_stop = desired_stop
+        if settings.failure_stop_bars > 0 and pos.hold_bars >= settings.failure_stop_bars:
+            updated_stop = failure_stop_price(
+                pos.direction,
+                pos.entry_price,
+                pos.current_stop,
+                bar.close,
+                pos.risk_per_share,
+                pos.unrealized_r(pos.max_favorable),
+                pos.unrealized_r(bar.close),
+                settings,
+            )
+            if updated_stop != pos.current_stop:
+                pos.current_stop = updated_stop
+                pos.current_stop_reason = "FAILURE_STOP"
 
         # 1d. EARLY MATURATION STOP TIGHTENING
         # This only uses completed post-entry bars and updates the protective
@@ -644,6 +665,7 @@ class ALCBIntradayEngine:
                         bar,
                         target_r=settings.maturation_stop_to_r,
                         close_buffer_pct=settings.maturation_stop_close_buffer_pct,
+                        reason="MATURATION_STOP",
                     )
 
         # 2. FLOW_REVERSAL
@@ -691,8 +713,10 @@ class ALCBIntradayEngine:
                     )
                     if pos.direction == Direction.LONG and trail_price > pos.current_stop:
                         pos.current_stop = trail_price
+                        pos.current_stop_reason = "FLOW_MFE_TRAIL"
                     elif pos.direction == Direction.SHORT and trail_price < pos.current_stop:
                         pos.current_stop = trail_price
+                        pos.current_stop_reason = "FLOW_MFE_TRAIL"
 
         # 2c. ADAPTIVE TRAILING STOP (time-phased: no trail -> wide -> tight)
         if ablation.use_adaptive_trail and settings.adaptive_trail_start_bars > 0:
@@ -714,8 +738,10 @@ class ALCBIntradayEngine:
                         )
                         if pos.direction == Direction.LONG and trail_price > pos.current_stop:
                             pos.current_stop = trail_price
+                            pos.current_stop_reason = "ADAPTIVE_TRAIL"
                         elif pos.direction == Direction.SHORT and trail_price < pos.current_stop:
                             pos.current_stop = trail_price
+                            pos.current_stop_reason = "ADAPTIVE_TRAIL"
 
         # 2d. ORB-STYLE RETRACEMENT TRAIL (preserve a fraction of MFE)
         if ablation.use_orb_retracement_trail and settings.orb_retracement_trail_start_bars > 0:
@@ -742,8 +768,10 @@ class ALCBIntradayEngine:
                         )
                         if pos.direction == Direction.LONG and trail_price > pos.current_stop:
                             pos.current_stop = trail_price
+                            pos.current_stop_reason = "ORB_RETRACEMENT_TRAIL"
                         elif pos.direction == Direction.SHORT and trail_price < pos.current_stop:
                             pos.current_stop = trail_price
+                            pos.current_stop_reason = "ORB_RETRACEMENT_TRAIL"
 
         # 3. PARTIAL_TAKE
         if ablation.use_partial_takes:
@@ -770,6 +798,7 @@ class ALCBIntradayEngine:
                     pos.quantity -= partial_qty
                     if settings.move_stop_to_be:
                         pos.current_stop = pos.entry_price
+                        pos.current_stop_reason = "PARTIAL_BREAKEVEN_STOP"
 
                     # Core notification: partial exit lifecycle
                     _partial_oid = f"alcb-p-{sym}-{self._order_counter}"
@@ -882,6 +911,7 @@ class ALCBIntradayEngine:
         *,
         target_r: float,
         close_buffer_pct: float,
+        reason: str,
     ) -> None:
         buffer_pct = max(0.0, close_buffer_pct)
         if pos.direction == Direction.LONG:
@@ -890,6 +920,7 @@ class ALCBIntradayEngine:
                 desired_stop = min(desired_stop, bar.close * (1.0 - buffer_pct))
             if desired_stop > pos.current_stop and desired_stop < bar.close:
                 pos.current_stop = desired_stop
+                pos.current_stop_reason = reason
             return
 
         desired_stop = pos.entry_price - target_r * pos.risk_per_share
@@ -897,6 +928,7 @@ class ALCBIntradayEngine:
             desired_stop = max(desired_stop, bar.close * (1.0 + buffer_pct))
         if desired_stop < pos.current_stop and desired_stop > bar.close:
             pos.current_stop = desired_stop
+            pos.current_stop_reason = reason
 
     @staticmethod
     def _position_breakout_level(pos: _Position) -> float:
@@ -1434,7 +1466,7 @@ class ALCBIntradayEngine:
                 return
 
         if item.average_30m_volume > 0:
-            max_qty = int(item.average_30m_volume * settings.max_participation_30m)
+            max_qty = int(to_shares(item.average_30m_volume) * settings.max_participation_30m)
             qty = min(qty, max(1, max_qty))
             if qty <= 0:
                 pending_entries.pop(sym, None)
@@ -1473,6 +1505,7 @@ class ALCBIntradayEngine:
             entry_geometry_size_mult=pending.entry_geometry_size_mult,
             entry_expected_volume_5m=pending.expected_volume_5m,
             entry_signal_rvol=pending.signal_rvol,
+            signal_features=dict(pending.signal_features),
         )
         positions[sym] = pos
         pending_entries.pop(sym, None)
@@ -1601,7 +1634,7 @@ class ALCBIntradayEngine:
         avwap = session_avwap.get(sym, 0.0) if sb else 0.0
         daily_atr, adx_val = daily_indicators.get(sym, (0.0, 0.0))
 
-        # Sector flow not available in CandidateItem; max momentum score is 7/8
+        # Sector flow is deliberately excluded from the replayable seven-factor score.
         sector_flow = 0.0
 
         signal_price = bar.close
@@ -1612,10 +1645,6 @@ class ALCBIntradayEngine:
             shadow.record_funnel("evaluated")
 
         required_rvol = self._orb_required_rvol(settings.rvol_threshold, bar_time_et, settings)
-        if ablation.use_rvol_filter and bar_rvol < required_rvol:
-            return
-        if ablation.use_cpr_filter and cpr < settings.cpr_threshold:
-            return
 
         above_or = arm_state.or_armed and bar.close > or_high
         above_pdh = (
@@ -1672,8 +1701,7 @@ class ALCBIntradayEngine:
 
         def _reject(gate: str) -> None:
             if shadow and risk_per_share > 0:
-                shadow.record_funnel(gate)
-                shadow.record_rejection(ShadowSetup(
+                recorded = shadow.record_rejection(ShadowSetup(
                     symbol=sym,
                     trade_date=current,
                     rejection_gate=gate,
@@ -1683,10 +1711,27 @@ class ALCBIntradayEngine:
                     momentum_score=m_score,
                     rvol_at_rejection=bar_rvol,
                     entry_type=entry_type_str,
+                    opportunity_id=(
+                        f"{current.isoformat()}:{sym}:{entry_type_str}:"
+                        f"{arm_state.reentry_count}"
+                    ),
                 ))
+                if recorded:
+                    shadow.record_funnel(gate)
+
+        if ablation.use_rvol_filter and bar_rvol < required_rvol:
+            _reject("rvol_filter")
+            return
+        if ablation.use_cpr_filter and cpr < settings.cpr_threshold:
+            _reject("cpr_filter")
+            return
 
         if self._daily_stop_active(settings, ablation):
             _reject("daily_stop")
+            return
+
+        if not momentum_friction_gate_pass(item, signal_price, stop_price, settings):
+            _reject("friction_to_risk")
             return
 
         session_open = sb[0].open if sb else bar.open
@@ -1781,6 +1826,7 @@ class ALCBIntradayEngine:
 
         entry_bar_index = bar_idx + 1
         avwap_dist_pct = (bar.close - avwap) / avwap if avwap > 0 else 0.0
+        or_width_pct = (or_high - or_low) / or_high if or_high > 0 else 0.0
         is_pdh_entry = entry_type_str in {"PDH_BREAKOUT", "PDH_RECLAIM"}
         is_or_entry = entry_type_str in {"OR_BREAKOUT", "OR_RECLAIM"}
         is_combined_entry = entry_type_str.startswith("COMBINED")
@@ -1871,7 +1917,6 @@ class ALCBIntradayEngine:
 
         # OR width band (block tight or overly wide opening ranges)
         if ablation.use_or_width_min and (settings.or_width_min_pct > 0 or settings.or_width_max_pct > 0):
-            or_width_pct = (or_high - or_low) / or_high if or_high > 0 else 0
             if settings.or_width_min_pct > 0 and or_width_pct < settings.or_width_min_pct:
                 _reject("or_width_min")
                 return
@@ -1982,7 +2027,7 @@ class ALCBIntradayEngine:
                 return
 
         if item.average_30m_volume > 0:
-            max_qty = int(item.average_30m_volume * settings.max_participation_30m)
+            max_qty = int(to_shares(item.average_30m_volume) * settings.max_participation_30m)
             qty = min(qty, max(1, max_qty))
 
         if not has_next_bar:
@@ -2011,6 +2056,24 @@ class ALCBIntradayEngine:
             avwap_at_entry=avwap,
         )
 
+        signal_features = {
+            "selection_score": float(item.selection_score),
+            "relative_strength_percentile": float(item.relative_strength_percentile),
+            "accumulation_score": float(item.accumulation_score),
+            "signal_cpr": float(cpr),
+            "daily_adx": float(adx_val),
+            "daily_atr_pct": float(daily_atr / signal_price) if signal_price > 0 else 0.0,
+            "gap_pct": float(gap_pct),
+            "avwap_distance_pct": float(avwap_dist_pct),
+            "or_width_pct": float(or_width_pct),
+            "signal_range_r": float(signal_range_r),
+            "breakout_distance_r": float(breakout_dist_r),
+            "or_breakout_distance_r": float(or_breakout_dist_r),
+            "pdh_breakout_distance_r": float(pdh_breakout_dist_r),
+            "signal_risk_pct": float(risk_per_share / signal_price) if signal_price > 0 else 0.0,
+            "signal_minutes_et": float(bar_time_et.hour * 60 + bar_time_et.minute),
+        }
+
         self._consume_arms(arm_state, entry_type_str)
         pending_entries[sym] = _PendingEntry(
             symbol=sym,
@@ -2036,6 +2099,7 @@ class ALCBIntradayEngine:
             regime_tier=regime_tier,
             opened_date=current,
             reentry_sequence=arm_state.reentry_count,
+            signal_features=signal_features,
         )
         arm_state.reentry_count += 1
 
@@ -2106,6 +2170,10 @@ class ALCBIntradayEngine:
             "entry_signal_rvol": round(pos.entry_signal_rvol, 4),
             "entry_expected_volume_5m": round(pos.entry_expected_volume_5m, 4),
         }
+        metadata.update({
+            key: round(float(value), 6)
+            for key, value in pos.signal_features.items()
+        })
         if pos.momentum_setup:
             metadata["or_high"] = pos.momentum_setup.or_high
             metadata["or_low"] = pos.momentum_setup.or_low

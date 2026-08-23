@@ -85,7 +85,7 @@ class UnifiedPortfolioData:
     etf_4h_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
     etf_daily_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
     tpc_replay: dict[str, dict] = field(default_factory=dict)
-    # Fingerprint of ETF bars plus the selected NQ/GC context authority. This
+    # Fingerprint of the traded ETF bars consumed by TPC. This
     # prevents source-trade cache reuse across equally shaped data revisions.
     tpc_source_fingerprint: str = ""
 
@@ -208,8 +208,6 @@ def load_unified_data(config: UnifiedBacktestConfig) -> UnifiedPortfolioData:
             symbols=tuple(etf_syms),
             start_date=config.start_date,
             end_date=config.end_date,
-            context_data_dir=config.tpc_context_data_dir,
-            require_context_authority=config.tpc_require_context_authority,
         )
         portfolio.tpc_replay = dict(tpc_bundle.data)
         portfolio.tpc_source_fingerprint = tpc_bundle.cache_source_fingerprint
@@ -857,8 +855,7 @@ def _tpc_cache_key(data: UnifiedPortfolioData, config: UnifiedBacktestConfig) ->
         if bars is None or len(bars) == 0:
             spans.append((sym, 0, 0, 0, ()))
             continue
-        context_keys = tuple(sorted((replay_payload.get("context_indicators") or {}).keys()))
-        spans.append((sym, len(bars), _timeline_key(bars.times[0]), _timeline_key(bars.times[-1]), context_keys))
+        spans.append((sym, len(bars), _timeline_key(bars.times[0]), _timeline_key(bars.times[-1])))
     payload = {
         "initial_equity": config.initial_equity,
         "symbols": list(config.tpc_symbols),

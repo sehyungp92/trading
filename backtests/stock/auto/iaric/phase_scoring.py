@@ -216,7 +216,6 @@ def compute_pullback_phase_metrics(
     candidate_ledger: dict | None = None,
     selection_attribution: dict | None = None,
 ) -> dict[str, float]:
-    del candidate_ledger
     total = float(len(trades))
     exit_counts = _count_by_exit_reason(trades)
     eod_trades = [trade for trade in trades if (trade.exit_reason or "") == "EOD_FLATTEN"]
@@ -272,6 +271,11 @@ def compute_pullback_phase_metrics(
         if float(trade.r_multiple) < 0 and _meta_float(trade, "mfe_before_negative_exit_r", _meta_float(trade, "mfe_r", 0.0)) > 0.25
     ]
 
+    opportunity_metrics = _compute_entry_opportunity_metrics(
+        trades,
+        candidate_ledger=candidate_ledger,
+    )
+
     return {
         "avg_r": _avg_r(trades),
         "mean_entry_rank": _avg(_meta_int(trade, "entry_rank") for trade in trades),
@@ -316,6 +320,148 @@ def compute_pullback_phase_metrics(
         "stop_hit_avg_r": _avg_r(stop_hits),
         "stop_hit_total_r": float(sum(float(trade.r_multiple) for trade in stop_hits)),
         "protection_candidate_share": _share(len(protection_candidates), total),
+        **opportunity_metrics,
+    }
+
+
+def _month_distance(start: Any, end: Any) -> int:
+    if start is None or end is None:
+        return 1
+    return max((int(end.year) - int(start.year)) * 12 + int(end.month) - int(start.month) + 1, 1)
+
+
+def _record_potential_r(record: dict[str, Any], *, selected: bool) -> float | None:
+    key = "actual_mfe_r" if selected else "shadow_mfe_r"
+    value = record.get(key)
+    if value is None:
+        fallback_key = "actual_r" if selected else "shadow_r"
+        value = record.get(fallback_key)
+    if value is None:
+        return None
+    try:
+        return float(min(max(float(value), 0.0), 2.0))
+    except (TypeError, ValueError):
+        return None
+
+
+def _compute_entry_opportunity_metrics(
+    trades: list[Any],
+    *,
+    candidate_ledger: dict | None,
+) -> dict[str, float]:
+    """Return causal-entry opportunity metrics for the immutable V5R1 score.
+
+    MFE is capped at 2R and treated only as an opportunity-quality proxy.  It
+    is never labeled executable portfolio PnL.  Recall compares selected names
+    with a fixed-capacity per-day oracle, which prevents a wider raw candidate
+    pool from receiving free score simply for producing more shadow rows.
+    """
+
+    by_day: dict[Any, list[dict[str, Any]]] = {
+        trade_date: list(records)
+        for trade_date, records in (candidate_ledger or {}).items()
+        if records
+    }
+    selected_potential: list[float] = []
+    rejected_potential: list[float] = []
+    selected_realized: list[float] = []
+    rejected_shadow: list[float] = []
+    oracle_total = 0.0
+    selected_total = 0.0
+
+    for records in by_day.values():
+        day_potential: list[float] = []
+        capacity = max(
+            [int(record.get("opportunity_capacity", 4) or 4) for record in records]
+            or [4]
+        )
+        for record in records:
+            selected = str(record.get("disposition") or "") == "entered"
+            potential = _record_potential_r(record, selected=selected)
+            if potential is None:
+                continue
+            day_potential.append(potential)
+            if selected:
+                selected_potential.append(potential)
+                selected_total += potential
+                actual_r = record.get("actual_r")
+                if actual_r is not None:
+                    selected_realized.append(float(actual_r))
+            else:
+                rejected_potential.append(potential)
+                shadow_r = record.get("shadow_r")
+                if shadow_r is not None:
+                    rejected_shadow.append(float(shadow_r))
+        oracle_total += sum(sorted(day_potential, reverse=True)[: max(capacity, 1)])
+
+    # Diagnostics can be disabled in isolated tests.  Preserve a conservative
+    # selected-opportunity view from immutable trade metadata in that case.
+    if not selected_potential:
+        for trade in trades:
+            metadata = getattr(trade, "metadata", {}) or {}
+            value = metadata.get("mfe_r")
+            if value is None:
+                continue
+            potential = float(min(max(float(value), 0.0), 2.0))
+            selected_potential.append(potential)
+            selected_realized.append(float(getattr(trade, "r_multiple", 0.0)))
+        selected_total = float(sum(selected_potential))
+
+    selected_avg = float(np.mean(selected_potential)) if selected_potential else 0.0
+    rejected_avg = float(np.mean(rejected_potential)) if rejected_potential else 0.0
+    selected_realized_avg = float(np.mean(selected_realized)) if selected_realized else _avg_r(trades)
+    rejected_shadow_avg = float(np.mean(rejected_shadow)) if rejected_shadow else 0.0
+    recall = _clip01(selected_total / oracle_total) if oracle_total > 0 else 0.0
+
+    dates = sorted(by_day)
+    if not dates:
+        dates = sorted({getattr(trade, "entry_time", None).date() for trade in trades if getattr(trade, "entry_time", None) is not None})
+    fold_avg_r: list[float] = []
+    fold_high_quality_frequency: list[float] = []
+    for chunk_arr in np.array_split(np.asarray(dates, dtype=object), min(4, len(dates))) if dates else []:
+        chunk = list(chunk_arr)
+        if not chunk:
+            continue
+        chunk_set = set(chunk)
+        fold_trades = [
+            trade
+            for trade in trades
+            if getattr(trade, "entry_time", None) is not None
+            and trade.entry_time.date() in chunk_set
+        ]
+        fold_avg_r.append(_avg_r(fold_trades))
+        high_quality = 0
+        for trade_date in chunk:
+            for record in by_day.get(trade_date, []):
+                if str(record.get("disposition") or "") != "entered":
+                    continue
+                potential = _record_potential_r(record, selected=True)
+                high_quality += int(potential is not None and potential >= 0.50)
+        if not by_day:
+            high_quality = sum(
+                float((getattr(trade, "metadata", {}) or {}).get("mfe_r", 0.0) or 0.0) >= 0.50
+                for trade in fold_trades
+            )
+        fold_high_quality_frequency.append(
+            float(high_quality) / _month_distance(chunk[0], chunk[-1])
+        )
+
+    robust_avg_r = float(np.percentile(fold_avg_r, 25)) if fold_avg_r else _avg_r(trades)
+    robust_hq_frequency = (
+        float(np.percentile(fold_high_quality_frequency, 25))
+        if fold_high_quality_frequency
+        else 0.0
+    )
+    return {
+        "entry_potential_total_r": float(selected_total),
+        "entry_potential_avg_r": selected_avg,
+        "entry_opportunity_recall": recall,
+        "entry_discrimination_lift_r": selected_avg - rejected_avg,
+        "entry_realized_discrimination_lift_r": selected_realized_avg - rejected_shadow_avg,
+        "robust_avg_r": robust_avg_r,
+        "robust_high_quality_frequency": robust_hq_frequency,
+        "entry_oracle_potential_r": float(oracle_total),
+        "entry_rejected_potential_avg_r": rejected_avg,
     }
 
 
@@ -373,12 +519,19 @@ def _meta_int(trade: Any, key: str, default: int = 0) -> int:
 def _route_label(trade: Any) -> str:
     if not getattr(trade, "metadata", None):
         return "UNKNOWN"
-    return str(
+    label = str(
         trade.metadata.get("entry_route_family")
         or trade.metadata.get("selected_route")
         or trade.metadata.get("entry_trigger")
         or "UNKNOWN"
     ).upper()
+    # Structural OPEN_SCORED transitions change execution, not the economic
+    # route family or management profile. Diagnostics keep the literal label.
+    return (
+        "OPEN_SCORED_ENTRY"
+        if label in {"OPEN_SCORED_RETEST", "OPEN_SCORED_RETRACE_LIMIT"}
+        else label
+    )
 
 
 def _route_score(trade: Any) -> float:
@@ -1181,30 +1334,33 @@ def score_v4r1_pullback_phase(
 
 
 # ---------------------------------------------------------------------------
-# V5R1 -- alpha/frequency score from the round-1 optimized baseline
+# V5R1 -- entry-opportunity score from the latest round-1 research reference
 #
-# The immutable score intentionally has seven public components. The
-# alpha_discrimination component is a stabilized composite of two pre-entry
-# diagnostics: gap selectivity and crowded-day selected-vs-skipped shadow edge.
+# Exactly seven components are public and immutable across every phase.  Four
+# score opportunity quality/selection directly; three retain executable total
+# return and chronological robustness.  Static tanh anchors are centered on the
+# execution-corrected Round-2 baseline so both improvements and regressions
+# remain visible.  The prior Round-1 anchors came from the invalid raw-bar
+# timing index and must not influence selection after that integrity repair.
 # ---------------------------------------------------------------------------
-_V5R1_NORMALIZATION_CEILINGS: dict[str, float] = {
-    "avg_r": 0.25,
-    "expected_total_r": 150.0,
-    "profit_factor": 3.25,
-    "total_trades": 1000.0,
-    "inv_dd": 1.0,
-    "sharpe": 6.0,
-    "alpha_discrimination": 1.0,
+_V5R1_NORMALIZATION_ANCHORS: dict[str, tuple[float, float]] = {
+    "entry_potential_total_r": (73.08, 40.0),
+    "entry_potential_avg_r": (0.302, 0.15),
+    "entry_opportunity_recall": (0.281, 0.15),
+    "entry_discrimination_lift_r": (0.102, 0.15),
+    "expected_total_r": (-3.04, 15.0),
+    "robust_avg_r": (-0.086, 0.12),
+    "robust_high_quality_frequency": (1.143, 1.50),
 }
 
 _V5R1_IMMUTABLE_WEIGHTS: dict[str, float] = {
-    "expected_total_r": 0.30,
-    "total_trades": 0.15,
-    "avg_r": 0.15,
-    "profit_factor": 0.12,
-    "sharpe": 0.10,
-    "inv_dd": 0.08,
-    "alpha_discrimination": 0.10,
+    "entry_potential_total_r": 0.18,
+    "entry_potential_avg_r": 0.14,
+    "entry_opportunity_recall": 0.10,
+    "entry_discrimination_lift_r": 0.14,
+    "expected_total_r": 0.24,
+    "robust_avg_r": 0.12,
+    "robust_high_quality_frequency": 0.08,
 }
 
 V5R1_PHASE_SCORING_WEIGHTS: dict[int, dict[str, float]] = {
@@ -1213,67 +1369,27 @@ V5R1_PHASE_SCORING_WEIGHTS: dict[int, dict[str, float]] = {
 }
 
 V5R1_ULTIMATE_TARGETS: dict[str, float] = {
-    "avg_r": 0.17,
-    "expected_total_r": 125.0,
-    "profit_factor": 2.35,
-    "sharpe": 4.75,
-    "max_drawdown_pct": 0.040,
-    "total_trades": 800.0,
-    "managed_exit_share": 0.97,
-    "eod_flatten_inverse": 0.98,
+    "entry_potential_total_r": 110.0,
+    "entry_potential_avg_r": 0.45,
+    "entry_opportunity_recall": 0.40,
+    "entry_discrimination_lift_r": 0.20,
+    "expected_total_r": 15.0,
+    "robust_avg_r": 0.05,
+    "robust_high_quality_frequency": 2.5,
 }
 
-_V5R1_HARD_REJECTS_P1: dict[str, float] = {
-    "min_trades": 450,
-    "min_pf": 1.15,
-    "min_avg_r": 0.025,
-    "min_expected_total_r": 20.0,
-    "max_dd_pct": 0.080,
-    "min_sharpe": 0.8,
-}
-
-_V5R1_HARD_REJECTS_P2: dict[str, float] = {
-    "min_trades": 450,
-    "min_pf": 1.15,
-    "min_avg_r": 0.025,
-    "min_expected_total_r": 20.0,
-    "max_dd_pct": 0.080,
-    "min_sharpe": 0.8,
-}
-
-_V5R1_HARD_REJECTS_P3: dict[str, float] = {
-    "min_trades": 500,
-    "min_pf": 1.20,
-    "min_avg_r": 0.030,
-    "min_expected_total_r": 22.0,
-    "max_dd_pct": 0.075,
-    "min_sharpe": 1.0,
-}
-
-_V5R1_HARD_REJECTS_P4: dict[str, float] = {
-    "min_trades": 500,
-    "min_pf": 1.20,
-    "min_avg_r": 0.030,
-    "min_expected_total_r": 22.0,
-    "max_dd_pct": 0.070,
-    "min_sharpe": 1.0,
-}
-
-_V5R1_HARD_REJECTS_P5: dict[str, float] = {
-    "min_trades": 550,
-    "min_pf": 1.25,
-    "min_avg_r": 0.035,
-    "min_expected_total_r": 25.0,
-    "max_dd_pct": 0.065,
-    "min_sharpe": 1.1,
+_V5R1_HARD_REJECTS: dict[str, float] = {
+    "min_trades": 80,
+    "min_pf": 0.80,
+    "min_avg_r": -0.04,
+    "min_expected_total_r": -10.0,
+    "max_dd_pct": 0.12,
+    "min_sharpe": -0.50,
 }
 
 V5R1_PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
-    1: dict(_V5R1_HARD_REJECTS_P1),
-    2: dict(_V5R1_HARD_REJECTS_P2),
-    3: dict(_V5R1_HARD_REJECTS_P3),
-    4: dict(_V5R1_HARD_REJECTS_P4),
-    5: dict(_V5R1_HARD_REJECTS_P5),
+    phase: dict(_V5R1_HARD_REJECTS)
+    for phase in (1, 2, 3, 4, 5)
 }
 
 V5R1_PHASE_HARD_REJECTS_BY_PROFILE: dict[str, dict[int, dict[str, float]]] = {
@@ -1287,18 +1403,12 @@ def get_v5r1_phase_scoring_weights(profile: str = "mainline") -> dict[int, dict[
     return V5R1_PHASE_SCORING_WEIGHTS
 
 
-def _v5r1_alpha_discrimination(metrics: dict[str, float]) -> float:
-    gap_component = _clip01(float(metrics.get("gap_selectivity_edge", 0.0)) / 0.30)
-    crowded_component = _clip01(float(metrics.get("crowded_day_discrimination", 0.0)) / 0.20)
-    return 0.50 * gap_component + 0.50 * crowded_component
-
-
 def _normalize_v5r1_metric(metric_name: str, metrics: dict[str, float]) -> float:
     value = float(metrics.get(metric_name, 0.0))
-    ceiling = _V5R1_NORMALIZATION_CEILINGS.get(metric_name, 1.0)
-    if ceiling <= 0:
+    center, scale = _V5R1_NORMALIZATION_ANCHORS.get(metric_name, (0.0, 1.0))
+    if scale <= 0:
         return 0.0
-    return _clip01(value / ceiling)
+    return _clip01(0.5 + 0.5 * float(np.tanh((value - center) / scale)))
 
 
 def score_v5r1_pullback_phase(
@@ -1316,7 +1426,6 @@ def score_v5r1_pullback_phase(
         return 0.0
 
     enriched = enrich_phase_score_metrics(metrics)
-    enriched["alpha_discrimination"] = _v5r1_alpha_discrimination(enriched)
     return sum(
         (weight / total_weight) * _normalize_v5r1_metric(metric_name, enriched)
         for metric_name, weight in weights.items()
@@ -1324,30 +1433,30 @@ def score_v5r1_pullback_phase(
 
 
 # ---------------------------------------------------------------------------
-# V5R2 -- targeted residual-alpha score from the corrected round-2 baseline
+# V5R2 -- execution-corrected recovery and alpha-extraction score
 #
-# The score intentionally stays at seven components. It directly includes
-# net PnL to avoid the R-score/dollar-PnL divergence observed in round 2,
-# while still rewarding risk, sample size, and residual carry/selection alpha.
+# The score is immutable across phases and intentionally stays at seven
+# realized-performance components.  Smooth, economically anchored tanh scales
+# remain discriminatory on both sides of break-even; fixed positive ceilings
+# made every loss-making candidate indistinguishable after the integrity fix.
 # ---------------------------------------------------------------------------
-_V5R2_NORMALIZATION_CEILINGS: dict[str, float] = {
-    "net_profit": 16_000.0,
-    "expected_total_r": 135.0,
-    "profit_factor": 2.15,
-    "sharpe": 5.00,
-    "inv_dd": 1.0,
-    "total_trades": 1_100.0,
-    "residual_alpha_quality": 1.0,
+_V5R2_NORMALIZATION_ANCHORS: dict[str, tuple[float, float]] = {
+    "net_profit": (0.0, 1_500.0),
+    "expected_total_r": (0.0, 25.0),
+    "avg_r": (0.0, 0.03),
+    "profit_factor": (1.0, 0.25),
+    "sharpe": (0.0, 1.20),
+    "total_trades": (750.0, 300.0),
 }
 
 _V5R2_WEIGHTS: dict[str, float] = {
-    "net_profit": 0.25,
-    "expected_total_r": 0.20,
-    "profit_factor": 0.15,
-    "sharpe": 0.12,
-    "inv_dd": 0.10,
+    "net_profit": 0.26,
+    "expected_total_r": 0.22,
+    "avg_r": 0.12,
+    "profit_factor": 0.08,
+    "sharpe": 0.08,
+    "inv_dd": 0.14,
     "total_trades": 0.10,
-    "residual_alpha_quality": 0.08,
 }
 
 V5R2_PHASE_SCORING_WEIGHTS: dict[int, dict[str, float]] = {
@@ -1356,28 +1465,50 @@ V5R2_PHASE_SCORING_WEIGHTS: dict[int, dict[str, float]] = {
 }
 
 V5R2_ULTIMATE_TARGETS: dict[str, float] = {
-    "net_profit": 15_000.0,
-    "avg_r": 0.13,
-    "expected_total_r": 125.0,
-    "profit_factor": 1.95,
-    "sharpe": 4.75,
-    "max_drawdown_pct": 0.035,
-    "total_trades": 950.0,
+    "net_profit": 2_000.0,
+    "avg_r": 0.03,
+    "expected_total_r": 25.0,
+    "profit_factor": 1.30,
+    "sharpe": 1.50,
+    "max_drawdown_pct": 0.06,
+    "total_trades": 1_000.0,
 }
 
-_V5R2_HARD_REJECTS: dict[str, float] = {
-    "min_trades": 900,
-    "min_net_profit": 13_350.0,
-    "min_pf": 1.75,
-    "min_avg_r": 0.105,
-    "min_expected_total_r": 112.0,
-    "max_dd_pct": 0.040,
-    "min_sharpe": 4.10,
+_V5R2_HARD_REJECTS_EARLY: dict[str, float] = {
+    "min_trades": 500,
+    "min_net_profit": 0.0,
+    "min_pf": 1.00,
+    "min_avg_r": 0.0,
+    "min_expected_total_r": 0.0,
+    "max_dd_pct": 0.10,
+    "min_sharpe": 0.0,
+}
+
+_V5R2_HARD_REJECTS_MIDDLE: dict[str, float] = {
+    "min_trades": 550,
+    "min_net_profit": 250.0,
+    "min_pf": 1.05,
+    "min_avg_r": 0.005,
+    "min_expected_total_r": 3.0,
+    "max_dd_pct": 0.08,
+    "min_sharpe": 0.20,
+}
+
+_V5R2_HARD_REJECTS_FINAL: dict[str, float] = {
+    "min_trades": 600,
+    "min_net_profit": 400.0,
+    "min_pf": 1.08,
+    "min_avg_r": 0.008,
+    "min_expected_total_r": 5.0,
+    "max_dd_pct": 0.07,
+    "min_sharpe": 0.35,
 }
 
 V5R2_PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
-    phase: dict(_V5R2_HARD_REJECTS)
-    for phase in (1, 2, 3, 4)
+    1: dict(_V5R2_HARD_REJECTS_EARLY),
+    2: dict(_V5R2_HARD_REJECTS_EARLY),
+    3: dict(_V5R2_HARD_REJECTS_MIDDLE),
+    4: dict(_V5R2_HARD_REJECTS_FINAL),
 }
 
 V5R2_PHASE_HARD_REJECTS_BY_PROFILE: dict[str, dict[int, dict[str, float]]] = {
@@ -1391,27 +1522,17 @@ def get_v5r2_phase_scoring_weights(profile: str = "mainline") -> dict[int, dict[
     return V5R2_PHASE_SCORING_WEIGHTS
 
 
-def _v5r2_residual_alpha_quality(metrics: dict[str, float]) -> float:
-    alpha_component = _v5r1_alpha_discrimination(metrics)
-    carry_avg_r = float(metrics.get("carry_avg_r", 0.0))
-    carry_share = float(metrics.get("carry_trade_share", 0.0))
-    if carry_share <= 0.01:
-        carry_drag_inverse = 1.0
-    else:
-        carry_drag_inverse = _clip01((carry_avg_r + 0.30) / 0.30)
-    return 0.50 * alpha_component + 0.50 * carry_drag_inverse
-
-
 def _normalize_v5r2_metric(metric_name: str, metrics: dict[str, float]) -> float:
     if metric_name == "inv_dd":
-        return _clip01(1.0 - float(metrics.get("max_drawdown_pct", 0.0)) / 0.05)
-    if metric_name == "residual_alpha_quality":
-        return _v5r2_residual_alpha_quality(metrics)
+        # 10% is the neutral point.  The recovered 3.6% baseline scores well,
+        # while the 6-10% aggressive frontier remains usable rather than flat.
+        z_score = (0.10 - float(metrics.get("max_drawdown_pct", 0.0))) / 0.06
+        return _clip01(0.5 + 0.5 * float(np.tanh(z_score)))
     value = float(metrics.get(metric_name, 0.0))
-    ceiling = _V5R2_NORMALIZATION_CEILINGS.get(metric_name, 1.0)
-    if ceiling <= 0:
+    center, scale = _V5R2_NORMALIZATION_ANCHORS.get(metric_name, (0.0, 1.0))
+    if scale <= 0:
         return 0.0
-    return _clip01(value / ceiling)
+    return _clip01(0.5 + 0.5 * float(np.tanh((value - center) / scale)))
 
 
 def score_v5r2_pullback_phase(
@@ -1433,8 +1554,122 @@ def score_v5r2_pullback_phase(
         enriched.get("expected_total_r", 0.0)
         or float(enriched.get("avg_r", 0.0)) * float(enriched.get("total_trades", 0.0))
     )
-    enriched["residual_alpha_quality"] = _v5r2_residual_alpha_quality(enriched)
     return sum(
         (weight / total_weight) * _normalize_v5r2_metric(metric_name, enriched)
+        for metric_name, weight in weights.items()
+    )
+
+
+# ---------------------------------------------------------------------------
+# V6R1 -- repaired-baseline alpha extraction score
+#
+# Exactly seven components, immutable across phases.  Anchors are fixed at the
+# diagnostics-verified pre-holdout baseline, so the score remains sensitive to
+# gains and losses without learning normalization from the candidate sample.
+# ---------------------------------------------------------------------------
+_V6R1_NORMALIZATION_ANCHORS: dict[str, tuple[float, float]] = {
+    "expected_total_r": (21.0484961925357, 12.0),
+    "net_profit": (1_307.46, 600.0),
+    "total_trades": (89.0, 45.0),
+    "avg_r": (0.236499957219503, 0.12),
+    "profit_factor": (1.6472990836043948, 0.35),
+    "entry_realized_discrimination_lift_r": (0.2604893198240668, 0.12),
+}
+
+_V6R1_IMMUTABLE_WEIGHTS: dict[str, float] = {
+    "expected_total_r": 0.27,
+    "net_profit": 0.13,
+    "total_trades": 0.15,
+    "avg_r": 0.10,
+    "profit_factor": 0.08,
+    "entry_realized_discrimination_lift_r": 0.12,
+    "inv_dd": 0.15,
+}
+
+V6R1_PHASE_SCORING_WEIGHTS: dict[int, dict[str, float]] = {
+    phase: _normalize_weights(dict(_V6R1_IMMUTABLE_WEIGHTS))
+    for phase in (1, 2, 3, 4, 5)
+}
+
+V6R1_ULTIMATE_TARGETS: dict[str, float] = {
+    "expected_total_r": 35.0,
+    "net_profit": 2_500.0,
+    "total_trades": 140.0,
+    "avg_r": 0.15,
+    "profit_factor": 1.45,
+    "entry_realized_discrimination_lift_r": 0.20,
+    "max_drawdown_pct": 0.065,
+}
+
+_V6R1_HARD_REJECTS_EARLY: dict[str, float] = {
+    "min_trades": 70,
+    "min_net_profit": 700.0,
+    "min_pf": 1.30,
+    "min_avg_r": 0.10,
+    "min_expected_total_r": 12.0,
+    "max_dd_pct": 0.08,
+    "min_robust_avg_r": -0.05,
+    "min_discrimination_lift_r": 0.10,
+}
+
+_V6R1_HARD_REJECTS_MIDDLE: dict[str, float] = {
+    **_V6R1_HARD_REJECTS_EARLY,
+    "min_pf": 1.35,
+    "min_avg_r": 0.12,
+    "min_expected_total_r": 15.0,
+    "min_robust_avg_r": 0.0,
+}
+
+_V6R1_HARD_REJECTS_FINAL: dict[str, float] = {
+    **_V6R1_HARD_REJECTS_MIDDLE,
+    "min_trades": 75,
+    "min_pf": 1.45,
+    "min_expected_total_r": 18.0,
+    "max_dd_pct": 0.07,
+    "min_discrimination_lift_r": 0.12,
+}
+
+V6R1_PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
+    1: dict(_V6R1_HARD_REJECTS_EARLY),
+    2: dict(_V6R1_HARD_REJECTS_EARLY),
+    3: dict(_V6R1_HARD_REJECTS_MIDDLE),
+    4: dict(_V6R1_HARD_REJECTS_MIDDLE),
+    5: dict(_V6R1_HARD_REJECTS_FINAL),
+}
+
+V6R1_PHASE_HARD_REJECTS_BY_PROFILE: dict[str, dict[int, dict[str, float]]] = {
+    "mainline": V6R1_PHASE_HARD_REJECTS,
+    "aggressive": V6R1_PHASE_HARD_REJECTS,
+}
+
+
+def get_v6r1_phase_scoring_weights(profile: str = "mainline") -> dict[int, dict[str, float]]:
+    del profile
+    return V6R1_PHASE_SCORING_WEIGHTS
+
+
+def _normalize_v6r1_metric(metric_name: str, metrics: dict[str, float]) -> float:
+    if metric_name == "inv_dd":
+        z_score = (0.0632752553726446 - float(metrics.get("max_drawdown_pct", 0.0))) / 0.025
+        return _clip01(0.5 + 0.5 * float(np.tanh(z_score)))
+    value = float(metrics.get(metric_name, 0.0))
+    center, scale = _V6R1_NORMALIZATION_ANCHORS.get(metric_name, (0.0, 1.0))
+    if scale <= 0:
+        return 0.0
+    return _clip01(0.5 + 0.5 * float(np.tanh((value - center) / scale)))
+
+
+def score_v6r1_pullback_phase(
+    phase: int,
+    metrics: dict[str, float],
+    scoring_weights: dict[str, float] | None = None,
+) -> float:
+    weights = dict(scoring_weights or V6R1_PHASE_SCORING_WEIGHTS.get(phase, {}))
+    total_weight = sum(weights.values())
+    if total_weight <= 0:
+        return 0.0
+    enriched = enrich_phase_score_metrics(metrics)
+    return sum(
+        (weight / total_weight) * _normalize_v6r1_metric(metric_name, enriched)
         for metric_name, weight in weights.items()
     )

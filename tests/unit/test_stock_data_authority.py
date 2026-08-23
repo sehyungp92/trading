@@ -191,6 +191,20 @@ def test_frozen_bundle_verifies_bytes_receipt_identity_and_universe(tmp_path: Pa
     )
     assert report["valid"] is True
 
+    wrong_price_basis = verify_frozen_bundle(
+        bundle_path,
+        repo_root=tmp_path,
+        require_clean=False,
+        expected_universe=["MSFT"],
+        expected_session_policy_by_timeframe={"5m": RTH_SESSION_POLICY},
+        expected_what_to_show_by_timeframe={"5m": "ADJUSTED_LAST"},
+    )
+    assert wrong_price_basis["valid"] is False
+    assert any(
+        "what-to-show mismatch" in error
+        for error in wrong_price_basis["errors"]
+    )
+
     object_path = Path(object_record["path"])
     object_path.write_bytes(object_path.read_bytes() + b"tampered")
     report = verify_frozen_bundle(

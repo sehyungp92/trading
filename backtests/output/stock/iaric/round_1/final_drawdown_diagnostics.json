@@ -1,0 +1,17 @@
+{
+  "average_open_positions": 8.982300884955752,
+  "cagr": 0.20299483486693526,
+  "calmar": 1.2995240630144715,
+  "drawdown_peak_date": "2025-02-06",
+  "drawdown_recovery_date": "2025-07-03",
+  "drawdown_sessions": 42,
+  "drawdown_trough_date": "2025-04-08",
+  "final_equity": 127890.68876701457,
+  "maximum_drawdown_pct": 0.15620706121905392,
+  "maximum_open_positions": 10,
+  "recovery_sessions": 59,
+  "sharpe": 1.3361756575912969,
+  "sortino": 1.8128920605474994,
+  "start_equity": 99655.6841168375,
+  "total_return": 0.2833255814798683
+}

@@ -1,0 +1,232 @@
+[
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__failure_stop_to_r__m0p1__plus__perturb__rvol_threshold__1p1",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.1,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__failure_stop_to_r__m0p1 + perturb__rvol_threshold__1p1."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__failure_stop_to_r__m0p1__plus__perturb__entry_window_end__1330",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.failure_stop_to_r": -0.1
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__failure_stop_to_r__m0p1 + perturb__entry_window_end__1330."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__failure_stop_to_r__m0p1__plus__perturb__mfe_conviction_floor_r__0p0",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.1,
+      "param_overrides.mfe_conviction_floor_r": 0.0
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__failure_stop_to_r__m0p1 + perturb__mfe_conviction_floor_r__0p0."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__failure_stop_to_r__m0p1__plus__target__frequency_entry1300",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.failure_stop_to_r": -0.1
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__failure_stop_to_r__m0p1 + target__frequency_entry1300."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__failure_stop_to_r__m0p1__plus__target__frequency_entry1300_combined_score6",
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 6,
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.failure_stop_to_r": -0.1
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__failure_stop_to_r__m0p1 + target__frequency_entry1300_combined_score6."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__rvol_threshold__1p1__plus__perturb__entry_window_end__1330",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__rvol_threshold__1p1 + perturb__entry_window_end__1330."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__rvol_threshold__1p1__plus__perturb__mfe_conviction_floor_r__0p0",
+    "patch": {
+      "param_overrides.mfe_conviction_floor_r": 0.0,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__rvol_threshold__1p1 + perturb__mfe_conviction_floor_r__0p0."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__rvol_threshold__1p1__plus__target__failure8_mfe015_to_m020",
+    "patch": {
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__rvol_threshold__1p1 + target__failure8_mfe015_to_m020."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__rvol_threshold__1p1__plus__target__frequency_entry1300",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__rvol_threshold__1p1 + target__frequency_entry1300."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__rvol_threshold__1p1__plus__target__frequency_entry1300_combined_score6",
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 6,
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__rvol_threshold__1p1 + target__frequency_entry1300_combined_score6."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__entry_window_end__1330__plus__perturb__mfe_conviction_floor_r__0p0",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.mfe_conviction_floor_r": 0.0
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__entry_window_end__1330 + perturb__mfe_conviction_floor_r__0p0."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__entry_window_end__1330__plus__target__failure8_mfe015_to_m020",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__entry_window_end__1330 + target__failure8_mfe015_to_m020."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__mfe_conviction_floor_r__0p0__plus__target__failure8_mfe015_to_m020",
+    "patch": {
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2,
+      "param_overrides.mfe_conviction_floor_r": 0.0
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__mfe_conviction_floor_r__0p0 + target__failure8_mfe015_to_m020."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__mfe_conviction_floor_r__0p0__plus__target__frequency_entry1300",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.mfe_conviction_floor_r": 0.0
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__mfe_conviction_floor_r__0p0 + target__frequency_entry1300."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__mfe_conviction_floor_r__0p0__plus__target__frequency_entry1300_combined_score6",
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 6,
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.mfe_conviction_floor_r": 0.0
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__mfe_conviction_floor_r__0p0 + target__frequency_entry1300_combined_score6."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__failure8_mfe015_to_m020__plus__target__frequency_entry1300",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__failure8_mfe015_to_m020 + target__frequency_entry1300."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__failure8_mfe015_to_m020__plus__target__frequency_entry1300_combined_score6",
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 6,
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__failure8_mfe015_to_m020 + target__frequency_entry1300_combined_score6."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__frequency_entry1300__plus__target__frequency_entry1300_combined_score6",
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 6,
+      "param_overrides.entry_window_end": "13:00:00"
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__frequency_entry1300 + target__frequency_entry1300_combined_score6."
+  }
+]

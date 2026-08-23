@@ -46,16 +46,32 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--data-dir", default="backtests/momentum/data/raw")
     parser.add_argument("--momentum-output-root", default="backtests/output/momentum")
     parser.add_argument("--round", type=int, default=2)
+    parser.add_argument(
+        "--refresh-diagnostics-only",
+        action="store_true",
+        help=(
+            "Regenerate only the comprehensive portfolio diagnostics and their "
+            "manifest, preserving the optimized config and phase artifacts."
+        ),
+    )
     args = parser.parse_args(argv)
 
-    summary = finalize_standard_round(
-        source_dir=Path(args.source_dir),
-        output_dir=Path(args.output_dir),
-        data_dir=Path(args.data_dir),
-        momentum_output_root=Path(args.momentum_output_root),
-        round_num=args.round,
-    )
-    print(f"Momentum portfolio standardized round written: {args.output_dir}")
+    if args.refresh_diagnostics_only:
+        summary = refresh_standard_diagnostics(
+            output_dir=Path(args.output_dir),
+            data_dir=Path(args.data_dir),
+            momentum_output_root=Path(args.momentum_output_root),
+        )
+        print(f"Momentum portfolio diagnostics refreshed: {args.output_dir}")
+    else:
+        summary = finalize_standard_round(
+            source_dir=Path(args.source_dir),
+            output_dir=Path(args.output_dir),
+            data_dir=Path(args.data_dir),
+            momentum_output_root=Path(args.momentum_output_root),
+            round_num=args.round,
+        )
+        print(f"Momentum portfolio standardized round written: {args.output_dir}")
     print(f"Final score: {summary['final_score']:.4f}")
     print(f"Final metrics: {summary['final_metrics']}")
 
@@ -153,9 +169,43 @@ def finalize_standard_round(
     _write_json(output_dir / "run_summary.json", summary)
 
     diagnostics = build_diagnostics(output_dir, momentum_output_root, data_dir)
+    summary = _write_comprehensive_diagnostics(output_dir, summary, diagnostics)
+    _write_run_spec(output_dir, source_dir, summary, config_dict, provenance)
+    _write_phase_compatibility_artifacts(output_dir, source_summary, summary, config_dict)
+    _write_manifest(output_dir.parent, round_num, summary, config_dict)
+    return summary
+
+
+def refresh_standard_diagnostics(
+    *,
+    output_dir: Path,
+    data_dir: Path = Path("backtests/momentum/data/raw"),
+    momentum_output_root: Path = Path("backtests/output/momentum"),
+) -> dict[str, Any]:
+    """Refresh the final diagnostics without mutating the optimized round inputs."""
+    output_dir = Path(output_dir)
+    summary = _load_json(output_dir / "run_summary.json")
+    diagnostics = build_diagnostics(output_dir, momentum_output_root, data_dir)
+    return _write_comprehensive_diagnostics(output_dir, summary, diagnostics)
+
+
+def _write_comprehensive_diagnostics(
+    output_dir: Path,
+    summary: dict[str, Any],
+    diagnostics: dict[str, Any],
+) -> dict[str, Any]:
+    summary = dict(summary)
+    summary["diagnostics_schema_version"] = diagnostics["schema_version"]
+    summary["diagnostics_generated_at_utc"] = diagnostics["generated_at_utc"]
+    summary["synergy_assessment"] = diagnostics["synergy_assessment"]
+    _write_json(output_dir / "run_summary.json", summary)
+
     _write_json(output_dir / "portfolio_diagnostics.json", diagnostics)
     diagnostics_md = render_markdown(diagnostics)
-    (output_dir / "portfolio_diagnostics.md").write_text(diagnostics_md, encoding="utf-8")
+    (output_dir / "portfolio_diagnostics.md").write_text(
+        diagnostics_md,
+        encoding="utf-8",
+    )
     (output_dir / "round_final_diagnostics.txt").write_text(
         _round_final_diagnostics(summary, diagnostics_md),
         encoding="utf-8",
@@ -164,9 +214,7 @@ def finalize_standard_round(
         _round_evaluation(summary, diagnostics),
         encoding="utf-8",
     )
-    _write_run_spec(output_dir, source_dir, summary, config_dict, provenance)
-    _write_phase_compatibility_artifacts(output_dir, source_summary, summary, config_dict)
-    _write_manifest(output_dir.parent, round_num, summary, config_dict)
+    _write_diagnostics_manifest(output_dir, summary, diagnostics)
     return summary
 
 
@@ -637,6 +685,8 @@ def _round_final_diagnostics(summary: dict[str, Any], diagnostics_md: str) -> st
 def _round_evaluation(summary: dict[str, Any], diagnostics: dict[str, Any]) -> str:
     metrics = summary["final_metrics"]
     headline = diagnostics["headline"]
+    outcome = diagnostics["outcome_diagnostics"]
+    assessment = diagnostics["synergy_assessment"]
     replay_contract = summary.get("replay_contract", {})
     return (
         "=" * 78
@@ -652,10 +702,60 @@ def _round_evaluation(summary: dict[str, Any], diagnostics: dict[str, Any]) -> s
         + f"MTM max DD: {float(metrics.get('max_drawdown_pct', 0.0) or 0.0):.2%}\n"
         + f"PF / WR: {float(metrics.get('profit_factor', 0.0) or 0.0):.2f} / "
         + f"{float(metrics.get('win_rate', 0.0) or 0.0):.2%}\n"
+        + f"Synergy verdict: {assessment['verdict']}\n"
+        + f"Synergy maximized in tested evidence: {assessment['maximized']}\n"
+        + f"Trade/profit capture vs relaxed: {assessment['trade_capture_vs_relaxed']:.2%} / "
+        + f"{assessment['profit_capture_vs_relaxed']:.2%}\n"
+        + f"Blocked winners / all blocks: {outcome['blocked_r']['positive_count']:.0f} / "
+        + f"{outcome['blocked_r']['count']:.0f}\n"
+        + f"Positive/non-positive trade block rates: {outcome['positive_trade_block_rate']:.2%} / "
+        + f"{outcome['nonpositive_trade_block_rate']:.2%}\n"
+        + f"Avoided loss / forgone gain / net block value: {outcome['avoided_loss_r']:.2f}R / "
+        + f"{outcome['forgone_gain_r']:.2f}R / {outcome['net_block_value_r']:+.2f}R\n"
+        + f"Accepted-minus-blocked average R: {outcome['realized_r_discrimination']:+.3f}R\n"
         + f"Replay contract: {replay_contract.get('version', '')}\n"
         + f"Evidence scope: {replay_contract.get('evidence_label', '')}\n"
         + f"Source artifacts fingerprint: {summary.get('source_artifacts_fingerprint', '')}\n"
     )
+
+
+def _write_diagnostics_manifest(
+    output_dir: Path,
+    summary: dict[str, Any],
+    diagnostics: dict[str, Any],
+) -> None:
+    artifact_names = (
+        "run_summary.json",
+        "optimized_portfolio_config.json",
+        "strategy_trades.pkl",
+        "portfolio_diagnostics.json",
+        "portfolio_diagnostics.md",
+        "round_final_diagnostics.txt",
+        "round_evaluation.txt",
+    )
+    metrics_payload = canonicalize_metrics(summary.get("final_metrics", {}))
+    metrics_fingerprint = hashlib.sha256(
+        json.dumps(
+            _jsonable(metrics_payload),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    payload = {
+        "schema_version": "momentum_portfolio_synergy_diagnostics_manifest.v1",
+        "generated_at_utc": diagnostics["generated_at_utc"],
+        "round": summary.get("round"),
+        "round_name": summary.get("round_name"),
+        "diagnostics_schema_version": diagnostics["schema_version"],
+        "metrics_fingerprint": metrics_fingerprint,
+        "synergy_verdict": diagnostics["synergy_assessment"]["verdict"],
+        "synergy_maximized": diagnostics["synergy_assessment"]["maximized"],
+        "artifacts": {
+            name: _artifact_info(output_dir / name)
+            for name in artifact_names
+        },
+    }
+    _write_json(output_dir / "diagnostics_manifest.json", payload)
 
 
 def _write_manifest(

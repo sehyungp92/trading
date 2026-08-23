@@ -31,9 +31,8 @@ from strategies.momentum.nq_regime.core.state import (
 )
 from strategies.momentum.nq_regime.modules import liquidity_reversion, second_wind, structural_expansion
 from strategies.momentum.nq_regime.modules.base import NewsEvent, RoutingDecisionEvent, SetupCandidate
-from strategies.scalp._shared.nq_contract import round_to_tick
-from strategies.scalp._shared.time_utils import session_date
-from strategies.scalp._shared.time_utils import to_et
+from strategies.momentum.nq_regime.contract import round_to_tick
+from strategies.momentum.nq_regime.time_utils import session_date, to_et
 
 _TERMINAL_STATUSES = {"cancelled", "expired", "rejected", "order_cancelled", "order_expired", "order_rejected"}
 

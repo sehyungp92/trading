@@ -520,6 +520,7 @@ class RoundManager:
         *,
         provenance: AutoRunProvenance | dict[str, Any] | None = None,
         provenance_status: str | None = None,
+        round_metadata: dict[str, Any] | None = None,
     ) -> Path:
         manifest = self.load_manifest()
         current_provenance = coerce_provenance(provenance)
@@ -540,6 +541,10 @@ class RoundManager:
             )
         if provenance_status is not None:
             entry["provenance_status"] = provenance_status
+        for key, value in (round_metadata or {}).items():
+            if key in entry:
+                raise ValueError(f"Round metadata cannot override canonical manifest field {key!r}.")
+            entry[key] = value
 
         rounds = manifest.setdefault("rounds", [])
         replaced = False

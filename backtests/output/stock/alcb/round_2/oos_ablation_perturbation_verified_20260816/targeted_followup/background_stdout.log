@@ -1,0 +1,45 @@
+aggregate OOS: 56 follow-up candidates
+evaluate oos_results: 1-8 of 56 pending
+checkpointed 8 result(s) in 369.5s
+evaluate oos_results: 9-16 of 56 pending
+checkpointed 16 result(s) in 50.1s
+evaluate oos_results: 17-24 of 56 pending
+checkpointed 24 result(s) in 58.3s
+evaluate oos_results: 25-32 of 56 pending
+checkpointed 32 result(s) in 62.9s
+evaluate oos_results: 33-40 of 56 pending
+checkpointed 40 result(s) in 50.2s
+evaluate oos_results: 41-48 of 56 pending
+checkpointed 48 result(s) in 42.1s
+evaluate oos_results: 49-56 of 56 pending
+checkpointed 56 result(s) in 114.0s
+aggregate IS: 56 follow-up candidates
+evaluate is_results: 1-8 of 56 pending
+checkpointed 8 result(s) in 1705.9s
+evaluate is_results: 9-16 of 56 pending
+checkpointed 16 result(s) in 1260.5s
+evaluate is_results: 17-24 of 56 pending
+checkpointed 24 result(s) in 1036.4s
+evaluate is_results: 25-32 of 56 pending
+checkpointed 32 result(s) in 1150.7s
+evaluate is_results: 33-40 of 56 pending
+checkpointed 40 result(s) in 1111.5s
+evaluate is_results: 41-48 of 56 pending
+checkpointed 48 result(s) in 755.1s
+evaluate is_results: 49-56 of 56 pending
+checkpointed 56 result(s) in 693.4s
+temporal validation: 12 finalists across 3 IS folds
+evaluate fold_is_early: 1-8 of 12 pending
+checkpointed 8 result(s) in 382.7s
+evaluate fold_is_early: 9-12 of 12 pending
+checkpointed 12 result(s) in 106.7s
+evaluate fold_is_middle: 1-8 of 12 pending
+checkpointed 8 result(s) in 359.1s
+evaluate fold_is_middle: 9-12 of 12 pending
+checkpointed 12 result(s) in 68.3s
+evaluate fold_is_late: 1-8 of 12 pending
+checkpointed 8 result(s) in 239.5s
+evaluate fold_is_late: 9-12 of 12 pending
+checkpointed 12 result(s) in 70.5s
+complete: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\alcb\round_2\oos_ablation_perturbation_verified_20260816\targeted_followup
+leading fold-validated candidate: r110__entry1330_late_score5_failure_m010

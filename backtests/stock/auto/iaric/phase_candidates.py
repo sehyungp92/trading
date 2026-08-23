@@ -2802,50 +2802,350 @@ def get_v5r1_phase_candidate_lookup(
     }
 
 
+# Entry-focused V5R1 profile used for Round 2.  This later declaration
+# intentionally supersedes the archived broad V5R1 search space above while
+# keeping older round definitions readable for artifact recovery.
+V5R1_BASE_MUTATIONS = {
+    "param_overrides.max_positions_per_sector": 5,
+    "param_overrides.pb_atr_stop_mult": 2.0,
+    "param_overrides.pb_backtest_intraday_universe_only": True,
+    "param_overrides.pb_carry_close_pct_min": 0.0,
+    "param_overrides.pb_carry_enabled": False,
+    "param_overrides.pb_carry_mfe_gate_r": 0.0,
+    "param_overrides.pb_cdd_max": 9,
+    "param_overrides.pb_daily_rescue_min_score": 52.0,
+    "param_overrides.pb_daily_signal_family": "meanrev_sweetspot_v1",
+    "param_overrides.pb_daily_signal_min_score": 54.0,
+    "param_overrides.pb_delayed_confirm_enabled": False,
+    "param_overrides.pb_entry_score_min": 40.0,
+    "param_overrides.pb_execution_mode": "intraday_hybrid",
+    "param_overrides.pb_flow_policy": "soft_penalty_rescue",
+    "param_overrides.pb_max_hold_days": 2,
+    "param_overrides.pb_max_positions": 10,
+    "param_overrides.pb_min_candidates_day": 8,
+    "param_overrides.pb_open_scored_carry_close_pct_min": 0.0,
+    "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.0,
+    "param_overrides.pb_open_scored_enabled": True,
+    "param_overrides.pb_open_scored_fill_timing": "next_5m_open",
+    "param_overrides.pb_open_scored_flow_reversal_lookback": 2,
+    "param_overrides.pb_open_scored_max_hold_days": 2,
+    "param_overrides.pb_open_scored_priority": "high_score",
+    "param_overrides.pb_open_scored_transition": "next_bar",
+    "param_overrides.pb_opening_reclaim_enabled": False,
+    "param_overrides.pb_rescue_size_mult": 0.65,
+    "param_overrides.pb_signal_rank_gate_mode": "score_rank",
+    "param_overrides.pb_v2_afternoon_retest_enabled": False,
+    "param_overrides.pb_v2_allow_secular": True,
+    "param_overrides.pb_v2_carry_overnight_stop_atr": 1.0,
+    "param_overrides.pb_v2_ema_reversion_exit": True,
+    "param_overrides.pb_v2_ema_reversion_min_r": 0.03,
+    "param_overrides.pb_v2_enabled": True,
+    "param_overrides.pb_v2_flatten_loss_r": -0.5,
+    "param_overrides.pb_v2_flow_grace_days": 2,
+    "param_overrides.pb_v2_gap_max_pct": 3.0,
+    "param_overrides.pb_v2_mfe_stage1_stop_r": -0.1,
+    "param_overrides.pb_v2_mfe_stage1_trigger": 0.5,
+    "param_overrides.pb_v2_mfe_stage2_trigger": 0.6,
+    "param_overrides.pb_v2_mfe_stage3_trail_atr": 0.75,
+    "param_overrides.pb_v2_mfe_stage3_trigger": 1.25,
+    "param_overrides.pb_v2_open_scored_after_bar": 0,
+    "param_overrides.pb_v2_open_scored_allow_rescue": False,
+    "param_overrides.pb_v2_open_scored_enabled": True,
+    "param_overrides.pb_v2_open_scored_max_slots": 4,
+    "param_overrides.pb_v2_open_scored_min_score": 45.0,
+    "param_overrides.pb_v2_open_scored_rank_pct_max": 100.0,
+    "param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.0,
+    "param_overrides.pb_v2_partial_profit_trigger_r": 0.0,
+    "param_overrides.pb_v2_rsi_exit_open_scored": 60.0,
+    "param_overrides.pb_v2_secular_sizing_mult": 0.65,
+    "param_overrides.pb_v2_signal_floor": 60.0,
+    "param_overrides.pb_v2_stale_bars": 6,
+    "param_overrides.pb_v2_stale_mfe_thresh": 0.05,
+    "param_overrides.pb_v2_vwap_bounce_enabled": False,
+}
+
+V5R1_PHASE_FOCUS = {
+    1: ("Nightly Reversion Signal Discrimination", ["entry_potential_total_r", "entry_potential_avg_r", "entry_opportunity_recall", "entry_discrimination_lift_r"]),
+    2: ("Causal RTH Timing and Entry Confirmation", ["entry_potential_total_r", "entry_potential_avg_r", "entry_opportunity_recall", "robust_avg_r"]),
+    3: ("Intraday Entry Score Discrimination", ["entry_discrimination_lift_r", "entry_potential_avg_r", "expected_total_r", "robust_avg_r"]),
+    4: ("Alternative Causal Entry Routes", ["entry_potential_total_r", "entry_opportunity_recall", "expected_total_r", "robust_high_quality_frequency"]),
+    5: ("Pre-Specified Robust Entry Interactions", ["entry_potential_total_r", "entry_discrimination_lift_r", "expected_total_r", "robust_avg_r"]),
+}
+
+V5R1_PHASE_CANDIDATES = {
+    1: [
+        ("trigger_dislocation", {"param_overrides.pb_v2_open_scored_trigger_policy": "dislocation"}),
+        ("trigger_oversold", {"param_overrides.pb_v2_open_scored_trigger_policy": "oversold"}),
+        ("trigger_multi_dislocation", {"param_overrides.pb_v2_open_scored_trigger_policy": "multi_dislocation"}),
+        ("signal_floor_55", {"param_overrides.pb_v2_signal_floor": 55.0}),
+        ("signal_floor_65", {"param_overrides.pb_v2_signal_floor": 65.0}),
+        ("signal_floor_70", {"param_overrides.pb_v2_signal_floor": 70.0}),
+        ("open_daily_min_50", {"param_overrides.pb_v2_open_scored_min_score": 50.0}),
+        ("open_daily_min_55", {"param_overrides.pb_v2_open_scored_min_score": 55.0}),
+        # A generic "quality" score can become a momentum/chase proxy in its
+        # upper tail.  These broad caps test the reversion thesis without
+        # fitting a narrow observed optimum.
+        ("open_daily_max_75", {"param_overrides.pb_v2_open_scored_max_score": 75.0}),
+        ("open_daily_max_70", {"param_overrides.pb_v2_open_scored_max_score": 70.0}),
+        ("multi_dislocation_daily_max_75", {
+            "param_overrides.pb_v2_open_scored_trigger_policy": "multi_dislocation",
+            "param_overrides.pb_v2_open_scored_max_score": 75.0,
+        }),
+    ],
+    2: [
+        ("after_bar_1", {"param_overrides.pb_v2_open_scored_after_bar": 1}),
+        ("after_bar_2", {"param_overrides.pb_v2_open_scored_after_bar": 2}),
+        ("after_bar_5", {"param_overrides.pb_v2_open_scored_after_bar": 5}),
+        ("after_bar_11", {"param_overrides.pb_v2_open_scored_after_bar": 11}),
+        ("confirm_bullish_close", {"param_overrides.pb_v2_open_scored_confirmation_policy": "bullish_close"}),
+        ("confirm_bullish_vwap", {"param_overrides.pb_v2_open_scored_confirmation_policy": "bullish_vwap"}),
+        ("confirm_vwap_reclaim", {"param_overrides.pb_v2_open_scored_confirmation_policy": "vwap_reclaim"}),
+        ("transition_confirmed_retest", {"param_overrides.pb_open_scored_transition": "confirmed_retest"}),
+        ("transition_resting_retrace", {"param_overrides.pb_open_scored_transition": "resting_retrace"}),
+        ("retest_shallow_window3", {
+            "param_overrides.pb_open_scored_transition": "confirmed_retest",
+            "param_overrides.pb_open_scored_retest_retrace_frac": 0.20,
+            "param_overrides.pb_open_scored_retest_window_bars": 3,
+        }),
+        ("retest_deep_window6", {
+            "param_overrides.pb_open_scored_transition": "confirmed_retest",
+            "param_overrides.pb_open_scored_retest_retrace_frac": 0.50,
+            "param_overrides.pb_open_scored_retest_window_bars": 6,
+        }),
+        ("retrace_limit_shallow_20", {
+            "param_overrides.pb_open_scored_transition": "resting_retrace",
+            "param_overrides.pb_open_scored_retrace_limit_fraction": 0.20,
+            "param_overrides.pb_open_scored_retrace_limit_window_bars": 12,
+        }),
+        ("retrace_limit_deep_50", {
+            "param_overrides.pb_open_scored_transition": "resting_retrace",
+            "param_overrides.pb_open_scored_retrace_limit_fraction": 0.50,
+            "param_overrides.pb_open_scored_retrace_limit_window_bars": 12,
+        }),
+    ],
+    3: [
+        ("score_route_momentum", {"param_overrides.pb_entry_score_family": "route_momentum_v1"}),
+        ("score_route_quality", {"param_overrides.pb_entry_score_family": "route_quality_v1"}),
+        ("score_early_reversal", {"param_overrides.pb_entry_score_family": "route_early_reversal_v1"}),
+        ("entry_score_35", {"param_overrides.pb_entry_score_min": 35.0}),
+        ("entry_score_45", {"param_overrides.pb_entry_score_min": 45.0}),
+        ("entry_score_50", {"param_overrides.pb_entry_score_min": 50.0}),
+        ("quality_score_35", {"param_overrides.pb_entry_score_family": "route_quality_v1", "param_overrides.pb_entry_score_min": 35.0}),
+        ("early_reversal_score_35", {"param_overrides.pb_entry_score_family": "route_early_reversal_v1", "param_overrides.pb_entry_score_min": 35.0}),
+        ("entry_score_max_65", {"param_overrides.pb_v2_open_scored_max_entry_score": 65.0}),
+        ("entry_score_max_60", {"param_overrides.pb_v2_open_scored_max_entry_score": 60.0}),
+        ("entry_score_band_50_65", {
+            "param_overrides.pb_entry_score_min": 50.0,
+            "param_overrides.pb_v2_open_scored_max_entry_score": 65.0,
+        }),
+        ("early_reversal_band_35_65", {
+            "param_overrides.pb_entry_score_family": "route_early_reversal_v1",
+            "param_overrides.pb_entry_score_min": 35.0,
+            "param_overrides.pb_v2_open_scored_max_entry_score": 65.0,
+        }),
+    ],
+    4: [
+        ("opening_reclaim_quality", {
+            "param_overrides.pb_opening_reclaim_enabled": True,
+            "param_overrides.pb_opening_reclaim_min_daily_signal_score": 62.0,
+            "param_overrides.pb_flush_cpr_max": 0.35,
+            "param_overrides.pb_ready_min_cpr": 0.55,
+            "param_overrides.pb_ready_min_volume_ratio": 0.80,
+        }),
+        ("delayed_confirm_quality", {
+            "param_overrides.pb_delayed_confirm_enabled": True,
+            "param_overrides.pb_delayed_confirm_after_bar": 5,
+            "param_overrides.pb_delayed_confirm_score_min": 50.0,
+            "param_overrides.pb_v2_delayed_confirm_min_close_pct": 0.55,
+        }),
+        ("vwap_bounce", {"param_overrides.pb_v2_vwap_bounce_enabled": True}),
+        ("afternoon_retest", {"param_overrides.pb_v2_afternoon_retest_enabled": True}),
+        ("opening_and_delayed", {"param_overrides.pb_opening_reclaim_enabled": True, "param_overrides.pb_delayed_confirm_enabled": True}),
+        ("open_slots_5", {"param_overrides.pb_v2_open_scored_max_slots": 5}),
+        ("opening_reclaim_only", {
+            "param_overrides.pb_v2_open_scored_enabled": False,
+            "param_overrides.pb_opening_reclaim_enabled": True,
+            "param_overrides.pb_opening_reclaim_min_daily_signal_score": 55.0,
+        }),
+        ("delayed_confirm_only", {
+            "param_overrides.pb_v2_open_scored_enabled": False,
+            "param_overrides.pb_delayed_confirm_enabled": True,
+            "param_overrides.pb_delayed_confirm_after_bar": 5,
+            "param_overrides.pb_delayed_confirm_score_min": 45.0,
+        }),
+        ("retest_plus_opening", {
+            "param_overrides.pb_open_scored_transition": "confirmed_retest",
+            "param_overrides.pb_opening_reclaim_enabled": True,
+            "param_overrides.pb_opening_reclaim_min_daily_signal_score": 55.0,
+        }),
+        ("retrace_plus_delayed", {
+            "param_overrides.pb_open_scored_transition": "resting_retrace",
+            "param_overrides.pb_delayed_confirm_enabled": True,
+            "param_overrides.pb_delayed_confirm_after_bar": 5,
+        }),
+    ],
+    5: [
+        ("dislocation_bullish", {"param_overrides.pb_v2_open_scored_trigger_policy": "dislocation", "param_overrides.pb_v2_open_scored_confirmation_policy": "bullish_close"}),
+        ("dislocation_after_1", {"param_overrides.pb_v2_open_scored_trigger_policy": "dislocation", "param_overrides.pb_v2_open_scored_after_bar": 1}),
+        ("oversold_bullish_vwap", {"param_overrides.pb_v2_open_scored_trigger_policy": "oversold", "param_overrides.pb_v2_open_scored_confirmation_policy": "bullish_vwap"}),
+        ("oversold_vwap_reclaim", {"param_overrides.pb_v2_open_scored_trigger_policy": "oversold", "param_overrides.pb_v2_open_scored_confirmation_policy": "vwap_reclaim"}),
+        ("multi_dislocation_vwap_reclaim", {
+            "param_overrides.pb_v2_open_scored_trigger_policy": "multi_dislocation",
+            "param_overrides.pb_v2_open_scored_confirmation_policy": "vwap_reclaim",
+        }),
+        ("quality_dislocation", {"param_overrides.pb_entry_score_family": "route_quality_v1", "param_overrides.pb_entry_score_min": 35.0, "param_overrides.pb_v2_open_scored_trigger_policy": "dislocation"}),
+        ("early_reversal_after_1", {"param_overrides.pb_entry_score_family": "route_early_reversal_v1", "param_overrides.pb_entry_score_min": 35.0, "param_overrides.pb_v2_open_scored_after_bar": 1}),
+        ("confirmed_retest_dislocation", {"param_overrides.pb_open_scored_transition": "confirmed_retest", "param_overrides.pb_v2_open_scored_trigger_policy": "dislocation"}),
+        ("multi_dislocation_retrace", {
+            "param_overrides.pb_v2_open_scored_trigger_policy": "multi_dislocation",
+            "param_overrides.pb_open_scored_transition": "resting_retrace",
+        }),
+        ("multi_dislocation_retest_band", {
+            "param_overrides.pb_v2_open_scored_trigger_policy": "multi_dislocation",
+            "param_overrides.pb_open_scored_transition": "confirmed_retest",
+            "param_overrides.pb_v2_open_scored_max_entry_score": 65.0,
+        }),
+    ],
+}
+
+
+def get_v5r1_phase_candidates(
+    phase: int,
+    suggested_experiments: list[tuple[str, dict[str, Any]]] | None = None,
+    *,
+    profile: str = "mainline",
+    accepted_mutations: dict[str, Any] | None = None,
+) -> list[tuple[str, dict[str, Any]]]:
+    del profile, accepted_mutations
+    experiments = list(V5R1_PHASE_CANDIDATES.get(phase, []))
+    if suggested_experiments:
+        existing = {name for name, _ in experiments}
+        experiments.extend(
+            (name, mutations)
+            for name, mutations in suggested_experiments
+            if name not in existing
+        )
+    return experiments
+
+
+def get_v5r1_phase_candidate_lookup(
+    phase: int,
+    suggested_experiments: list[tuple[str, dict[str, Any]]] | None = None,
+    *,
+    profile: str = "mainline",
+    accepted_mutations: dict[str, Any] | None = None,
+) -> dict[str, dict[str, Any]]:
+    return {
+        name: dict(mutations)
+        for name, mutations in get_v5r1_phase_candidates(
+            phase,
+            suggested_experiments=suggested_experiments,
+            profile=profile,
+            accepted_mutations=accepted_mutations,
+        )
+    }
+
+
 V5R2_BASE_MUTATIONS = dict(V5R1_BASE_MUTATIONS)
 
 
 V5R2_PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
     1: (
-        "Carry Drag Suppression",
-        ["net_profit", "expected_total_r", "profit_factor", "sharpe", "residual_alpha_quality"],
+        "Executable Partial and Protection Recovery",
+        ["net_profit", "expected_total_r", "avg_r", "profit_factor", "max_drawdown_pct"],
     ),
     2: (
-        "Delayed Confirm Extraction",
-        ["net_profit", "expected_total_r", "profit_factor", "total_trades", "residual_alpha_quality"],
+        "Signal Discrimination and Aperture",
+        ["net_profit", "expected_total_r", "avg_r", "profit_factor", "total_trades"],
     ),
     3: (
-        "Selection and Capacity Validation",
-        ["net_profit", "expected_total_r", "total_trades", "profit_factor", "inv_dd"],
+        "Entry Route Alpha Extraction",
+        ["net_profit", "expected_total_r", "avg_r", "total_trades", "profit_factor"],
     ),
     4: (
-        "Robust Interaction Bundles",
-        ["net_profit", "expected_total_r", "profit_factor", "sharpe", "inv_dd"],
+        "Carry Exit and Capacity Calibration",
+        ["net_profit", "expected_total_r", "profit_factor", "sharpe", "max_drawdown_pct"],
     ),
 }
 
 
 V5R2_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
     1: [
-        ("open_carry_quality_055_020", {
-            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
-            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
+        ("partial_off", {"param_overrides.pb_v2_partial_profit_trigger_r": 0.0}),
+        ("partial_020_stop_000", {
+            "param_overrides.pb_v2_partial_profit_trigger_r": 0.20,
+            "param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.00,
         }),
-        ("open_carry_quality_070_030", {
-            "param_overrides.pb_open_scored_carry_close_pct_min": 0.70,
-            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.30,
+        ("partial_030_stop_000", {
+            "param_overrides.pb_v2_partial_profit_trigger_r": 0.30,
+            "param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.00,
         }),
-        ("open_carry_off", {
-            "param_overrides.pb_open_scored_carry_close_pct_min": 999.0,
-            "param_overrides.pb_open_scored_carry_mfe_gate_r": 999.0,
+        ("partial_040_stop_010", {
+            "param_overrides.pb_v2_partial_profit_trigger_r": 0.40,
+            "param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.10,
         }),
-        ("all_route_carry_quality_055_020", {
-            "param_overrides.pb_carry_close_pct_min": 0.55,
-            "param_overrides.pb_carry_mfe_gate_r": 0.20,
-            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
-            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
-            "param_overrides.pb_delayed_confirm_carry_close_pct_min": 0.55,
-            "param_overrides.pb_delayed_confirm_carry_mfe_gate_r": 0.20,
+        ("partial_050_stop_015", {
+            "param_overrides.pb_v2_partial_profit_trigger_r": 0.50,
+            "param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.15,
+        }),
+        ("partial_075_stop_025", {
+            "param_overrides.pb_v2_partial_profit_trigger_r": 0.75,
+            "param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.25,
+        }),
+        ("partial_030_stop_m010", {
+            "param_overrides.pb_v2_partial_profit_trigger_r": 0.30,
+            "param_overrides.pb_v2_partial_profit_remainder_stop_r": -0.10,
+        }),
+        ("partial_040_slower_be", {
+            "param_overrides.pb_v2_partial_profit_trigger_r": 0.40,
+            "param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.10,
+            "param_overrides.pb_v2_mfe_stage2_trigger": 0.80,
+        }),
+    ],
+    2: [
+        ("signal_floor_72", {"param_overrides.pb_v2_signal_floor": 72.0}),
+        ("signal_floor_78", {"param_overrides.pb_v2_signal_floor": 78.0}),
+        ("signal_floor_82", {"param_overrides.pb_v2_signal_floor": 82.0}),
+        ("gap_max_200", {"param_overrides.pb_v2_gap_max_pct": 2.0}),
+        ("gap_max_250", {"param_overrides.pb_v2_gap_max_pct": 2.5}),
+        ("gap_max_350", {"param_overrides.pb_v2_gap_max_pct": 3.5}),
+        ("gap_max_400", {"param_overrides.pb_v2_gap_max_pct": 4.0}),
+        ("cdd_max_6", {"param_overrides.pb_cdd_max": 6}),
+        ("cdd_max_12", {"param_overrides.pb_cdd_max": 12}),
+        ("flow_hard_reject", {"param_overrides.pb_flow_policy": "hard_reject"}),
+    ],
+    3: [
+        ("delayed_confirm_off", {"param_overrides.pb_delayed_confirm_enabled": False}),
+        ("opening_reclaim_off", {"param_overrides.pb_opening_reclaim_enabled": False}),
+        ("vwap_bounce_off", {"param_overrides.pb_v2_vwap_bounce_enabled": False}),
+        ("afternoon_retest_off", {"param_overrides.pb_v2_afternoon_retest_enabled": False}),
+        ("auxiliary_routes_off", {
+            "param_overrides.pb_opening_reclaim_enabled": False,
+            "param_overrides.pb_v2_vwap_bounce_enabled": False,
+            "param_overrides.pb_v2_afternoon_retest_enabled": False,
+        }),
+        ("delayed_score_47", {"param_overrides.pb_delayed_confirm_score_min": 47.0}),
+        ("delayed_score_57", {"param_overrides.pb_delayed_confirm_score_min": 57.0}),
+        ("delayed_bar_7", {"param_overrides.pb_delayed_confirm_after_bar": 7}),
+        ("open_slots_3", {"param_overrides.pb_v2_open_scored_max_slots": 3}),
+        ("open_slots_5", {"param_overrides.pb_v2_open_scored_max_slots": 5}),
+    ],
+    4: [
+        ("all_route_carry_mild_010_005", {
+            "param_overrides.pb_carry_close_pct_min": 0.10,
+            "param_overrides.pb_carry_mfe_gate_r": 0.05,
+            "param_overrides.pb_open_scored_carry_close_pct_min": 0.10,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.05,
+            "param_overrides.pb_delayed_confirm_carry_close_pct_min": 0.10,
+            "param_overrides.pb_delayed_confirm_carry_mfe_gate_r": 0.05,
+        }),
+        ("all_route_carry_moderate_025_010", {
+            "param_overrides.pb_carry_close_pct_min": 0.25,
+            "param_overrides.pb_carry_mfe_gate_r": 0.10,
+            "param_overrides.pb_open_scored_carry_close_pct_min": 0.25,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.10,
+            "param_overrides.pb_delayed_confirm_carry_close_pct_min": 0.25,
+            "param_overrides.pb_delayed_confirm_carry_mfe_gate_r": 0.10,
         }),
         ("all_route_carry_off", {
             "param_overrides.pb_carry_close_pct_min": 999.0,
@@ -2855,61 +3155,15 @@ V5R2_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
             "param_overrides.pb_delayed_confirm_carry_close_pct_min": 999.0,
             "param_overrides.pb_delayed_confirm_carry_mfe_gate_r": 999.0,
         }),
-        ("profit_lock_050", {"param_overrides.pb_v2_carry_profit_lock_r": 0.50}),
-        ("flow_grace_1", {"param_overrides.pb_v2_flow_grace_days": 1}),
-    ],
-    2: [
-        ("delayed_score_47", {"param_overrides.pb_delayed_confirm_score_min": 47.0}),
-        ("delayed_score_57", {"param_overrides.pb_delayed_confirm_score_min": 57.0}),
-        ("delayed_bar_7", {"param_overrides.pb_delayed_confirm_after_bar": 7}),
-        ("delayed_bar7_score47", {
-            "param_overrides.pb_delayed_confirm_after_bar": 7,
-            "param_overrides.pb_delayed_confirm_score_min": 47.0,
-        }),
-        ("delayed_quality_055_070", {
-            "param_overrides.pb_v2_delayed_confirm_min_close_pct": 0.55,
-            "param_overrides.pb_v2_delayed_confirm_vol_ratio": 0.70,
-        }),
-        ("delayed_carry_relaxed_045_010", {
-            "param_overrides.pb_delayed_confirm_carry_close_pct_min": 0.45,
-            "param_overrides.pb_delayed_confirm_carry_mfe_gate_r": 0.10,
-        }),
-    ],
-    3: [
-        ("ready_quality_065_120", {
-            "param_overrides.pb_ready_min_cpr": 0.65,
-            "param_overrides.pb_ready_min_volume_ratio": 1.20,
-        }),
-        ("ready_cpr_065", {"param_overrides.pb_ready_min_cpr": 0.65}),
-        ("gap_max_1", {"param_overrides.pb_v2_gap_max_pct": 1.0}),
-        ("gap_down_focus", {
-            "param_overrides.pb_v2_gap_min_pct": -8.0,
-            "param_overrides.pb_v2_gap_max_pct": 0.5,
-        }),
+        ("ema_exit_off", {"param_overrides.pb_v2_ema_reversion_exit": False}),
+        ("stale_bars_4", {"param_overrides.pb_v2_stale_bars": 4}),
+        ("stale_bars_8", {"param_overrides.pb_v2_stale_bars": 8}),
+        ("atr_stop_160", {"param_overrides.pb_atr_stop_mult": 1.60}),
+        ("atr_stop_180", {"param_overrides.pb_atr_stop_mult": 1.80}),
+        ("atr_stop_220", {"param_overrides.pb_atr_stop_mult": 2.20}),
         ("max_pos_11", {"param_overrides.pb_max_positions": 11}),
         ("max_pos_12", {"param_overrides.pb_max_positions": 12}),
-    ],
-    4: [
-        ("carry_quality_delayed47", {
-            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
-            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
-            "param_overrides.pb_delayed_confirm_score_min": 47.0,
-        }),
-        ("carry_quality_delayed_bar7", {
-            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
-            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
-            "param_overrides.pb_delayed_confirm_after_bar": 7,
-        }),
-        ("carry_quality_capacity11", {
-            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
-            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
-            "param_overrides.pb_max_positions": 11,
-        }),
-        ("defensive_gap_carry_quality", {
-            "param_overrides.pb_v2_gap_max_pct": 1.0,
-            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
-            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
-        }),
+        ("sector_cap_3", {"param_overrides.max_positions_per_sector": 3}),
     ],
 }
 
@@ -2943,6 +3197,172 @@ def get_v5r2_phase_candidate_lookup(
     return {
         name: dict(mutations)
         for name, mutations in get_v5r2_phase_candidates(
+            phase,
+            suggested_experiments=suggested_experiments,
+            profile=profile,
+            accepted_mutations=accepted_mutations,
+        )
+    }
+
+
+# V6R1 starts from the repaired, diagnostics-verified Round-1 configuration.
+# The search is deliberately coarse and structural: each candidate expresses
+# an economic hypothesis and avoids narrow bins learned from only 89 trades.
+V6R1_BASE_MUTATIONS: dict[str, Any] = dict(V5R1_BASE_MUTATIONS)
+V6R1_BASE_MUTATIONS.update({
+    "param_overrides.pb_carry_enabled": True,
+    "param_overrides.pb_carry_min_r": 0.0,
+    "param_overrides.pb_max_hold_days": 5,
+    "param_overrides.pb_open_scored_max_hold_days": 5,
+    "param_overrides.pb_v2_ema_reversion_exit": False,
+    "param_overrides.pb_v2_open_scored_trigger_policy": "oversold",
+    "param_overrides.pb_v2_open_scored_confirmation_policy": "band_reclaim",
+    "param_overrides.pb_entry_score_family": "reversion_event_v1",
+    "param_overrides.pb_v2_dislocation_band_atr": 0.35,
+})
+
+
+V6R1_PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
+    1: ("Signal Aperture and Negative-Signal Rejection", ["expected_total_r", "total_trades", "entry_realized_discrimination_lift_r", "robust_avg_r"]),
+    2: ("Intraday Score and Crowded-Day Selection", ["expected_total_r", "avg_r", "entry_realized_discrimination_lift_r", "total_trades"]),
+    3: ("Causal Entry Route and Stop Geometry", ["expected_total_r", "avg_r", "profit_factor", "max_drawdown_pct"]),
+    4: ("MFE Conversion and Failure Protection", ["expected_total_r", "avg_r", "profit_factor", "max_drawdown_pct"]),
+    5: ("Carry, Exit, and Capacity Integration", ["expected_total_r", "total_trades", "profit_factor", "max_drawdown_pct"]),
+}
+
+
+V6R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
+    1: [
+        ("trigger_dislocation", {"param_overrides.pb_v2_open_scored_trigger_policy": "dislocation"}),
+        ("trigger_multi_dislocation", {"param_overrides.pb_v2_open_scored_trigger_policy": "multi_dislocation"}),
+        ("signal_floor_55", {"param_overrides.pb_v2_signal_floor": 55.0}),
+        ("signal_floor_65", {"param_overrides.pb_v2_signal_floor": 65.0}),
+        ("gap_max_5", {"param_overrides.pb_v2_gap_max_pct": 5.0}),
+        ("flow_hard_reject", {"param_overrides.pb_flow_policy": "hard_reject"}),
+        ("reclaim_confirmed_rescue_050", {
+            "param_overrides.pb_v2_open_scored_allow_rescue": True,
+            "param_overrides.pb_rescue_size_mult": 0.50,
+        }),
+    ],
+    2: [
+        ("priority_low_score", {"param_overrides.pb_open_scored_priority": "low_score"}),
+        ("score_route_quality", {"param_overrides.pb_entry_score_family": "route_quality_v1"}),
+        ("score_early_reversal", {"param_overrides.pb_entry_score_family": "route_early_reversal_v1"}),
+        ("entry_score_35", {"param_overrides.pb_entry_score_min": 35.0}),
+        ("entry_score_50", {"param_overrides.pb_entry_score_min": 50.0}),
+        ("entry_score_cap_65", {"param_overrides.pb_v2_open_scored_max_entry_score": 65.0}),
+        ("flat_daily_score_sizing", {
+            "param_overrides.pb_v2_sizing_premium": 1.0,
+            "param_overrides.pb_v2_sizing_standard": 1.0,
+            "param_overrides.pb_v2_sizing_reduced": 1.0,
+            "param_overrides.pb_v2_sizing_minimum": 1.0,
+        }),
+    ],
+    3: [
+        ("event_stop_reclaim_025", {
+            "param_overrides.pb_v2_event_stop_anchor": "reclaim_bar",
+            "param_overrides.pb_v2_event_stop_min_atr": 0.25,
+        }),
+        ("event_stop_reclaim_040", {
+            "param_overrides.pb_v2_event_stop_anchor": "reclaim_bar",
+            "param_overrides.pb_v2_event_stop_min_atr": 0.40,
+        }),
+        ("event_stop_reclaim_060", {
+            "param_overrides.pb_v2_event_stop_anchor": "reclaim_bar",
+            "param_overrides.pb_v2_event_stop_min_atr": 0.60,
+        }),
+        ("reclaim_or_limit_020_12", {
+            "param_overrides.pb_open_scored_transition": "reclaim_or_limit",
+            "param_overrides.pb_open_scored_retrace_limit_fraction": 0.20,
+            "param_overrides.pb_open_scored_retrace_limit_window_bars": 12,
+        }),
+        ("reclaim_or_limit_035_24", {
+            "param_overrides.pb_open_scored_transition": "reclaim_or_limit",
+            "param_overrides.pb_open_scored_retrace_limit_fraction": 0.35,
+            "param_overrides.pb_open_scored_retrace_limit_window_bars": 24,
+        }),
+        ("confirmed_retest", {"param_overrides.pb_open_scored_transition": "confirmed_retest"}),
+        ("opening_reclaim_quality", {
+            "param_overrides.pb_opening_reclaim_enabled": True,
+            "param_overrides.pb_opening_reclaim_min_daily_signal_score": 60.0,
+            "param_overrides.pb_flush_cpr_max": 0.35,
+            "param_overrides.pb_ready_min_cpr": 0.55,
+            "param_overrides.pb_ready_min_volume_ratio": 0.80,
+        }),
+    ],
+    4: [
+        ("protection_fast", {
+            "param_overrides.pb_v2_mfe_stage1_trigger": 0.25,
+            "param_overrides.pb_v2_mfe_stage1_stop_r": -0.25,
+            "param_overrides.pb_v2_mfe_stage2_trigger": 0.50,
+        }),
+        ("protection_balanced", {
+            "param_overrides.pb_v2_mfe_stage1_trigger": 0.35,
+            "param_overrides.pb_v2_mfe_stage1_stop_r": -0.10,
+            "param_overrides.pb_v2_mfe_stage2_trigger": 0.55,
+        }),
+        ("stale_tighten_fast", {
+            "param_overrides.pb_v2_stale_bars": 4,
+            "param_overrides.pb_v2_stale_mfe_thresh": 0.10,
+            "param_overrides.pb_v2_stale_tighten_pct": 0.50,
+        }),
+        ("partial_075_frac_025", {
+            "param_overrides.pb_v2_partial_profit_trigger_r": 0.75,
+            "param_overrides.pb_v2_partial_profit_fraction": 0.25,
+            "param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.0,
+        }),
+        ("partial_100_frac_033", {
+            "param_overrides.pb_v2_partial_profit_trigger_r": 1.0,
+            "param_overrides.pb_v2_partial_profit_fraction": 0.33,
+            "param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.0,
+        }),
+        ("stage3_trail_060", {"param_overrides.pb_v2_mfe_stage3_trail_atr": 0.60}),
+        ("stage3_trail_100", {"param_overrides.pb_v2_mfe_stage3_trail_atr": 1.00}),
+    ],
+    5: [
+        ("max_hold_3", {
+            "param_overrides.pb_max_hold_days": 3,
+            "param_overrides.pb_open_scored_max_hold_days": 3,
+        }),
+        ("max_hold_4", {
+            "param_overrides.pb_max_hold_days": 4,
+            "param_overrides.pb_open_scored_max_hold_days": 4,
+        }),
+        ("flow_reversal_3", {"param_overrides.pb_open_scored_flow_reversal_lookback": 3}),
+        ("rsi_exit_55", {"param_overrides.pb_v2_rsi_exit_open_scored": 55.0}),
+        ("rsi_exit_65", {"param_overrides.pb_v2_rsi_exit_open_scored": 65.0}),
+        ("carry_profit_lock_100", {"param_overrides.pb_v2_carry_profit_lock_r": 1.0}),
+        ("capacity_12_slots_5", {
+            "param_overrides.pb_max_positions": 12,
+            "param_overrides.pb_v2_open_scored_max_slots": 5,
+        }),
+    ],
+}
+
+
+def get_v6r1_phase_candidates(
+    phase: int,
+    suggested_experiments: list[tuple[str, dict[str, Any]]] | None = None,
+    *,
+    profile: str = "mainline",
+    accepted_mutations: dict[str, Any] | None = None,
+) -> list[tuple[str, dict[str, Any]]]:
+    # Keep the small-sample search pre-registered. Diagnostics may recommend
+    # follow-ups for a later round, but they cannot expand this round in-flight.
+    del profile, accepted_mutations, suggested_experiments
+    return list(V6R1_PHASE_CANDIDATES.get(phase, []))
+
+
+def get_v6r1_phase_candidate_lookup(
+    phase: int,
+    suggested_experiments: list[tuple[str, dict[str, Any]]] | None = None,
+    *,
+    profile: str = "mainline",
+    accepted_mutations: dict[str, Any] | None = None,
+) -> dict[str, dict[str, Any]]:
+    return {
+        name: dict(mutations)
+        for name, mutations in get_v6r1_phase_candidates(
             phase,
             suggested_experiments=suggested_experiments,
             profile=profile,

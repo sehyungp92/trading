@@ -8,6 +8,15 @@ from typing import Any
 from backtests.swing.config_etf_base import ETFSlippageConfig
 from strategies.swing.tpc.config import SYMBOL_CONFIGS, TPCSymbolConfig
 
+_LEGACY_FIELD_ALIASES = {
+    "asset_context_enabled": "etf_context_enabled",
+    "asset_context_min_score": "etf_context_min_score",
+}
+_RETIRED_FIELDS = {
+    "asset_context_block_opposed_daily",
+    "asset_context_symbol",
+}
+
 
 @dataclass(frozen=True)
 class TPCBacktestConfig:
@@ -30,6 +39,9 @@ class TPCBacktestConfig:
                 symbols = tuple(str(symbol) for symbol in value)
             elif "." in key:
                 sym, field_name = key.split(".", 1)
+                field_name = _LEGACY_FIELD_ALIASES.get(field_name, field_name)
+                if field_name in _RETIRED_FIELDS:
+                    continue
                 if sym == "all":
                     for name, cfg in list(configs.items()):
                         if hasattr(cfg, field_name):

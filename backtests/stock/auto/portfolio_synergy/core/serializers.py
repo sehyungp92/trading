@@ -10,7 +10,7 @@ from backtests.stock.models import Direction
 
 from .state import BlockedCandidate, PortfolioCoreState, PortfolioPosition
 
-_STATE_VERSION = 1
+_STATE_VERSION = 2
 
 
 def snapshot_portfolio_state(state: PortfolioCoreState) -> dict[str, Any]:
@@ -27,6 +27,16 @@ def hydrate_portfolio_state(snapshot: dict[str, Any]) -> PortfolioCoreState:
         equity=float(payload.get("equity", 0.0)),
         peak_equity=float(payload.get("peak_equity", payload.get("equity", 0.0))),
         reference_risk_pct=float(payload.get("reference_risk_pct", 0.0)),
+        cash=float(payload.get("cash", payload.get("equity", 0.0))),
+        net_liquidation_value=float(
+            payload.get("net_liquidation_value", payload.get("equity", 0.0))
+        ),
+        peak_net_liquidation_value=float(
+            payload.get(
+                "peak_net_liquidation_value",
+                payload.get("peak_equity", payload.get("equity", 0.0)),
+            )
+        ),
         active_positions=[
             _hydrate_position(item) for item in payload.get("active_positions", [])
         ],
@@ -41,6 +51,10 @@ def hydrate_portfolio_state(snapshot: dict[str, Any]) -> PortfolioCoreState:
         equity_times=[
             _hydrate_datetime(value) for value in payload.get("equity_times", [])
         ],
+        nlv_points=[float(value) for value in payload.get("nlv_points", [])],
+        nlv_times=[
+            _hydrate_datetime(value) for value in payload.get("nlv_times", [])
+        ],
         daily_realized_r={
             str(key): float(value)
             for key, value in payload.get("daily_realized_r", {}).items()
@@ -48,6 +62,10 @@ def hydrate_portfolio_state(snapshot: dict[str, Any]) -> PortfolioCoreState:
         weekly_realized_r={
             str(key): float(value)
             for key, value in payload.get("weekly_realized_r", {}).items()
+        },
+        strategy_daily_realized_r={
+            str(key): float(value)
+            for key, value in payload.get("strategy_daily_realized_r", {}).items()
         },
         strategy_recent={
             str(key): _hydrate_deque(value)
@@ -59,6 +77,30 @@ def hydrate_portfolio_state(snapshot: dict[str, Any]) -> PortfolioCoreState:
         },
         candidate_count=int(payload.get("candidate_count", 0)),
         decision_seq=int(payload.get("decision_seq", 0)),
+        last_account_time=(
+            _hydrate_datetime(payload["last_account_time"])
+            if payload.get("last_account_time") is not None
+            else None
+        ),
+        financing_cost=float(payload.get("financing_cost", 0.0)),
+        gross_notional_peak=float(payload.get("gross_notional_peak", 0.0)),
+        gross_leverage_peak=float(payload.get("gross_leverage_peak", 0.0)),
+        net_notional_peak_abs=float(payload.get("net_notional_peak_abs", 0.0)),
+        net_leverage_peak_abs=float(payload.get("net_leverage_peak_abs", 0.0)),
+        overnight_gross_leverage_peak=float(
+            payload.get("overnight_gross_leverage_peak", 0.0)
+        ),
+        initial_margin_peak=float(payload.get("initial_margin_peak", 0.0)),
+        maintenance_margin_peak=float(
+            payload.get("maintenance_margin_peak", 0.0)
+        ),
+        minimum_margin_buffer_pct=float(
+            payload.get("minimum_margin_buffer_pct", 1.0)
+        ),
+        margin_breach_count=int(payload.get("margin_breach_count", 0)),
+        in_margin_breach=bool(payload.get("in_margin_breach", False)),
+        mark_observation_count=int(payload.get("mark_observation_count", 0)),
+        missing_mark_count=int(payload.get("missing_mark_count", 0)),
     )
     return state
 
@@ -107,6 +149,16 @@ def _hydrate_position(payload: dict[str, Any]) -> PortfolioPosition:
         entry_price=float(payload.get("entry_price", 0.0)),
         exit_price=float(payload.get("exit_price", 0.0)),
         quantity=float(payload.get("quantity", 0.0)),
+        entry_notional=float(payload.get("entry_notional", 0.0)),
+        current_mark=float(
+            payload.get("current_mark", payload.get("entry_price", 0.0))
+        ),
+        mark_price_scale=float(payload.get("mark_price_scale", 1.0)),
+        last_mark_time=(
+            _hydrate_datetime(payload["last_mark_time"])
+            if payload.get("last_mark_time") is not None
+            else None
+        ),
         price_scale=float(payload.get("price_scale", 0.0)),
         commission=float(payload.get("commission", 0.0)),
         exit_reason=str(payload.get("exit_reason", "")),
@@ -125,6 +177,8 @@ def _hydrate_blocked_candidate(payload: dict[str, Any]) -> BlockedCandidate:
         reason=str(payload.get("reason", "")),
         quality=float(payload.get("quality", 0.0)),
         heat_r=float(payload.get("heat_r", 0.0)),
+        requested_quantity=int(payload.get("requested_quantity", 0)),
+        requested_notional=float(payload.get("requested_notional", 0.0)),
     )
 
 

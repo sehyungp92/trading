@@ -17,6 +17,7 @@ if str(_root) not in sys.path:
 from backtests.shared.auto.phase_gates import evaluate_gate
 from backtests.shared.auto.phase_runner import PhaseRunner, _mutations_through_phase
 from backtests.shared.auto.phase_state import save_phase_state
+from backtests.shared.auto.provenance import ProvenanceValidationError
 from backtests.shared.auto.round_manager import RoundManager
 
 from .plugin import IARICPullbackPlugin
@@ -27,10 +28,10 @@ logger = logging.getLogger(__name__)
 ROUND_MANAGER = RoundManager("stock", "iaric")
 ROUND_NAME_BY_ROUND = {
     1: "v4r1",
-    2: "v5r1",
+    2: "v6r1",
     3: "v5r2",
 }
-ROUND_NAME_CHOICES = ["auto", "r4", "r5", "v2r1", "v2r2", "v2r3", "v2r4", "v3r1", "v4r1", "v5r1", "v5r2"]
+ROUND_NAME_CHOICES = ["auto", "r4", "r5", "v2r1", "v2r2", "v2r3", "v2r4", "v3r1", "v4r1", "v5r1", "v5r2", "v6r1"]
 
 
 def _round_name_for_args(args: argparse.Namespace, *, for_write: bool) -> str:
@@ -63,6 +64,8 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
         max_workers=getattr(args, "max_workers", None),
         profile=args.profile,
         round_name=round_name,
+        bundle_path=Path(args.bundle) if getattr(args, "bundle", None) else None,
+        require_bundle=not bool(getattr(args, "allow_legacy_data", False)),
     )
     round_num, round_dir = ROUND_MANAGER.resolve_round(
         getattr(args, "round", None),
@@ -80,11 +83,25 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
             profile=args.profile,
             num_phases=_previous_round_num_phases(previous_name),
             round_name=previous_name,
+            bundle_path=Path(args.bundle) if getattr(args, "bundle", None) else None,
+            require_bundle=not bool(getattr(args, "allow_legacy_data", False)),
         ).build_provenance()
-        plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(
-            round_num,
-            current_provenance=previous_provenance,
-        )
+        try:
+            plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(
+                round_num,
+                current_provenance=previous_provenance,
+            )
+        except ProvenanceValidationError:
+            if not bool(getattr(args, "integrity_rebaseline", False)):
+                raise
+            # Round 1 is an explicitly legacy research reference without a
+            # complete saved provenance payload.  Re-evaluate its exact config
+            # on current code, and record the accepted selection drift in the
+            # new run rather than silently substituting hard-coded defaults.
+            plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(round_num)
+            plugin.initial_mutations_source = str(
+                ROUND_MANAGER.optimized_config_path(ROUND_MANAGER.round_path(round_num - 1))
+            )
         plugin.previous_round_provenance = previous_provenance
     return PhaseRunner(
         plugin=plugin,
@@ -95,6 +112,7 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
         max_retries=getattr(args, "max_retries", 0),
         round_manager=ROUND_MANAGER,
         round_num=round_num,
+        allow_selection_drift=bool(getattr(args, "integrity_rebaseline", False)),
     )
 
 
@@ -170,12 +188,27 @@ def main() -> None:
 
     def add_common(command: argparse.ArgumentParser) -> None:
         command.add_argument("--data-dir", default="backtests/stock/data/raw")
-        command.add_argument("--start-date", "--start", dest="start_date", default="2024-01-01")
+        command.add_argument("--start-date", "--start", dest="start_date", default="2024-03-25")
         command.add_argument("--end-date", "--end", dest="end_date", default="2026-03-01")
         command.add_argument("--equity", type=float, default=10_000.0)
+        command.add_argument(
+            "--bundle",
+            default=None,
+            help="Verified frozen stock-data bundle (required unless --allow-legacy-data).",
+        )
+        command.add_argument(
+            "--allow-legacy-data",
+            action="store_true",
+            help="Explicitly allow the retained cache for diagnostic-only, non-promotable research.",
+        )
         command.add_argument("--profile", choices=["mainline", "aggressive"], default="mainline")
         command.add_argument("--round-name", choices=ROUND_NAME_CHOICES, default="auto")
         command.add_argument("--round", type=int, default=None)
+        command.add_argument(
+            "--integrity-rebaseline",
+            action="store_true",
+            help="reuse an explicitly legacy prior config and record accepted selection drift",
+        )
 
     phase_run = sub.add_parser("phase-run", help="Run a single IARIC phase")
     add_common(phase_run)

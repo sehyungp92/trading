@@ -51,6 +51,7 @@ from strategies.core.actions import (
     SubmitExit,
     SubmitPartialExit,
 )
+from ..volume_units import to_shares
 from .execution import build_entry_order, build_market_exit, build_stock_instrument, build_stop_order
 from .exits import (
     carry_eligible_momentum,
@@ -72,6 +73,11 @@ from .models import (
     T2PositionState,
 )
 from .risk import (
+    conditional_entry_blocked,
+    conditional_entry_size_mult,
+    failure_stop_price,
+    momentum_friction_gate_pass,
+    momentum_friction_to_risk,
     momentum_regime_mult,
     momentum_size_mult,
     momentum_stop_price,
@@ -150,6 +156,7 @@ class ALCBT2Engine:
 
         # Portfolio
         self._equity = nav
+        self._daily_realized_r = 0.0
 
         # Safety tracking
         self._expected_stop_cancels: set[str] = set()
@@ -441,6 +448,20 @@ class ALCBT2Engine:
                                 pos.current_stop = at_price
 
             # Track whether any trailing mechanism ratcheted the stop
+            # Early-failure evidence only tightens the protective stop for
+            # future bars; it never creates a same-bar synthetic fill.
+            if settings.failure_stop_bars > 0 and pos.hold_bars >= settings.failure_stop_bars:
+                pos.current_stop = failure_stop_price(
+                    pos.direction,
+                    pos.entry_price,
+                    pos.current_stop,
+                    bar.close,
+                    pos.risk_per_share,
+                    pos.mfe_r,
+                    pos.unrealized_r(bar.close),
+                    settings,
+                )
+
             if pos.current_stop != prev_stop:
                 pos.fr_trailing_active = True
                 kit = self._instr_kit
@@ -726,6 +747,62 @@ class ALCBT2Engine:
 
         # --- Gate checks (matching backtest exactly) ---
 
+        if (
+            settings.use_daily_stop
+            and settings.daily_stop_r > 0
+            and self._daily_realized_r <= -float(settings.daily_stop_r)
+        ):
+            _gates.append({
+                "filter_name": "daily_stop",
+                "threshold": -float(settings.daily_stop_r),
+                "actual_value": float(self._daily_realized_r),
+                "passed": False,
+            })
+            self._log_missed(
+                symbol=symbol, blocked_by="daily_stop", block_reason="realized_r_limit",
+                signal_strength=float(m_score), exchange_timestamp=signal_time,
+                filter_decisions=_gates,
+            )
+            return
+
+        signal_range_r = (bar.high - bar.low) / risk_per_share if risk_per_share > 0 else 0.0
+        range_passed = not (
+            settings.use_orb_entry_range_gate
+            and settings.orb_entry_range_cap_r > 0
+            and risk_per_share > 0
+            and signal_range_r > settings.orb_entry_range_cap_r
+        )
+        _gates.append({
+            "filter_name": "orb_entry_range_cap",
+            "threshold": float(settings.orb_entry_range_cap_r),
+            "actual_value": float(signal_range_r),
+            "passed": range_passed,
+        })
+        if not range_passed:
+            self._log_missed(
+                symbol=symbol, blocked_by="entry_geometry", block_reason="orb_entry_range_cap",
+                signal_strength=float(m_score), exchange_timestamp=signal_time,
+                filter_decisions=_gates,
+            )
+            return
+
+        friction_ratio = momentum_friction_to_risk(item, entry_price, stop_price)
+        friction_passed = momentum_friction_gate_pass(item, entry_price, stop_price, settings)
+        _gates.append({
+            "filter_name": "friction_to_risk",
+            "threshold": float(settings.max_friction_to_risk),
+            "actual_value": float(friction_ratio),
+            "passed": friction_passed,
+            "applicable": bool(settings.use_momentum_friction_gate),
+        })
+        if not friction_passed:
+            self._log_missed(
+                symbol=symbol, blocked_by="execution_quality", block_reason="friction_to_risk",
+                signal_strength=float(m_score), exchange_timestamp=signal_time,
+                filter_decisions=_gates,
+            )
+            return
+
         # AVWAP filter
         _avwap_passed = not (avwap > 0 and bar.close < avwap)
         _gates.append({"filter_name": "avwap_filter", "threshold": float(avwap), "actual_value": float(bar.close), "passed": _avwap_passed})
@@ -959,7 +1036,7 @@ class ALCBT2Engine:
                 return
 
         # Breakout distance cap
-        if settings.breakout_distance_cap_r > 0 and risk_per_share > 0:
+        if settings.use_breakout_distance_cap and settings.breakout_distance_cap_r > 0 and risk_per_share > 0:
             breakout_dist_r = (bar.close - or_high) / risk_per_share
             _bd_passed = breakout_dist_r <= settings.breakout_distance_cap_r
             _gates.append({"filter_name": "breakout_distance_cap", "threshold": float(settings.breakout_distance_cap_r), "actual_value": float(breakout_dist_r), "passed": _bd_passed})
@@ -970,6 +1047,28 @@ class ALCBT2Engine:
                     filter_decisions=_gates,
                 )
                 return
+
+        conditional_passed = not conditional_entry_blocked(
+            item.sector,
+            entry_type_str,
+            entry_bar_index,
+            m_score,
+            settings,
+            score_detail,
+        )
+        _gates.append({
+            "filter_name": "conditional_entry",
+            "threshold": "configured completed-bar cohorts",
+            "actual_value": entry_type_str,
+            "passed": conditional_passed,
+        })
+        if not conditional_passed:
+            self._log_missed(
+                symbol=symbol, blocked_by="conditional_entry", block_reason="configured_block",
+                signal_strength=float(m_score), exchange_timestamp=signal_time,
+                filter_decisions=_gates,
+            )
+            return
 
         # Portfolio limits
         n_open = len(self._positions) + len(self._pending_entries)
@@ -1038,7 +1137,24 @@ class ALCBT2Engine:
         sec_mult = sector_sizing_mult(item.sector, settings)
         weekday = signal_time.astimezone(ET).weekday()
         dow_mult = settings.thursday_sizing_mult if weekday == 3 else settings.tuesday_sizing_mult if weekday == 1 else 1.0
-        risk_budget = self._equity * settings.base_risk_fraction * reg_mult * size_mult * sec_mult * dow_mult * targeted_size_mult
+        conditional_size_mult = conditional_entry_size_mult(
+            item.sector,
+            entry_type_str,
+            entry_bar_index,
+            m_score,
+            settings,
+            score_detail,
+        )
+        risk_budget = (
+            self._equity
+            * settings.base_risk_fraction
+            * reg_mult
+            * size_mult
+            * sec_mult
+            * dow_mult
+            * targeted_size_mult
+            * conditional_size_mult
+        )
         qty = int(risk_budget / risk_per_share)
         _qty_passed = qty > 0
         _gates.append({"filter_name": "qty_sizing", "threshold": 1.0, "actual_value": float(qty), "passed": _qty_passed})
@@ -1068,7 +1184,7 @@ class ALCBT2Engine:
 
         # Participation limit
         if item.average_30m_volume > 0:
-            max_qty = int(item.average_30m_volume * settings.max_participation_30m)
+            max_qty = int(to_shares(item.average_30m_volume) * settings.max_participation_30m)
             _pl_clamped = qty > max_qty
             _gates.append({"filter_name": "participation_limit", "threshold": float(max_qty), "actual_value": float(qty), "passed": True, "clamped": _pl_clamped})
             qty = min(qty, max(1, max_qty))
@@ -1645,7 +1761,7 @@ class ALCBT2Engine:
                     meta={
                         "entry_signal": "alcb_momentum_breakout",
                         "entry_signal_id": oms_order_id or symbol,
-                        "entry_signal_strength": float(meta.get("momentum_score", 0)) / 8.0,
+                        "entry_signal_strength": float(meta.get("momentum_score", 0)) / 7.0,
                         "strategy_params": {
                             "momentum_score": meta.get("momentum_score", 0),
                             "entry_type": meta.get("entry_type", ""),
@@ -1712,7 +1828,7 @@ class ALCBT2Engine:
                     position_size_quote=float(fill_price * fill_qty),
                     entry_signal="alcb_momentum_breakout",
                     entry_signal_id=oms_order_id or symbol,
-                    entry_signal_strength=float(meta.get("momentum_score", 0)) / 8.0,
+                    entry_signal_strength=float(meta.get("momentum_score", 0)) / 7.0,
                     signal_factors=meta.get("signal_factors", []),
                     filter_decisions=meta.get("filter_decisions", []),
                     sizing_inputs={
@@ -1783,13 +1899,15 @@ class ALCBT2Engine:
                 tc = classify_momentum_trade(sb[-8:], pos.entry_price, avwap)
                 pos.trade_class = tc.value if hasattr(tc, 'value') else str(tc)
 
+        total_fees = pos.entry_commission + pos.exit_commission
+        net_pnl = (fill_price - pos.entry_price) * fill_qty + pos.realized_partial_pnl - total_fees
+        realized_r = net_pnl / max(pos.risk_per_share * pos.qty_original, 1e-9)
+        self._daily_realized_r += realized_r
+
         # Record trade exit for instrumentation
         if self._trade_recorder is not None:
             try:
                 exit_time = datetime.now(timezone.utc)
-                total_fees = pos.entry_commission + pos.exit_commission
-                net_pnl = (fill_price - pos.entry_price) * fill_qty + pos.realized_partial_pnl - total_fees
-                realized_r = net_pnl / max(pos.risk_per_share * pos.qty_original, 1e-9)
                 mfe_r = (pos.max_favorable - pos.entry_price) / max(pos.risk_per_share, 1e-9)
                 mae_r = (pos.max_adverse - pos.entry_price) / max(pos.risk_per_share, 1e-9)
                 await self._trade_recorder.record_exit(
@@ -1946,6 +2064,7 @@ class ALCBT2Engine:
         self._or_data.clear()
         self._session_bars_5m.clear()
         self._signal_evolution.clear()
+        self._daily_realized_r = 0.0
         self._bar_builder = CanonicalBarBuilder()
 
         for item in artifact.tradable:

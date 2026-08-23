@@ -1,24 +1,24 @@
 ======================================================================
-ALCB ROUND-3 RESIDUAL ALPHA PHASE 8 SNAPSHOT
+ALCB RESIDUAL ALPHA PHASE 6 SNAPSHOT
 ======================================================================
-Focus: Delayed entry confirmation and maturation synthesis
-Score 0.0000 -> 0.0000 with 0 accepted mutations.
+Focus: Aggressive-leaning portfolio and exit synthesis
+Score 0.8225 -> 0.8343 with 1 accepted mutations.
 
-Core: trades=589, net_profit=+13848.07, expectancy_dollar=+23.51, expected_total_r=+160.83, pf=2.207, dd=2.9%, trades/month=22.75
-Quality: signal_quality=0.523, timing_quality=0.962, extended_avwap_inverse=1.000, bar9_inverse=0.885, late_entry_quality=1.000, score_monotonicity=0.318
-Management: profit_protection=0.667, short24_inv=0.310, flow_mfe_inv=0.983, mfe_capture_eff=0.825, sizing_alignment=1.000, long_hold_capture=0.993, inv_dd=0.756
-Focus metric deltas: expected_total_r=+0.000->+160.828, trades_per_month=+0.000->+22.751, net_profit=+0.000->+13848.070, expectancy_dollar=+0.000->+23.511, profit_factor=+0.000->+2.207, signal_quality=+0.000->+0.523, timing_quality=+0.000->+0.962, profit_protection=+0.000->+0.667
-Hard floors: 
+Core: trades=1459, net_profit=+16458.11, expectancy_dollar=+11.28, expected_total_r=+167.92, pf=1.612, dd=3.9%, trades/month=63.08
+Quality: signal_quality=0.404, timing_quality=0.611, extended_avwap_inverse=1.000, bar9_inverse=0.500, late_entry_quality=0.334, score_monotonicity=0.347
+Management: profit_protection=0.435, short24_inv=0.000, flow_mfe_inv=0.471, mfe_capture_eff=0.876, sizing_alignment=1.000, long_hold_capture=0.984, inv_dd=0.678
+Focus metric deltas: expected_total_r=+162.288->+167.917, net_profit=+16162.530->+16458.110, trades_per_month=+62.302->+63.080, expectancy=+0.113->+0.115, profit_factor=+1.606->+1.612, max_drawdown_pct=+0.039->+0.039, sharpe=+4.052->+4.092
+Hard floors: max_dd_pct=4.94%, min_expectancy_dollar=10.2067, min_expected_total_r=157.4189, min_net_profit=15677.6541, min_pf=1.5093, min_signal_quality=0.3713, min_trades_per_month=59.8097
 
 
 ======================================================================
   1. Overview
 ======================================================================
-  Trades: 589
-  Win Rate: 62.8%
-  Mean R: +0.273  |  Median R: +0.270
-  Total R: +160.83  |  Total PnL: $13,848.07
-  Profit Factor: 2.21
+  Trades: 1459
+  Win Rate: 55.3%
+  Mean R: +0.115  |  Median R: +0.186
+  Total R: +167.92  |  Total PnL: $16,458.11
+  Profit Factor: 1.61
   Avg Hold: 1.7h
 
 ======================================================================
@@ -27,128 +27,134 @@ Hard floors:
   Signal Funnel:
   ----------------------------------------
   Cumulative Pass Counts:
-  evaluated            346805
-  entry_signal          24642
-  entered                 589
+  evaluated            328291
+  entry_signal          91049
+  entered                1459
 
   Rejection Counts By Gate:
-  avwap_filter           4495
-  block_combined_regime_b   3085
-  buying_power             80
-  combined_avwap_cap     1859
-  combined_quality_rvol   1394
-  combined_quality_score     19
-  conditional_entry_block    655
-  long_only               873
-  max_positions            13
-  or_width_min           2071
-  pdh_avwap_cap            62
-  rvol_max_cap          12500
-  sector_limit             17
+  avwap_filter             88
+  block_combined_regime_b   6444
+  buying_power             18
+  combined_quality_rvol    182
+  combined_quality_score     29
+  conditional_entry_block    185
+  cpr_filter              930
+  daily_stop               12
+  heat_cap                  4
+  long_only               450
+  max_positions             1
+  orb_entry_range_cap      35
+  rvol_filter            5837
+  rvol_max_cap             70
+  sector_limit             18
 
 ======================================================================
   3. Entry Type Breakdown
 ======================================================================
   COMBINED_BREAKOUT:
-    n=79, WR=65.8%, Mean R=+0.233, Median R=+0.230, PF=2.58, Total R=+18.39
+    n=222, WR=55.0%, Mean R=+0.102, Median R=+0.162, PF=1.51, Total R=+22.54
   OR_BREAKOUT:
-    n=453, WR=63.8%, Mean R=+0.275, Median R=+0.303, PF=1.95, Total R=+124.36
+    n=522, WR=57.3%, Mean R=+0.103, Median R=+0.193, PF=1.50, Total R=+53.70
   PDH_BREAKOUT:
-    n=57, WR=50.9%, Mean R=+0.317, Median R=+0.014, PF=1.66, Total R=+18.08
+    n=715, WR=54.0%, Mean R=+0.128, Median R=+0.191, PF=1.47, Total R=+91.68
 
 ======================================================================
   4. Direction Breakdown
 ======================================================================
   LONG:
-    n=589, WR=62.8%, Mean R=+0.273, Median R=+0.270, PF=1.95, Total R=+160.83
+    n=1459, WR=55.3%, Mean R=+0.115, Median R=+0.186, PF=1.48, Total R=+167.92
   SHORT:
     (no trades)
 
 ======================================================================
   5. Momentum Score Distribution
 ======================================================================
-  Score 3: n=2, WR=100%, Mean R=+0.530, Total R=+1.06
-  Score 4: n=85, WR=73%, Mean R=+0.458, Total R=+38.92
-  Score 5: n=247, WR=60%, Mean R=+0.202, Total R=+49.79
-  Score 6: n=215, WR=62%, Mean R=+0.290, Total R=+62.41
-  Score 7: n=40, WR=60%, Mean R=+0.216, Total R=+8.65
+  Score 3: n=88, WR=60%, Mean R=+0.088, Total R=+7.76
+  Score 4: n=445, WR=60%, Mean R=+0.192, Total R=+85.64
+  Score 5: n=587, WR=51%, Mean R=+0.073, Total R=+42.83
+  Score 6: n=254, WR=54%, Mean R=+0.077, Total R=+19.62
+  Score 7: n=85, WR=56%, Mean R=+0.142, Total R=+12.07
 
   WR monotonic with score: NO
-  Low scores (<5): WR=74%, n=87  |  High scores (>=5): WR=61%, n=502
+  Low scores (<5): WR=60%, n=533  |  High scores (>=5): WR=53%, n=926
 
 ======================================================================
   6. Opening Range Quality
 ======================================================================
   By OR Width (% of price):
-    Tight (<0.3%):
-      n=195, WR=59.5%, Mean R=+0.305, Median R=+0.253, PF=1.87, Total R=+59.49
-    Normal (0.3-0.5%):
-      n=194, WR=60.8%, Mean R=+0.239, Median R=+0.255, PF=1.76, Total R=+46.33
-    Wide (>0.5%):
-      n=200, WR=68.0%, Mean R=+0.275, Median R=+0.296, PF=2.34, Total R=+55.01
+    Tight (<1.3%):
+      n=482, WR=53.1%, Mean R=+0.068, Median R=+0.158, PF=1.27, Total R=+32.91
+    Normal (1.3-2.0%):
+      n=481, WR=59.7%, Mean R=+0.187, Median R=+0.223, PF=1.86, Total R=+90.10
+    Wide (>2.0%):
+      n=496, WR=53.2%, Mean R=+0.091, Median R=+0.181, PF=1.36, Total R=+44.90
 
   Breakout Distance from OR High:
-    Near OR (<=P50=0.57R):
-      n=295, WR=59.3%, Mean R=+0.324, Median R=+0.271, PF=1.89, Total R=+95.67
+    Near OR (<=P50=0.04R):
+      n=730, WR=54.0%, Mean R=+0.127, Median R=+0.189, PF=1.47, Total R=+92.86
     Far from OR (>P50):
-      n=294, WR=66.3%, Mean R=+0.222, Median R=+0.266, PF=2.04, Total R=+65.16
+      n=729, WR=56.7%, Mean R=+0.103, Median R=+0.186, PF=1.50, Total R=+75.05
 
 ======================================================================
   7. RVOL at Entry
 ======================================================================
-  RVOL 2.0-3.0 (avg=2.42):
-    n=343, WR=60.9%, Mean R=+0.212, Median R=+0.239, PF=1.68, Total R=+72.67
-  RVOL 3.0+ (avg=3.71):
-    n=246, WR=65.4%, Mean R=+0.358, Median R=+0.309, PF=2.40, Total R=+88.16
+  RVOL 1.0-1.5 (avg=1.45):
+    n=209, WR=60.3%, Mean R=+0.211, Median R=+0.227, PF=2.10, Total R=+44.20
+  RVOL 1.5-2.0 (avg=1.71):
+    n=586, WR=54.8%, Mean R=+0.112, Median R=+0.189, PF=1.46, Total R=+65.77
+  RVOL 2.0-3.0 (avg=2.38):
+    n=471, WR=53.1%, Mean R=+0.068, Median R=+0.158, PF=1.27, Total R=+32.10
+  RVOL 3.0+ (avg=3.69):
+    n=193, WR=57.0%, Mean R=+0.134, Median R=+0.202, PF=1.54, Total R=+25.86
 
 ======================================================================
   8. AVWAP Distance at Entry
 ======================================================================
   Distance = (entry - AVWAP) / AVWAP × 100
 
-  Slight premium (0% to +0.5%) (avg=+0.26%):
-    n=354, WR=61.3%, Mean R=+0.257, Median R=+0.246, PF=1.86, Total R=+91.00
+  Slight premium (0% to +0.5%) (avg=+0.29%):
+    n=569, WR=53.4%, Mean R=+0.108, Median R=+0.171, PF=1.38, Total R=+61.45
   Premium (+0.5% to +1.0%) (avg=+0.71%):
-    n=166, WR=66.3%, Mean R=+0.324, Median R=+0.335, PF=2.23, Total R=+53.86
-  Extended (> +1.0%) (avg=+1.45%):
-    n=69, WR=62.3%, Mean R=+0.231, Median R=+0.247, PF=1.81, Total R=+15.97
+    n=587, WR=56.0%, Mean R=+0.129, Median R=+0.183, PF=1.63, Total R=+75.69
+  Extended (> +1.0%) (avg=+1.44%):
+    n=303, WR=57.4%, Mean R=+0.102, Median R=+0.214, PF=1.46, Total R=+30.77
 
 ======================================================================
   9. Entry Bar Timing
 ======================================================================
   10:00-10:30 (bars 7-12):
-    n=380, WR=61.8%, Mean R=+0.269, Median R=+0.259, PF=1.88, Total R=+102.35
+    n=635, WR=58.3%, Mean R=+0.183, Median R=+0.233, PF=1.77, Total R=+116.12
   10:30-11:30 (bars 13-24):
-    n=125, WR=65.6%, Mean R=+0.323, Median R=+0.308, PF=2.20, Total R=+40.35
+    n=600, WR=52.8%, Mean R=+0.070, Median R=+0.168, PF=1.30, Total R=+42.27
   11:30-13:30 (bars 25-48):
-    n=84, WR=63.1%, Mean R=+0.216, Median R=+0.243, PF=1.88, Total R=+18.13
+    n=224, WR=53.6%, Mean R=+0.043, Median R=+0.161, PF=1.17, Total R=+9.52
 
   Top 5 entry bars:
-    Bar 7 (10:00): n=132, WR=64%, Mean R=+0.405
-    Bar 8 (10:05): n=93, WR=68%, Mean R=+0.303
-    Bar 9 (10:10): n=51, WR=47%, Mean R=+0.034
-    Bar 10 (10:15): n=42, WR=69%, Mean R=+0.451
-    Bar 12 (10:25): n=32, WR=59%, Mean R=-0.125
+    Bar 10 (10:15): n=305, WR=59%, Mean R=+0.179
+    Bar 11 (10:20): n=193, WR=57%, Mean R=+0.185
+    Bar 12 (10:25): n=137, WR=58%, Mean R=+0.189
+    Bar 13 (10:30): n=97, WR=53%, Mean R=+0.126
+    Bar 14 (10:35): n=90, WR=50%, Mean R=+0.018
 
 ======================================================================
   10. Regime Sizing Impact
 ======================================================================
   Tier A:
-    n=480, WR=62.5%, Mean R=+0.260, Median R=+0.273, PF=1.92, Total R=+124.98
-      Dollar PnL: $11,184.46  |  Avg position: $8,470
+    n=1177, WR=54.0%, Mean R=+0.103, Median R=+0.181, PF=1.42, Total R=+121.35
+      Dollar PnL: $11,798.20  |  Avg position: $6,335
   Tier B:
-    n=109, WR=64.2%, Mean R=+0.329, Median R=+0.247, PF=2.05, Total R=+35.85
-      Dollar PnL: $2,663.61  |  Avg position: $8,182
+    n=282, WR=60.6%, Mean R=+0.165, Median R=+0.211, PF=1.80, Total R=+46.56
+      Dollar PnL: $4,659.91  |  Avg position: $6,000
 
   Sizing-Adjusted (equal $1 exposure):
-    Tier A: avg return = +0.286% per trade (n=480)
-    Tier B: avg return = +0.299% per trade (n=109)
+    Tier A: avg return = +0.163% per trade (n=1177)
+    Tier B: avg return = +0.273% per trade (n=282)
 
 ======================================================================
   11. Carry Analysis
 ======================================================================
   Intraday (carry_days=0):
-    n=589, WR=62.8%, Mean R=+0.273, Median R=+0.270, PF=1.95, Total R=+160.83
+    n=1459, WR=55.3%, Mean R=+0.115, Median R=+0.186, PF=1.48, Total R=+167.92
   Overnight (carry_days>0):
     (no trades)
 
@@ -157,67 +163,76 @@ Hard floors:
 ======================================================================
                   COMBINED_BRE  OR_BREAKOUT PDH_BREAKOUT
   ------------------------------------------------------
-  A                 +0.233(79)   +0.277(359)   +0.167(42)
-  B                         --   +0.264(94)   +0.738(15)
+  A                 +0.102(222)   +0.082(403)   +0.119(552)
+  B                         --   +0.175(119)   +0.158(163)
 
 ======================================================================
   13. Exit Reason Deep Dive
 ======================================================================
-  CLOSE_STOP (569, 97%):
-    n=569, WR=64.5%, Mean R=+0.288, Median R=+0.294, PF=1.98, Total R=+163.86
-      Avg hold: 1.7h
-  EOD_FLATTEN (5, 1%):
-    n=5, WR=60.0%, Mean R=-0.036, Median R=+0.062, PF=0.76, Total R=-0.18
+  ADAPTIVE_TRAIL (801, 55%):
+    n=801, WR=100.0%, Mean R=+0.644, Median R=+0.450, PF=inf, Total R=+516.19
+      Avg hold: 2.1h
+  CLOSE_STOP (123, 8%):
+    n=123, WR=0.0%, Mean R=-1.098, Median R=-1.074, PF=0.00, Total R=-135.07
+      Avg hold: 0.7h
+  DATA_GAP (4, 0%):
+    n=4, WR=0.0%, Mean R=-0.025, Median R=-0.024, PF=0.00, Total R=-0.10
+      Avg hold: 21.2h
+  EOD_FLATTEN (23, 2%):
+    n=23, WR=26.1%, Mean R=-0.220, Median R=-0.182, PF=0.03, Total R=-5.07
       Avg hold: 4.8h
-  FLOW_REVERSAL (12, 2%):
-    n=12, WR=0.0%, Mean R=-0.181, Median R=-0.196, PF=0.00, Total R=-2.17
-      Avg hold: 1.5h
-  MFE_CONVICTION (3, 1%):
-    n=3, WR=0.0%, Mean R=-0.227, Median R=-0.236, PF=0.00, Total R=-0.68
+  FAILURE_STOP (290, 20%):
+    n=290, WR=0.0%, Mean R=-0.341, Median R=-0.298, PF=0.00, Total R=-98.95
+      Avg hold: 1.2h
+  FLOW_REVERSAL (198, 14%):
+    n=198, WR=0.0%, Mean R=-0.529, Median R=-0.518, PF=0.00, Total R=-104.68
+      Avg hold: 0.7h
+  MFE_CONVICTION (20, 1%):
+    n=20, WR=0.0%, Mean R=-0.220, Median R=-0.218, PF=0.00, Total R=-4.41
       Avg hold: 1.2h
 
 ======================================================================
   14. Partial Take Analysis
 ======================================================================
-  Partial taken: 0/589 (0%)
+  Partial taken: 0/1459 (0%)
 
   With partial:
     (no trades)
   Without partial:
-    n=589, WR=62.8%, Mean R=+0.273, Median R=+0.270, PF=1.95, Total R=+160.83
+    n=1459, WR=55.3%, Mean R=+0.115, Median R=+0.186, PF=1.48, Total R=+167.92
 
 ======================================================================
   15. MFE / MAE Analysis
 ======================================================================
-  Winners (370):
-    Mean MFE: 1.083R
-    Capture efficiency (R/MFE): 72.9%
-    Mean giveback (MFE-R): 0.189R
-    MFE distribution: P25=0.48R, P50=0.75R, P75=1.29R
-  Losers (219):
-    Mean MAE: 0.868R
-    MAE distribution: P25=0.50R, P50=1.01R, P75=1.12R
-    Losers with MFE > 0.3R first: 56 (26%)
-    Those trades avg MFE: 0.752R before reversing
+  Winners (807):
+    Mean MFE: 0.730R
+    Capture efficiency (R/MFE): 82.8%
+    Mean giveback (MFE-R): 0.090R
+    MFE distribution: P25=0.37R, P50=0.53R, P75=0.89R
+  Losers (652):
+    Mean MAE: 0.616R
+    MAE distribution: P25=0.35R, P50=0.50R, P75=0.81R
+    Losers with MFE > 0.3R first: 48 (7%)
+    Those trades avg MFE: 0.718R before reversing
 
 ======================================================================
   16. EOD Hold Quality
 ======================================================================
-  EOD flattens: 5 (1% of all)
-    n=5, WR=60.0%, Mean R=-0.036, Median R=+0.062, PF=0.76, Total R=-0.18
+  EOD flattens: 23 (2% of all)
+    n=23, WR=26.1%, Mean R=-0.220, Median R=-0.182, PF=0.03, Total R=-5.07
 
   EOD Winners:
-    n=3, WR=100.0%, Mean R=+0.193, Median R=+0.155, PF=inf, Total R=+0.58
+    n=6, WR=100.0%, Mean R=+0.029, Median R=+0.020, PF=inf, Total R=+0.18
   EOD Losers:
-    n=2, WR=0.0%, Mean R=-0.379, Median R=-0.379, PF=0.00, Total R=-0.76
+    n=17, WR=0.0%, Mean R=-0.308, Median R=-0.214, PF=0.00, Total R=-5.24
 
   Differentiators (EOD winners vs losers):
     Metric                  Winners     Losers
     ------------------------------------------
-    Momentum Score             5.00       5.00
-    RVOL                       3.33       2.58
-    MFE (R)                    0.27       0.14
-    Hold Bars                 59.67      55.50
+    Momentum Score             5.17       5.18
+    RVOL                       1.92       2.23
+    MFE (R)                    0.15       0.18
+    Hold Bars                 52.67      60.06
     Carry Days                 0.00       0.00
 
 ======================================================================
@@ -230,172 +245,174 @@ Hard floors:
 ======================================================================
     Pctl    Hours    WR%   Avg R     N
   ------------------------------------
-  P  10      0.4    0%  -1.136    44
-  P  20      0.8    0%  -1.095    33
-  P  30      1.2    0%  -0.533    90
-  P  40      2.1    0%  -0.734    45
-  P 100      5.7   98%  +0.870   377
+  P  10      0.6    0%  -1.123    68
+  P  20      0.8    0%  -0.599   198
+  P  30      0.9    0%  -0.391   136
+  P  40      1.7    0%  -0.399   174
+  P  50      2.1    0%  -0.612    24
+  P 100     22.0   94%  +0.582   859
 
 ======================================================================
   19. Flow Reversal Timing
 ======================================================================
-  Flow reversals: 12 (2% of all)
-    n=12, WR=0.0%, Mean R=-0.181, Median R=-0.196, PF=0.00, Total R=-2.17
+  Flow reversals: 198 (14% of all)
+    n=198, WR=0.0%, Mean R=-0.529, Median R=-0.518, PF=0.00, Total R=-104.68
 
   Early FR (<=6 bars, <30min):
     (no trades)
   Mid FR (7-24 bars, 30min-2h):
-    n=9, WR=0.0%, Mean R=-0.175, Median R=-0.182, PF=0.00, Total R=-1.57
+    n=192, WR=0.0%, Mean R=-0.539, Median R=-0.522, PF=0.00, Total R=-103.43
   Late FR (>24 bars, 2h+):
-    n=3, WR=0.0%, Mean R=-0.199, Median R=-0.215, PF=0.00, Total R=-0.60
+    n=6, WR=0.0%, Mean R=-0.208, Median R=-0.227, PF=0.00, Total R=-1.25
 
-  Total FR cost: -2.17R ($-240.05)
+  Total FR cost: -104.68R ($-8,404.03)
 
 ======================================================================
   20. Sector Performance
 ======================================================================
   Technology:
-    n=313, WR=61.0%, Mean R=+0.202, Median R=+0.244, PF=1.67, Total R=+63.26
-  Consumer Discretionary:
-    n=68, WR=70.6%, Mean R=+0.793, Median R=+0.427, PF=4.30, Total R=+53.95
-  Communication Services:
-    n=85, WR=70.6%, Mean R=+0.354, Median R=+0.312, PF=2.35, Total R=+30.09
+    n=596, WR=54.7%, Mean R=+0.144, Median R=+0.196, PF=1.52, Total R=+85.94
   Healthcare:
-    n=41, WR=56.1%, Mean R=+0.155, Median R=+0.433, PF=1.63, Total R=+6.35
+    n=154, WR=58.4%, Mean R=+0.155, Median R=+0.212, PF=1.91, Total R=+23.89
+  Consumer Discretionary:
+    n=173, WR=56.1%, Mean R=+0.135, Median R=+0.180, PF=1.60, Total R=+23.34
+  Communication Services:
+    n=198, WR=52.5%, Mean R=+0.063, Median R=+0.160, PF=1.28, Total R=+12.46
   Industrials:
-    n=10, WR=70.0%, Mean R=+0.575, Median R=+0.471, PF=3.42, Total R=+5.75
-  Consumer Staples:
-    n=7, WR=85.7%, Mean R=+0.508, Median R=+0.308, PF=3.89, Total R=+3.56
+    n=42, WR=69.0%, Mean R=+0.277, Median R=+0.323, PF=3.06, Total R=+11.65
   Financials:
-    n=65, WR=53.8%, Mean R=-0.033, Median R=+0.089, PF=0.91, Total R=-2.13
+    n=281, WR=53.4%, Mean R=+0.023, Median R=+0.157, PF=1.10, Total R=+6.40
+  Consumer Staples:
+    n=15, WR=73.3%, Mean R=+0.282, Median R=+0.307, PF=3.15, Total R=+4.23
 
 ======================================================================
   21. Monthly P&L
 ======================================================================
      Month Trades   WR%    Net R    Cum R
   ----------------------------------------
-   2024-04      3  67%    +1.16    +1.16
-   2024-05      7  57%    -0.28    +0.89
-   2024-06     13  54%    +1.75    +2.63
-   2024-07      8 100%    +3.32    +5.96
-   2024-08      7  29%    -1.93    +4.02
-   2024-09      2  50%    -0.36    +3.66
-   2024-10      7  71%    +1.02    +4.68
-   2024-11      6  50%    -1.21    +3.47
-   2024-12      1   0%    -1.15    +2.32
-   2025-01      9  67%    +6.52    +8.84
-   2025-02     11  73%    +2.20   +11.04
-   2025-03      2  50%    +1.38   +12.42
-   2025-04      2   0%    -1.36   +11.06
-   2025-05     34  71%   +17.52   +28.58
-   2025-06     52  73%   +19.69   +48.27
-   2025-07     74  61%   +17.93   +66.20
-   2025-08     61  61%   +14.21   +80.41
-   2025-09     51  71%   +25.88  +106.29
-   2025-10     76  61%   +21.02  +127.32
-   2025-11     51  51%    +6.12  +133.43
-   2025-12     35  66%    +7.36  +140.79
-   2026-01     49  65%   +15.11  +155.91
-   2026-02     28  57%    +4.92  +160.83
+   2024-03     10  60%    +0.25    +0.25
+   2024-04     45  53%    +4.82    +5.07
+   2024-05     57  53%    +2.12    +7.20
+   2024-06     84  55%   +13.11   +20.31
+   2024-07     85  60%   +14.45   +34.76
+   2024-08     52  62%    +6.61   +41.37
+   2024-09     36  42%    +1.06   +42.43
+   2024-10     54  56%    +2.82   +45.25
+   2024-11     56  54%    +4.62   +49.87
+   2024-12     66  55%   +16.07   +65.94
+   2025-01     81  56%    +8.40   +74.34
+   2025-02     68  53%    +7.46   +81.79
+   2025-03     11  45%    -1.23   +80.57
+   2025-04      4  50%    -1.21   +79.35
+   2025-05     38  55%    +7.73   +87.08
+   2025-06     66  55%    +6.35   +93.43
+   2025-07     87  47%    -0.81   +92.61
+   2025-08     68  54%    +8.45  +101.07
+   2025-09     82  54%   +13.92  +114.99
+   2025-10     91  65%   +17.85  +132.84
+   2025-11     75  59%    +8.48  +141.31
+   2025-12     71  52%    +0.38  +141.69
+   2026-01     87  64%   +28.08  +169.77
+   2026-02     85  52%    -1.85  +167.92
 
 ======================================================================
   22. Day of Week
 ======================================================================
   Mon:
-    n=138, WR=61.6%, Mean R=+0.315, Median R=+0.307, PF=2.29, Total R=+43.52
+    n=262, WR=57.6%, Mean R=+0.180, Median R=+0.231, PF=1.84, Total R=+47.07
   Tue:
-    n=116, WR=59.5%, Mean R=+0.150, Median R=+0.193, PF=1.49, Total R=+17.42
+    n=314, WR=53.5%, Mean R=+0.078, Median R=+0.168, PF=1.30, Total R=+24.49
   Wed:
-    n=100, WR=65.0%, Mean R=+0.394, Median R=+0.306, PF=2.39, Total R=+39.42
+    n=301, WR=59.8%, Mean R=+0.218, Median R=+0.235, PF=2.02, Total R=+65.60
   Thu:
-    n=100, WR=65.0%, Mean R=+0.336, Median R=+0.310, PF=2.05, Total R=+33.56
+    n=310, WR=50.0%, Mean R=+0.019, Median R=-0.005, PF=1.07, Total R=+5.79
   Fri:
-    n=135, WR=63.7%, Mean R=+0.199, Median R=+0.251, PF=1.66, Total R=+26.90
+    n=272, WR=56.2%, Mean R=+0.092, Median R=+0.190, PF=1.40, Total R=+24.97
 
 ======================================================================
   23. Time of Day
 ======================================================================
   10:00-11:30:
-    n=505, WR=62.8%, Mean R=+0.283, Median R=+0.273, PF=1.96, Total R=+142.70
+    n=1235, WR=55.6%, Mean R=+0.128, Median R=+0.194, PF=1.54, Total R=+158.39
   11:30-13:00:
-    n=84, WR=63.1%, Mean R=+0.216, Median R=+0.243, PF=1.88, Total R=+18.13
+    n=224, WR=53.6%, Mean R=+0.043, Median R=+0.161, PF=1.17, Total R=+9.52
 
 ======================================================================
   24. Streak Analysis
 ======================================================================
-  Max win streak:  12
-  Max loss streak: 7
-  Worst consecutive loss: -7.07R
+  Max win streak:  10
+  Max loss streak: 15
+  Worst consecutive loss: -7.82R
 
 ======================================================================
   25. Rolling Expectancy (20-trade window)
 ======================================================================
-  Start: +0.282R  |  End: +0.393R
-  Min: -0.375R  |  Max: +0.983R
-  Trend: STABLE (1st half: +0.271R, 2nd half: +0.279R)
+  Start: -0.009R  |  End: -0.163R
+  Min: -0.356R  |  Max: +0.734R
+  Trend: STABLE (1st half: +0.117R, 2nd half: +0.118R)
 
 ======================================================================
   26. Winner vs Loser Profiles
 ======================================================================
   Metric                       Winners     Losers      Delta
   ----------------------------------------------------------
-  Avg R                          0.894     -0.776     +1.670
-  Avg Hold (h)                   2.200      0.858     +1.342
-  Hold Bars                     27.403     11.301    +16.101
-  Momentum Score                 5.314      5.411     -0.097
-  RVOL                           2.987      2.902     +0.086
-  MFE (R)                        1.083      0.252     +0.831
-  MAE (R)                        0.360      0.868     -0.508
+  Avg R                          0.640     -0.534     +1.174
+  Avg Hold (h)                   2.139      1.157     +0.982
+  Hold Bars                     26.673     13.368    +13.305
+  Momentum Score                 4.828      4.911     -0.083
+  RVOL                           2.147      2.152     -0.005
+  MFE (R)                        0.730      0.126     +0.604
+  MAE (R)                        0.282      0.616     -0.334
   Carry Days                     0.000      0.000     +0.000
 
 ======================================================================
   27. Drawdown Profile
 ======================================================================
-  Max drawdown: -8.74R (at trade #214)
-  DD episodes: 66
-  Max trades underwater: 46
-  Recovery from worst DD: 21 trades
+  Max drawdown: -9.99R (at trade #865)
+  DD episodes: 119
+  Max trades underwater: 128
+  Recovery from worst DD: 89 trades
 
 ======================================================================
   28. R vs Dollar Disconnect
 ======================================================================
-  Total R:   +160.83  (R-expectancy: +0.2731)
-  Total PnL: $+13,848.07  ($-expectancy: $+23.51)
+  Total R:   +167.92  (R-expectancy: +0.1151)
+  Total PnL: $+16,458.11  ($-expectancy: $+11.28)
 
                             Winners       Losers
   ----------------------------------------------
-  Avg Position $       $     8,377 $     8,484
-  Avg PnL $            $     68.45 $    -52.41
-  Avg R                      +0.894       -0.776
-  Count                         370          219
+  Avg Position $       $     6,344 $     6,179
+  Avg PnL $            $     53.69 $    -41.22
+  Avg R                      +0.640       -0.534
+  Count                         807          652
 
 ======================================================================
   29. Worst Period Autopsy
 ======================================================================
-  2024-08: -1.93R ($-111.85), n=7, WR=29%
-    Entry types: OR_BREAKOUT:5, COMBINED_BREAKOUT:1, PDH_BREAKOUT:1
-    Exit types: CLOSE_STOP:7
-    Top sectors: Financials:3, Technology:2, Healthcare:2
+  2026-02: -1.85R ($+225.77), n=85, WR=52%
+    Entry types: PDH_BREAKOUT:49, OR_BREAKOUT:29, COMBINED_BREAKOUT:7
+    Exit types: ADAPTIVE_TRAIL:44, FAILURE_STOP:18, FLOW_REVERSAL:12, CLOSE_STOP:9, MFE_CONVICTION:1, EOD_FLATTEN:1
+    Top sectors: Technology:33, Healthcare:15, Financials:13
 
-  2025-04: -1.36R ($-49.02), n=2, WR=0%
-    Entry types: OR_BREAKOUT:2
-    Exit types: CLOSE_STOP:2
-    Top sectors: Healthcare:2
+  2025-03: -1.23R ($-51.40), n=11, WR=45%
+    Entry types: PDH_BREAKOUT:8, OR_BREAKOUT:3
+    Exit types: ADAPTIVE_TRAIL:5, FAILURE_STOP:3, FLOW_REVERSAL:2, CLOSE_STOP:1
+    Top sectors: Financials:5, Communication Services:3, Technology:2
 
-  2024-11: -1.21R ($-36.90), n=6, WR=50%
-    Entry types: OR_BREAKOUT:4, PDH_BREAKOUT:1, COMBINED_BREAKOUT:1
-    Exit types: CLOSE_STOP:6
-    Top sectors: Financials:4, Technology:2
+  2025-04: -1.21R ($-55.96), n=4, WR=50%
+    Entry types: OR_BREAKOUT:2, PDH_BREAKOUT:2
+    Exit types: ADAPTIVE_TRAIL:2, FAILURE_STOP:1, CLOSE_STOP:1
+    Top sectors: Healthcare:2, Technology:1, Financials:1
 
-  2024-12: -1.15R ($-23.00), n=1, WR=0%
-    Entry types: OR_BREAKOUT:1
-    Exit types: CLOSE_STOP:1
-    Top sectors: Financials:1
+  2025-07: -0.81R ($+259.33), n=87, WR=47%
+    Entry types: OR_BREAKOUT:37, PDH_BREAKOUT:36, COMBINED_BREAKOUT:14
+    Exit types: ADAPTIVE_TRAIL:40, FAILURE_STOP:15, FLOW_REVERSAL:15, CLOSE_STOP:12, EOD_FLATTEN:2, MFE_CONVICTION:2, DATA_GAP:1
+    Top sectors: Technology:48, Communication Services:13, Financials:12
 
-  2024-09: -0.36R ($-16.68), n=2, WR=50%
-    Entry types: PDH_BREAKOUT:1, OR_BREAKOUT:1
-    Exit types: CLOSE_STOP:2
-    Top sectors: Healthcare:1, Financials:1
+  2024-03: +0.25R ($+84.16), n=10, WR=60%
+    Entry types: PDH_BREAKOUT:5, OR_BREAKOUT:4, COMBINED_BREAKOUT:1
+    Exit types: ADAPTIVE_TRAIL:6, FAILURE_STOP:2, FLOW_REVERSAL:1, CLOSE_STOP:1
+    Top sectors: Technology:4, Communication Services:2, Healthcare:2
 
 
 ======================================================================
@@ -403,13 +420,13 @@ Hard floors:
 ======================================================================
   Hold Bucket                   N   WR%   Mean R  Total R    $/trade
   -----------------------------------------------------------------
-  1-6 bars (0-30min)           60   0%   -1.129   -67.73 $   -61.67
-  7-12 bars (30min-1h)         96   0%   -0.647   -62.15 $   -51.20
-  13-24 bars (1-2h)            53   0%   -0.676   -35.82 $   -46.40
-  25-48 bars (2-4h)           371  98%   +0.872  +323.61 $    66.77
-  49-78 bars (4-6.5h)           9  89%   +0.323    +2.90 $    16.62
+  1-6 bars (0-30min)           62   0%   -1.072   -66.48 $   -55.09
+  7-12 bars (30min-1h)        385   0%   -0.514  -197.93 $   -41.64
+  13-24 bars (1-2h)           156   0%   -0.434   -67.75 $   -37.83
+  25-48 bars (2-4h)           825  96%   +0.612  +504.90 $    51.28
+  49-78 bars (4-6.5h)          31  35%   -0.155    -4.82 $   -16.22
 
-  Short holds (<=24 bars): -165.69R (209 trades)  |  Long holds (>24 bars): +326.52R (380 trades)
+  Short holds (<=24 bars): -332.17R (603 trades)  |  Long holds (>24 bars): +500.09R (856 trades)
   → Late-session / overnight holds are the primary alpha source
 
 ======================================================================
@@ -418,63 +435,67 @@ Hard floors:
 
   Gate                 Blocked   Sim    WR%   Avg R   Tgt%   Missed  Avoided  Verdict
   --------------------------------------------------------------------
-  avwap_filter            4495  4495   45%   -0.01   24%   2052.9  -2086.5     KEEP
-  buying_power              80    80   36%   -0.02   18%     29.1    -30.5     KEEP
-  combined_avwap_cap      1859  1859   48%   -0.03    7%    489.5   -543.4     KEEP
-  combined_quality_rvol    1394  1394   46%   -0.03    8%    377.1   -413.6     KEEP
-  combined_quality_score      19    19   42%    0.17   21%      7.9     -4.8     KEEP
-  conditional_entry_block     655   655   51%    0.10   12%    230.1   -164.7     KEEP
-  long_only                873   873   44%   -0.02   15%    311.1   -324.3     KEEP
-  max_positions             13    13   38%   -0.36    0%      1.4     -6.2     KEEP
-  or_width_min            2071  2071   45%    0.01   22%    898.1   -878.6     KEEP
-  pdh_avwap_cap             62    62   37%   -0.12   24%     25.5    -32.9     KEEP
-  rvol_max_cap           12500 12500   46%   -0.04   13%   4153.1  -4620.5     KEEP
-  sector_limit              17    17   65%    0.22   12%      8.5     -4.6     KEEP
+  avwap_filter              88    88   38%   -0.06   34%     47.6    -52.5     KEEP
+  buying_power              18    18   50%    0.03   22%      7.6     -7.1     KEEP
+  combined_quality_rvol     182   182   48%    0.06   19%     81.3    -71.0     KEEP
+  combined_quality_score      29    29   52%    0.23   28%     15.3     -8.6     KEEP
+  conditional_entry_block     185   185   45%   -0.07   13%     62.6    -75.6     KEEP
+  cpr_filter               930   930   43%   -0.00   25%    446.9   -450.4     KEEP
+  daily_stop                12    12   67%    0.72   58%     11.9     -3.2   REVIEW
+  heat_cap                   4     4  100%    0.98   50%      3.9      0.0   REVIEW
+  long_only                450   450   49%    0.06   21%    207.9   -179.6     KEEP
+  max_positions              1     1  100%    0.77    0%      0.8      0.0   REVIEW
+  orb_entry_range_cap       35    35   49%    0.21   49%     25.5    -18.0     KEEP
+  rvol_filter             5837  5837   47%    0.07   27%   2985.5  -2577.0     KEEP
+  rvol_max_cap              70    70   43%   -0.07   19%     26.9    -31.7     KEEP
+  sector_limit              18    18   61%    0.39   33%     12.7     -5.7   REVIEW
 
   Verdict: KEEP = gate is filtering profitably, REVIEW = gate may be too aggressive
-  Threshold: shadow WR > 68% AND shadow avg R > 0 → REVIEW
+  Threshold: shadow WR > 60% AND shadow avg R > 0 → REVIEW
 
   Signal Funnel:
   ----------------------------------------
   Cumulative Pass Counts:
-  evaluated            346805
-  entry_signal          24642
-  entered                 589
+  evaluated            328291
+  entry_signal          91049
+  entered                1459
 
   Rejection Counts By Gate:
-  avwap_filter           4495
-  block_combined_regime_b   3085
-  buying_power             80
-  combined_avwap_cap     1859
-  combined_quality_rvol   1394
-  combined_quality_score     19
-  conditional_entry_block    655
-  long_only               873
-  max_positions            13
-  or_width_min           2071
-  pdh_avwap_cap            62
-  rvol_max_cap          12500
-  sector_limit             17
+  avwap_filter             88
+  block_combined_regime_b   6444
+  buying_power             18
+  combined_quality_rvol    182
+  combined_quality_score     29
+  conditional_entry_block    185
+  cpr_filter              930
+  daily_stop               12
+  heat_cap                  4
+  long_only               450
+  max_positions             1
+  orb_entry_range_cap      35
+  rvol_filter            5837
+  rvol_max_cap             70
+  sector_limit             18
 
 ======================================================================
 QUICK EXIT REPLACEMENT TRADE ANALYSIS
 ======================================================================
 
-  Max positions: 10  |  QE window: 30 min
+  Max positions: 7  |  QE window: 30 min
 
   --- Classification ---
-  Total trades:        589
+  Total trades:        1459
   QE exits:            0 (0.0% of all exits)
   QE-enabled entries:  0 (0.0% of all entries)
-  Organic entries:     589 (100.0% of all entries)
+  Organic entries:     1459 (100.0% of all entries)
 
   QE-enabled = entered a slot freed by QE while positions were at max capacity.
 
   --- Performance by Category ---
-  All trades:          n= 589  WR=62.8%  mean_R=+0.273  med_R=+0.270  total_R=+160.8  PF=1.95
+  All trades:          n=1459  WR=55.3%  mean_R=+0.115  med_R=+0.186  total_R=+167.9  PF=1.48
   QE exits themselves: n=   0  WR=0.0%  mean_R=+0.000  med_R=+0.000  total_R=+0.0  PF=0.00
   QE-enabled entries:  n=   0  WR=0.0%  mean_R=+0.000  med_R=+0.000  total_R=+0.0  PF=0.00
-  Organic entries:     n= 589  WR=62.8%  mean_R=+0.273  med_R=+0.270  total_R=+160.8  PF=1.95
+  Organic entries:     n=1459  WR=55.3%  mean_R=+0.115  med_R=+0.186  total_R=+167.9  PF=1.48
 
   --- QE-Enabled Breakdown by Their Own Exit ---
   exited via QE (churn):  n=   0  WR=0.0%  mean_R=+0.000  med_R=+0.000  total_R=+0.0  PF=0.00
@@ -482,18 +503,18 @@ QUICK EXIT REPLACEMENT TRADE ANALYSIS
 
   --- Entry Type Distribution ---
   Type                       QE-En N    Avg R    Org N    Avg R
-  COMBINED_BREAKOUT                0        —       79   +0.233
-  OR_BREAKOUT                      0        —      453   +0.275
-  PDH_BREAKOUT                     0        —       57   +0.317
+  COMBINED_BREAKOUT                0        —      222   +0.102
+  OR_BREAKOUT                      0        —      522   +0.103
+  PDH_BREAKOUT                     0        —      715   +0.128
 
   --- Entry Time Distribution (30-min buckets) ---
   Time      QE-En N    Avg R    Org N    Avg R
-  10:00           0        —      380   +0.269
-  10:30           0        —       73   +0.311
-  11:00           0        —       52   +0.339
-  11:30           0        —       46   +0.382
-  12:00           0        —       33   -0.022
-  12:30           0        —        5   +0.260
+  10:00           0        —      635   +0.183
+  10:30           0        —      396   +0.066
+  11:00           0        —      204   +0.079
+  11:30           0        —      117   +0.022
+  12:00           0        —       83   +0.053
+  12:30           0        —       24   +0.104
 
   --- Verdict ---
   No QE-enabled trades (QE never fires at max capacity).

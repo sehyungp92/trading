@@ -1,57 +1,507 @@
-==============================================================================
-FINAL STOCK PORTFOLIO SYNERGY DIAGNOSTICS
-==============================================================================
-Round: round_1_dynamic_stock_synergy
-Initial equity: $25,000
-Date range: 2024-01-01 -> 2026-03-01
-Risk stance: aggressive-controlled
-Score components: 7 (alpha_return, trade_frequency, drawdown_control, profit_factor_quality, synergy_capture, allocation_balance, robustness)
+# Comprehensive final stock portfolio-synergy diagnostics — Round 1
 
-Headline:
-  Final equity: $175,849.61
-  Net PnL: $+150,849.61
-  Net return: +603.40%
-  Active trades/month: 69.67
-  Total R/month: 13.60
-  Profit factor: 2.25
-  Win rate: 74.36%
-  Max DD: 3.53%
-  Sharpe: 4.38
-  Sortino: 4.44
-  Calmar: 49.74
-  Risk basis: bar_close_mark_to_market
-  Realized-only Max DD: 2.91%
-  Realized-only Calmar: 60.34
-  Active sleeves: 2/2
+Status: **active realistic research baseline; production activation is not approved**.
 
-Sleeve contribution:
-  IARIC_V5R1   trades=  1045 pnl=$  +75,955.13 risk_share= 65.8%
-  ALCB_R3      trades=   562 pnl=$  +74,894.48 risk_share= 34.2%
+## Executive verdict
 
-Routing and blocked-candidate discrimination:
-  Fired entries: 2046
-  Accepted entries: 1607
-  Blocked entries: 439
-  Trade capture ratio: 78.54%
-  Positive-alpha block rate: 21.90%
-  Blocked winners: 335 / 439 (76.31%)
-  Accepted avg R: +0.195
-  Blocked avg R: +0.143
-  Candidate discrimination: 0.588
-  Max strategy trade share: 65.03%
-  Max strategy risk share: 65.81%
-  Positive slices: 4/4
+**Is strategy synergy maximized? No. The retained configuration is a realistic local research baseline with modest positive IS overlay synergy, but synergy is not demonstrated OOS and has not been maximized.**
 
-Risk governors:
-  Max daily loss: 3.50R
-  Max weekly loss: 1.92R
+The sleeves are close to uncorrelated, so combining them preserves broad opportunity. The overlay adds modest IS value and reduces matched-risk IS drawdown, but produces no OOS increment; the only OOS capacity block rejects a winner. Post risk also has higher drawdown than the native-risk baseline. High interaction PBO and an unstable alpha rank model prevent a claim that routing has maximized synergy.
 
-Score:
-  alpha_return           component=1.0000 weight=0.27
-  trade_frequency        component=1.0000 weight=0.23
-  drawdown_control       component=0.6465 weight=0.19
-  profit_factor_quality  component=0.4562 weight=0.12
-  synergy_capture        component=0.5122 weight=0.08
-  allocation_balance     component=0.8917 weight=0.06
-  robustness             component=0.7842 weight=0.05
-  total                  0.8113
+| Question | IS evidence | OOS evidence | Answer |
+|---|---|---|---|
+| Does the overlay add risk-adjusted value? | CE 0.0059, return 2.72%, DD -0.86% | CE 0.0000, return 0.00%, DD 0.00% | Modest IS benefit; no OOS increment |
+| Does blocking reject worse trades? | Net block value 1.028R; accepted-minus-blocked 0.181R | Net block value -1.010R; accepted-minus-blocked -0.629R | IS yes in aggregate; OOS no |
+| Are good blocks minimized? | 2.18% of all winners blocked; 32 blocked winners | 0.99% of all winners blocked; 1 blocked winner | Low rate IS, but not eliminated; OOS block was harmful |
+| Is max DD minimized? | Overlay improves matched-risk DD by 0.86%, but post exceeds pre by 0.95% | Overlay changes DD by 0.00%; post exceeds pre by 0.17% | No |
+| Is the interaction optimum stable? | CSCV PBO 90.00% vs 25.00% limit | Frozen OOS used once | No; stability fallback retained |
+
+The word *maximized* is deliberately reserved: finite phased search can establish a local best among tested configurations, not a global optimum. Here, even that local interaction challenger was rejected by the stability guard.
+
+## Evidence contract, lineage and limits
+
+- IS: `2024-03-25` through `2026-03-01`.
+- OOS: `2026-03-02` through `2026-05-01`; evaluated after configuration freeze.
+- Initial capital: `$25,000` shared across both sleeves.
+- Frozen config SHA-256: `d0b6687b81fba555e32b325e3d3284a26ec2d31c0f2bc23eeb82e2f1900a5fdb`.
+- Selected candidate: `interaction_control`; unconstrained interaction winner: `interaction_ff03`.
+- ALCB Round-3 regeneration parity: `True`; IARIC Round-3 parity: `False`.
+- Evidence is completed-trade replay with live-aligned portfolio admission, causal marks and a shared cash/NLV/margin ledger. It is not raw-signal co-simulation or a full source execution/fill simulation.
+- The universe is not point-in-time survivorship controlled and the retained data cache is diagnostic-only.
+
+## Headline post-optimization performance
+
+| Scenario | Return | Net PnL | Total R | R/month | Trades/month | Trades | PF | Win rate | Daily-MTM DD | Sharpe | Sortino | Calmar | CE growth |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| IS optimized portfolio | 174.43% | $+43,607 | 406.33R | 17.56R | 107.7 | 2,491 | 1.601 | 57.61% | 9.63% | 0.37 | 0.38 | 4.81 | 0.5137 |
+| OOS optimized portfolio | 15.86% | $+3,964 | 62.36R | 31.64R | 83.2 | 164 | 2.435 | 60.98% | 2.57% | 3.01 | 4.07 | 65.75 | 0.8285 |
+
+## Pre- versus post-optimization
+
+| Scenario | Return | Net PnL | Total R | R/month | Trades/month | Trades | PF | Win rate | Daily-MTM DD | Sharpe | Sortino | Calmar | CE growth |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| IS pre | 173.75% | $+43,438 | 402.38R | 17.39R | 109.5 | 2,534 | 1.613 | 57.46% | 8.68% | 0.37 | 0.37 | 4.91 | 0.5137 |
+| IS post | 174.43% | $+43,607 | 406.33R | 17.56R | 107.7 | 2,491 | 1.601 | 57.61% | 9.63% | 0.37 | 0.38 | 4.81 | 0.5137 |
+| OOS pre | 15.51% | $+3,877 | 62.36R | 31.64R | 83.2 | 164 | 2.453 | 60.98% | 2.40% | 3.13 | 4.24 | 67.41 | 0.8125 |
+| OOS post | 15.86% | $+3,964 | 62.36R | 31.64R | 83.2 | 164 | 2.435 | 60.98% | 2.57% | 3.01 | 4.07 | 65.75 | 0.8285 |
+
+Post adds 0.67% IS return but changes DD by 0.95% and CE by -0.0001. OOS adds 0.35% return while DD changes by 0.17%. This is a more aggressive risk allocation, not an across-the-board risk-adjusted dominance result.
+
+## Portfolio versus Round-3 standalones
+
+All comparisons use the same $25,000 capital, causal marks, costs and window boundaries.
+
+| Scenario | Return | Net PnL | Total R | R/month | Trades/month | Trades | PF | Win rate | Daily-MTM DD | Sharpe | Sortino | Calmar | CE growth |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| IS ALCB R3 native risk | 132.82% | $+33,205 | 294.56R | 12.73R | 90.5 | 2,093 | 1.751 | 57.91% | 2.80% | 0.35 | 0.37 | 4.09 | 0.4360 |
+| IS IARIC R3 native risk | 25.70% | $+6,424 | 110.63R | 4.91R | 20.2 | 455 | 1.390 | 55.82% | 9.57% | 1.20 | 1.28 | 1.38 | 0.1128 |
+| IS portfolio | 174.43% | $+43,607 | 406.33R | 17.56R | 107.7 | 2,491 | 1.601 | 57.61% | 9.63% | 0.37 | 0.38 | 4.81 | 0.5137 |
+| OOS ALCB R3 native risk | 11.66% | $+2,915 | 45.73R | 23.20R | 63.4 | 125 | 2.588 | 60.80% | 1.11% | 3.87 | 5.43 | 68.75 | 0.6238 |
+| OOS IARIC R3 native risk | 3.97% | $+992 | 17.64R | 9.11R | 20.7 | 40 | 2.273 | 62.50% | 2.12% | 3.06 | 4.50 | 18.59 | 0.2188 |
+| OOS portfolio | 15.86% | $+3,964 | 62.36R | 31.64R | 83.2 | 164 | 2.435 | 60.98% | 2.57% | 3.01 | 4.07 | 65.75 | 0.8285 |
+
+### Synergy decomposition
+
+| Measure | IS | OOS | Interpretation |
+|---|---:|---:|---|
+| Daily / weekly sleeve R correlation | 0.0048 / -0.0053 | Not separately recalibrated | Near-zero IS correlation supports complementarity |
+| Portfolio R capture vs native standalone R sum | 100.28% | 98.41% | Below 100% means some standalone R was not captured |
+| Portfolio R capture vs post-risk standalone R sum | 99.14% | 98.41% | Matched allocation comparison |
+| Portfolio return minus native standalone return sum | 15.91% | 0.23% | Shared-NLV cross-compounding affects return percentages |
+| Overlay return delta | 2.72% | 0.00% | Incremental routing/governor value |
+| Overlay total-R delta | 1.465R | 0.000R | Alpha added after matching risk |
+| Overlay DD delta | -0.86% | 0.00% | Negative is better |
+| Overlay CE-growth delta | 0.0059 | 0.0000 | Immutable score's direct synergy input |
+| Portfolio DD minus worst native standalone DD | 0.06% | 0.45% | Positive means portfolio DD exceeded both standalones |
+
+Portfolio percentage return exceeding the sum of standalone percentage returns is possible because both sleeves compound through the same NLV. Total R and the shared-ledger reconciliation are the cleaner opportunity-capture checks.
+
+## Optimized overlay versus the same allocation without the overlay
+
+| Scenario | Return | Net PnL | Total R | R/month | Trades/month | Trades | PF | Win rate | Daily-MTM DD | Sharpe | Sortino | Calmar | CE growth |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| IS no overlay | 171.71% | $+42,927 | 404.87R | 17.50R | 108.2 | 2,503 | 1.585 | 57.61% | 10.49% | 0.37 | 0.37 | 4.79 | 0.5078 |
+| IS optimized overlay | 174.43% | $+43,607 | 406.33R | 17.56R | 107.7 | 2,491 | 1.601 | 57.61% | 9.63% | 0.37 | 0.38 | 4.81 | 0.5137 |
+| OOS no overlay | 15.86% | $+3,964 | 62.36R | 31.64R | 83.2 | 164 | 2.435 | 60.98% | 2.57% | 3.01 | 4.07 | 65.75 | 0.8285 |
+| OOS optimized overlay | 15.86% | $+3,964 | 62.36R | 31.64R | 83.2 | 164 | 2.435 | 60.98% | 2.57% | 3.01 | 4.07 | 65.75 | 0.8285 |
+
+- IS: 45 blocks were common to both configurations. The overlay uniquely blocked 13 trades totalling -2.494R (7 winners), while no-overlay uniquely blocked 1 trades totalling -1.029R.
+
+- OOS: 1 blocks were common to both configurations. The overlay uniquely blocked 0 trades totalling 0.000R (0 winners), while no-overlay uniquely blocked 0 trades totalling 0.000R.
+
+## Blocking discrimination and good-trade preservation
+
+### IS
+
+| Population | Count | Win rate | Total R | Avg R | Median R | P10 | P25 | P75 | P90 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Accepted | 2,491 | 57.61% | 406.332R | 0.163R | 0.197R | -0.894 | -0.336 | 0.568 | 1.180 |
+| Blocked | 58 | 55.17% | -1.028R | -0.018R | 0.125R | -1.065 | -0.386 | 0.474 | 0.919 |
+
+| Blocker-quality measure | Value | Interpretation |
+|---|---:|---|
+| Positive-trade block rate | 2.18% | Share of all eventual winners rejected |
+| Non-positive-trade block rate | 2.40% | Share of all eventual non-winners rejected |
+| Blocker precision | 44.83% | Share of blocked trades that were non-positive |
+| Forgone winning R | 17.314R | Ex-post opportunity cost |
+| Avoided losing R | 18.342R | Ex-post protection |
+| Net block value | 1.028R | Positive means losses avoided exceeded winners forgone |
+| Block efficiency | 51.44% | Avoided-loss share of gross blocked absolute R |
+| Accepted-minus-blocked avg R | 0.181R | Positive means realized outcomes were better among accepted trades |
+| Accepted-minus-blocked ex-ante quality | 0.0046 | Positive means the decision-time rank favored accepted trades |
+
+#### Fired, accepted and blocked by strategy
+
+| Strategy | Fired | Accepted | Blocked | Accept rate | Accepted WR | Blocked WR | Accepted avg R | Blocked avg R | Good-trade block rate | Bad-trade block rate | R discrimination | Quality discrimination |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| ALCB_R3 | 2,093 | 2,041 | 52 | 97.52% | 57.96% | 55.77% | 0.143R | 0.068R | 2.39% | 2.61% | 0.075R | 0.0003 |
+| IARIC_RESIDUAL_R3 | 456 | 450 | 6 | 98.68% | 56.00% | 50.00% | 0.256R | -0.757R | 1.18% | 1.49% | 1.013R | -0.0037 |
+
+#### Block reasons
+
+| Reason | Count | Win rate | Positive | Non-positive | Total R | Avg R | Avg ex-ante quality | Avg requested notional | Avg heat R | Strategy counts |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| `net_notional_cap` | 43 | 55.81% | 24 | 19 | 3.253R | 0.076R | 0.0935 | $27,801 | 3.20 | ALCB_R3:43 |
+| `overnight_notional_cap` | 3 | 33.33% | 1 | 2 | -0.676R | -0.225R | 0.1131 | $43,776 | 3.21 | ALCB_R3:3 |
+| `portfolio_daily_stop` | 11 | 54.55% | 6 | 5 | -3.719R | -0.338R | 0.1422 | $29,476 | 2.23 | ALCB_R3:6, IARIC_RESIDUAL_R3:5 |
+| `quantity_below_one` | 1 | 100.00% | 1 | 0 | 0.115R | 0.115R | 0.1645 | $0 | 1.09 | IARIC_RESIDUAL_R3:1 |
+
+#### Capacity and signal crowding
+
+- Blocked with any accepted position open: 100.00%; with the other strategy open: 89.66%.
+- Same-symbol / same-sector open at block: 15.52% / 87.93%.
+- Average / maximum open positions at a block: 12.19 / 17.
+- Cross-strategy candidates at the exact same timestamp: 0 (0.00%); same-symbol exact collisions: 0 (0.00%).
+- Candidates with an other-strategy entry within one day: 1,988 (77.99%).
+
+### OOS
+
+| Population | Count | Win rate | Total R | Avg R | Median R | P10 | P25 | P75 | P90 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Accepted | 164 | 60.98% | 62.358R | 0.380R | 0.346R | -0.615 | -0.288 | 0.778 | 1.808 |
+| Blocked | 1 | 100.00% | 1.010R | 1.010R | 1.010R | 1.010 | 1.010 | 1.010 | 1.010 |
+
+| Blocker-quality measure | Value | Interpretation |
+|---|---:|---|
+| Positive-trade block rate | 0.99% | Share of all eventual winners rejected |
+| Non-positive-trade block rate | 0.00% | Share of all eventual non-winners rejected |
+| Blocker precision | 0.00% | Share of blocked trades that were non-positive |
+| Forgone winning R | 1.010R | Ex-post opportunity cost |
+| Avoided losing R | -0.000R | Ex-post protection |
+| Net block value | -1.010R | Positive means losses avoided exceeded winners forgone |
+| Block efficiency | -0.00% | Avoided-loss share of gross blocked absolute R |
+| Accepted-minus-blocked avg R | -0.629R | Positive means realized outcomes were better among accepted trades |
+| Accepted-minus-blocked ex-ante quality | 0.0148 | Positive means the decision-time rank favored accepted trades |
+
+#### Fired, accepted and blocked by strategy
+
+| Strategy | Fired | Accepted | Blocked | Accept rate | Accepted WR | Blocked WR | Accepted avg R | Blocked avg R | Good-trade block rate | Bad-trade block rate | R discrimination | Quality discrimination |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| ALCB_R3 | 125 | 124 | 1 | 99.20% | 60.48% | 100.00% | 0.361R | 1.010R | 1.32% | 0.00% | -0.649R | 0.0011 |
+| IARIC_RESIDUAL_R3 | 40 | 40 | 0 | 100.00% | 62.50% | 0.00% | 0.441R | 0.000R | 0.00% | 0.00% | 0.441R | 0.1921 |
+
+#### Block reasons
+
+| Reason | Count | Win rate | Positive | Non-positive | Total R | Avg R | Avg ex-ante quality | Avg requested notional | Avg heat R | Strategy counts |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| `net_notional_cap` | 1 | 100.00% | 1 | 0 | 1.010R | 1.010R | 0.1346 | $12,543 | 3.21 | ALCB_R3:1 |
+
+#### Capacity and signal crowding
+
+- Blocked with any accepted position open: 100.00%; with the other strategy open: 100.00%.
+- Same-symbol / same-sector open at block: 0.00% / 100.00%.
+- Average / maximum open positions at a block: 16.00 / 16.
+- Cross-strategy candidates at the exact same timestamp: 0 (0.00%); same-symbol exact collisions: 0 (0.00%).
+- Candidates with an other-strategy entry within one day: 115 (69.70%).
+
+The IS blocker result is net positive because avoided loser magnitude slightly exceeds forgone winner magnitude, despite more than half of blocked trades being eventual winners. OOS contains only one block, so it is statistically uninformative and directionally adverse. Ex-post discrimination must not be confused with ex-ante alpha ranking.
+
+## Sleeve contribution and balance
+
+| Window | Sleeve | Trades | Trade share | PnL | PnL share | Risk share |
+|---|---|---:|---:|---:|---:|---:|
+| IS | ALCB_R3 | 2,041 | 81.93% | $+33,527 | 76.66% | 84.17% |
+| IS | IARIC_RESIDUAL_R3 | 450 | 18.07% | $+10,206 | 23.34% | 15.83% |
+| IS | Financing/ledger cost | 0 | 0.00% | $-127 | n/a | n/a |
+| IS | Reconciled portfolio net PnL | 2,491 | 100.00% | $+43,607 | n/a | 100.00% |
+| OOS | ALCB_R3 | 124 | 75.61% | $+2,783 | 70.15% | 81.81% |
+| OOS | IARIC_RESIDUAL_R3 | 40 | 24.39% | $+1,184 | 29.85% | 18.19% |
+| OOS | Financing/ledger cost | 0 | 0.00% | $-3 | n/a | n/a |
+| OOS | Reconciled portfolio net PnL | 164 | 100.00% | $+3,964 | n/a | 100.00% |
+
+## Drawdown path and attribution
+
+| Window/scenario | Max DD | Peak date | Trough date | Recovery date | Peak equity | Trough equity | Duration | Drawdown PnL contribution |
+|---|---:|---|---|---|---:|---:|---:|---|
+| IS pre_optimization_portfolio | 8.68% | 2025-02-19 | 2025-04-08 | 2025-05-12 | $40,521 | $37,002 | 48d | ALCB_R3:$+101, IARIC_RESIDUAL_R3:$-3,620 |
+| IS post_optimization_no_overlay | 10.49% | 2025-02-19 | 2025-04-08 | 2025-05-12 | $40,421 | $36,181 | 48d | ALCB_R3:$+9, IARIC_RESIDUAL_R3:$-4,249 |
+| IS post_optimization_portfolio | 9.63% | 2025-02-19 | 2025-04-08 | 2025-05-12 | $40,421 | $36,528 | 48d | ALCB_R3:$+9, IARIC_RESIDUAL_R3:$-3,902 |
+| OOS pre_optimization_portfolio | 2.40% | 2026-03-10 | 2026-03-27 | 2026-04-08 | $25,347 | $24,739 | 17d | ALCB_R3:$-135, IARIC_RESIDUAL_R3:$-473 |
+| OOS post_optimization_no_overlay | 2.57% | 2026-03-10 | 2026-03-27 | 2026-04-08 | $25,358 | $24,708 | 17d | ALCB_R3:$-135, IARIC_RESIDUAL_R3:$-516 |
+| OOS post_optimization_portfolio | 2.57% | 2026-03-10 | 2026-03-27 | 2026-04-08 | $25,358 | $24,708 | 17d | ALCB_R3:$-135, IARIC_RESIDUAL_R3:$-516 |
+
+Negative contribution identifies the sleeve losing MTM PnL from the drawdown peak to trough; it is path attribution, not causal blame. The post portfolio does not minimize DD versus the lower-risk pre baseline or either OOS standalone.
+
+## Monthly opportunity and blocker path
+
+### IS
+
+| Month | Accepted | Blocked | Accepted R | Blocked R | PnL | ALCB accepted / R / PnL | IARIC accepted / R / PnL |
+|---|---:|---:|---:|---:|---:|---|---|
+| 2024-03 | 13 | 0 | -1.35R | 0.00R | $+190 | 13 / -1.35R / $+190 | 0 / 0.00R / $+0 |
+| 2024-04 | 82 | 4 | -4.83R | -0.82R | $-595 | 62 / 9.08R / $+222 | 20 / -13.90R / $-816 |
+| 2024-05 | 121 | 3 | 27.82R | 0.45R | $+2,199 | 101 / -0.06R / $+404 | 20 / 27.88R / $+1,795 |
+| 2024-06 | 119 | 0 | 31.60R | 0.00R | $+2,135 | 102 / 25.45R / $+1,741 | 17 / 6.16R / $+394 |
+| 2024-07 | 138 | 1 | 18.57R | 0.46R | $+1,336 | 114 / 13.69R / $+1,094 | 24 / 4.87R / $+242 |
+| 2024-08 | 95 | 1 | 21.59R | 0.12R | $+1,950 | 72 / 0.67R / $+261 | 23 / 20.92R / $+1,688 |
+| 2024-09 | 82 | 0 | 9.68R | 0.00R | $+397 | 63 / 4.63R / $+58 | 19 / 5.05R / $+339 |
+| 2024-10 | 100 | 2 | 19.84R | -0.67R | $+1,549 | 75 / 10.79R / $+856 | 25 / 9.06R / $+692 |
+| 2024-11 | 90 | 8 | 13.42R | 2.92R | $+1,159 | 74 / 10.43R / $+925 | 16 / 2.98R / $+233 |
+| 2024-12 | 102 | 2 | 23.36R | -0.18R | $+1,848 | 83 / 19.28R / $+1,556 | 19 / 4.08R / $+292 |
+| 2025-01 | 118 | 2 | 26.95R | -1.13R | $+2,490 | 103 / 14.86R / $+1,358 | 15 / 12.09R / $+1,131 |
+| 2025-02 | 128 | 0 | -6.24R | 0.00R | $-1,101 | 104 / 13.18R / $+949 | 24 / -19.41R / $-2,050 |
+| 2025-03 | 38 | 0 | -0.06R | 0.00R | $-26 | 14 / -1.41R / $-64 | 24 / 1.35R / $+38 |
+| 2025-04 | 26 | 3 | -1.95R | -0.06R | $-229 | 9 / -0.06R / $+5 | 17 / -1.89R / $-234 |
+| 2025-05 | 84 | 0 | 35.73R | 0.00R | $+3,810 | 69 / 17.61R / $+1,953 | 15 / 18.12R / $+1,857 |
+| 2025-06 | 115 | 1 | 13.08R | 1.15R | $+1,575 | 96 / 5.82R / $+802 | 19 / 7.26R / $+774 |
+| 2025-07 | 142 | 4 | 19.58R | 0.18R | $+1,603 | 120 / 11.05R / $+695 | 22 / 8.53R / $+909 |
+| 2025-08 | 121 | 0 | 19.90R | 0.00R | $+2,403 | 102 / 19.46R / $+2,361 | 19 / 0.44R / $+42 |
+| 2025-09 | 128 | 0 | 26.90R | 0.00R | $+3,237 | 111 / 21.28R / $+2,505 | 17 / 5.61R / $+732 |
+| 2025-10 | 144 | 6 | 36.53R | -1.17R | $+5,331 | 120 / 27.74R / $+4,163 | 24 / 8.80R / $+1,169 |
+| 2025-11 | 107 | 15 | 12.94R | -3.68R | $+1,327 | 90 / 13.61R / $+1,447 | 17 / -0.67R / $-120 |
+| 2025-12 | 121 | 1 | 20.43R | 0.16R | $+3,370 | 102 / 13.28R / $+2,330 | 19 / 7.15R / $+1,040 |
+| 2026-01 | 148 | 2 | 49.42R | -0.18R | $+8,054 | 133 / 42.18R / $+6,859 | 15 / 7.25R / $+1,195 |
+| 2026-02 | 129 | 3 | -6.57R | 1.43R | $-278 | 109 / -0.15R / $+857 | 20 / -6.43R / $-1,135 |
+
+### OOS
+
+| Month | Accepted | Blocked | Accepted R | Blocked R | PnL | ALCB accepted / R / PnL | IARIC accepted / R / PnL |
+|---|---:|---:|---:|---:|---:|---|---|
+| 2026-03 | 32 | 0 | -1.11R | 0.00R | $-82 | 22 / 3.06R / $+119 | 10 / -4.17R / $-201 |
+| 2026-04 | 117 | 1 | 64.47R | 1.01R | $+4,266 | 96 / 44.36R / $+2,988 | 21 / 20.11R / $+1,277 |
+| 2026-05 | 15 | 0 | -1.00R | 0.00R | $-217 | 6 / -2.70R / $-325 | 9 / 1.70R / $+108 |
+
+## Immutable score and scaling
+
+The score was frozen before candidate testing:
+
+`score = 0.45*tanh(annual_log_growth/0.50) + 0.25*tanh(R_per_month/15) + 0.10*tanh(trades_per_month/100) + 0.10*tanh(blocked_value_R_per_month/2) + 0.10*tanh(CE_synergy/0.10) - drawdown_penalty - expected_shortfall_penalty - realism_penalty`
+
+Robust fold aggregation: `0.55*median + 0.30*q25 + 0.15*worst - 0.10*IQR`.
+
+| Component | Selected IS contribution | Meaning |
+|---|---:|---|
+| `growth` | 0.352363 | Expected-return growth term |
+| `alpha_throughput` | 0.206144 | R delivered per month |
+| `frequency` | 0.079200 | Accepted trading frequency |
+| `blocker_value` | 0.002215 | Net ex-post R value of rejected trades |
+| `matched_risk_synergy` | 0.005886 | CE growth over the same allocation without overlay |
+| `drawdown_penalty` | -0.000000 | Penalty above 10% daily-MTM DD |
+| `expected_shortfall_penalty` | -0.000000 | Penalty above 2.5% daily expected shortfall |
+| `realism_penalty` | -0.000015 | Marks, leverage and margin constraint penalty |
+| `score` | 0.645793 | Aggregate IS score before robust fold aggregation |
+
+The score intentionally rewards return and frequency, but only 10% directly rewards matched-risk synergy and 10% blocker value. Consequently, a high score alone cannot establish optimal blocker discrimination; the direct diagnostics above are necessary.
+
+## Phase progression
+
+| Phase | Objective | Candidates | Eligible | Selected | Robust score | Return | R/month | Trades/month | PF | DD | Accept rate | IS CE synergy | Median fold synergy | Negative synergy folds |
+|---:|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | Risk allocation | 12 | 6 | `risk_g1.15_itilt1.00` | 0.568483 | 171.71% | 17.50 | 108.2 | 1.585 | 10.49% | 98.20% | 0.0000 | 0.0000 | 0 |
+| 2 | Shared capacity | 36 | 18 | `capacity_h0.060_block_n19_net1.65` | 0.568483 | 171.71% | 17.50 | 108.2 | 1.585 | 10.49% | 98.20% | 0.0000 | 0.0000 | 0 |
+| 3 | Alpha admission | 1 | 1 | `admission_control` | 0.568483 | 171.71% | 17.50 | 108.2 | 1.585 | 10.49% | 98.20% | 0.0000 | 0.0000 | 0 |
+| 4 | Reserve governors | 16 | 16 | `governor_reserve0.0_d8.0_w24.0` | 0.569214 | 174.43% | 17.56 | 107.7 | 1.601 | 9.63% | 97.72% | 0.0059 | 0.0000 | 0 |
+| 5 | Interactions | 19 | 15 | `interaction_control` | 0.569214 | 174.43% | 17.56 | 107.7 | 1.601 | 9.63% | 97.72% | 0.0059 | 0.0000 | 0 |
+
+The search tested 84 candidates. Phase 4 generated the retained benefit. Phase 5's unconstrained winner gained only 0.000851 robust-score units, below the 0.005 requirement, while CSCV PBO was 90.00%; therefore the simpler phase-4 incumbent was retained.
+
+### Full tested frontier
+
+| Phase | Candidate | Selected | Eligible | Robust score | Aggregate score | Return | R/month | Trades/month | PF | WR | DD | Accept | Blocked R | CE synergy | Median fold synergy | Negative folds | Worst fold DD |
+|---:|---|:---:|:---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | `risk_g1.15_itilt1.00` | yes | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 1 | `risk_g1.00_itilt0.75` |  | yes | 0.564803 | 0.632505 | 166.53% | 17.51 | 110.1 | 1.646 | 57.54% | 6.23% | 99.96% | 0.12R | 0.0000 | 0.0000 | 0 | 5.05% |
+| 1 | `risk_g1.00_itilt1.00` |  | yes | 0.561890 | 0.630668 | 173.75% | 17.39 | 109.5 | 1.613 | 57.46% | 8.68% | 99.41% | 2.92R | 0.0000 | 0.0000 | 0 | 6.60% |
+| 1 | `risk_g0.85_itilt1.25` |  | yes | 0.561743 | 0.621426 | 173.99% | 17.22 | 109.0 | 1.605 | 57.41% | 9.37% | 98.94% | 6.82R | 0.0000 | 0.0000 | 0 | 6.94% |
+| 1 | `risk_g1.15_itilt0.75` |  | no | 0.559735 | 0.636108 | 170.91% | 17.53 | 109.8 | 1.631 | 57.56% | 7.52% | 99.65% | -0.14R | 0.0000 | 0.0000 | 0 | 5.61% |
+| 1 | `risk_g1.30_itilt0.75` |  | yes | 0.559534 | 0.634846 | 173.43% | 17.47 | 109.5 | 1.615 | 57.52% | 8.55% | 99.37% | 1.07R | 0.0000 | 0.0000 | 0 | 6.38% |
+| 1 | `risk_g0.85_itilt0.75` |  | yes | 0.557258 | 0.629832 | 160.89% | 17.54 | 110.1 | 1.662 | 57.56% | 5.25% | 99.92% | -0.52R | 0.0000 | 0.0000 | 0 | 4.18% |
+| 1 | `risk_g0.85_itilt1.00` |  | no | 0.555497 | 0.631620 | 169.22% | 17.47 | 109.9 | 1.634 | 57.55% | 7.50% | 99.73% | 1.26R | 0.0000 | 0.0000 | 0 | 5.58% |
+| 1 | `risk_g1.00_itilt1.25` |  | no | 0.546774 | 0.289767 | 169.52% | 17.09 | 107.1 | 1.570 | 57.33% | 11.46% | 97.18% | 9.93R | 0.0000 | 0.0000 | 0 | 8.21% |
+| 1 | `risk_g1.30_itilt1.00` |  | no | 0.519800 | 0.136059 | 170.13% | 16.96 | 106.3 | 1.566 | 57.38% | 11.67% | 96.47% | 12.91R | 0.0000 | 0.0000 | 0 | 8.62% |
+| 1 | `risk_g1.15_itilt1.25` |  | no | 0.449406 | -0.127083 | 163.55% | 16.58 | 104.5 | 1.541 | 57.28% | 13.04% | 94.86% | 21.78R | 0.0000 | 0.0000 | 0 | 9.21% |
+| 1 | `risk_g1.30_itilt1.25` |  | no | 0.302189 | -0.292276 | 162.95% | 16.37 | 102.1 | 1.528 | 57.28% | 14.53% | 92.66% | 26.66R | 0.0000 | 0.0000 | 0 | 10.38% |
+| 2 | `capacity_h0.060_block_n19_net1.65` | yes | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 2 | `capacity_h0.060_block_n99_net1.65` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 2 | `capacity_h0.075_block_n19_net1.65` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 2 | `capacity_h0.075_block_n99_net1.65` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 2 | `capacity_h0.045_block_n19_net1.65` |  | yes | 0.566222 | 0.620732 | 169.93% | 17.39 | 107.0 | 1.584 | 57.58% | 10.50% | 97.10% | 2.93R | -0.0034 | -0.0000 | 0 | 7.45% |
+| 2 | `capacity_h0.045_block_n99_net1.65` |  | yes | 0.566222 | 0.620732 | 169.93% | 17.39 | 107.0 | 1.584 | 57.58% | 10.50% | 97.10% | 2.93R | -0.0034 | -0.0000 | 0 | 7.45% |
+| 2 | `capacity_h0.060_block_n19_net1.75` |  | yes | 0.565721 | 0.512023 | 179.15% | 17.46 | 109.4 | 1.593 | 57.50% | 10.18% | 99.33% | 1.39R | 0.0140 | 0.0055 | 0 | 7.45% |
+| 2 | `capacity_h0.060_block_n99_net1.75` |  | yes | 0.565721 | 0.512023 | 179.15% | 17.46 | 109.4 | 1.593 | 57.50% | 10.18% | 99.33% | 1.39R | 0.0140 | 0.0055 | 0 | 7.45% |
+| 2 | `capacity_h0.075_block_n19_net1.75` |  | yes | 0.565721 | 0.512023 | 179.15% | 17.46 | 109.4 | 1.593 | 57.50% | 10.18% | 99.33% | 1.39R | 0.0140 | 0.0055 | 0 | 7.45% |
+| 2 | `capacity_h0.075_block_n99_net1.75` |  | yes | 0.565721 | 0.512023 | 179.15% | 17.46 | 109.4 | 1.593 | 57.50% | 10.18% | 99.33% | 1.39R | 0.0140 | 0.0055 | 0 | 7.45% |
+| 2 | `capacity_h0.045_block_n19_net1.75` |  | yes | 0.554556 | 0.488594 | 175.72% | 17.22 | 107.7 | 1.589 | 57.33% | 10.33% | 97.72% | 7.04R | 0.0076 | 0.0040 | 0 | 7.45% |
+| 2 | `capacity_h0.045_block_n99_net1.75` |  | yes | 0.554556 | 0.488594 | 175.72% | 17.22 | 107.7 | 1.589 | 57.33% | 10.33% | 97.72% | 7.04R | 0.0076 | 0.0040 | 0 | 7.45% |
+| 2 | `capacity_h0.060_block_n19_net1.50` |  | yes | 0.529759 | 0.551223 | 157.08% | 16.78 | 105.1 | 1.571 | 57.20% | 10.68% | 95.41% | 17.05R | -0.0286 | -0.0170 | 1 | 7.45% |
+| 2 | `capacity_h0.060_block_n99_net1.50` |  | yes | 0.529759 | 0.551223 | 157.08% | 16.78 | 105.1 | 1.571 | 57.20% | 10.68% | 95.41% | 17.05R | -0.0286 | -0.0170 | 1 | 7.45% |
+| 2 | `capacity_h0.075_block_n19_net1.50` |  | yes | 0.529759 | 0.551223 | 157.08% | 16.78 | 105.1 | 1.571 | 57.20% | 10.68% | 95.41% | 17.05R | -0.0286 | -0.0170 | 1 | 7.45% |
+| 2 | `capacity_h0.075_block_n99_net1.50` |  | yes | 0.529759 | 0.551223 | 157.08% | 16.78 | 105.1 | 1.571 | 57.20% | 10.68% | 95.41% | 17.05R | -0.0286 | -0.0170 | 1 | 7.45% |
+| 2 | `capacity_h0.045_block_n19_net1.50` |  | yes | 0.522223 | 0.539532 | 155.48% | 16.63 | 104.3 | 1.567 | 57.08% | 10.66% | 94.70% | 20.68R | -0.0318 | -0.0218 | 1 | 7.45% |
+| 2 | `capacity_h0.045_block_n99_net1.50` |  | yes | 0.522223 | 0.539532 | 155.48% | 16.63 | 104.3 | 1.567 | 57.08% | 10.66% | 94.70% | 20.68R | -0.0318 | -0.0218 | 1 | 7.45% |
+| 2 | `capacity_h0.060_resize_n19_net1.75` |  | no | 0.300394 | 0.326090 | 118.93% | 10.24 | 62.1 | 1.596 | 58.04% | 9.92% | 56.38% | 168.53R | -0.1112 | -0.1155 | 6 | 7.16% |
+| 2 | `capacity_h0.060_resize_n99_net1.75` |  | no | 0.300394 | 0.326090 | 118.93% | 10.24 | 62.1 | 1.596 | 58.04% | 9.92% | 56.38% | 168.53R | -0.1112 | -0.1155 | 6 | 7.16% |
+| 2 | `capacity_h0.075_resize_n19_net1.75` |  | no | 0.300394 | 0.326090 | 118.93% | 10.24 | 62.1 | 1.596 | 58.04% | 9.92% | 56.38% | 168.53R | -0.1112 | -0.1155 | 6 | 7.16% |
+| 2 | `capacity_h0.075_resize_n99_net1.75` |  | no | 0.300394 | 0.326090 | 118.93% | 10.24 | 62.1 | 1.596 | 58.04% | 9.92% | 56.38% | 168.53R | -0.1112 | -0.1155 | 6 | 7.16% |
+| 2 | `capacity_h0.060_resize_n19_net1.65` |  | no | 0.297595 | 0.322599 | 117.55% | 10.18 | 61.9 | 1.592 | 57.89% | 9.99% | 56.18% | 169.74R | -0.1146 | -0.1269 | 6 | 7.16% |
+| 2 | `capacity_h0.060_resize_n99_net1.65` |  | no | 0.297595 | 0.322599 | 117.55% | 10.18 | 61.9 | 1.592 | 57.89% | 9.99% | 56.18% | 169.74R | -0.1146 | -0.1269 | 6 | 7.16% |
+| 2 | `capacity_h0.075_resize_n19_net1.65` |  | no | 0.297595 | 0.322599 | 117.55% | 10.18 | 61.9 | 1.592 | 57.89% | 9.99% | 56.18% | 169.74R | -0.1146 | -0.1269 | 6 | 7.16% |
+| 2 | `capacity_h0.075_resize_n99_net1.65` |  | no | 0.297595 | 0.322599 | 117.55% | 10.18 | 61.9 | 1.592 | 57.89% | 9.99% | 56.18% | 169.74R | -0.1146 | -0.1269 | 6 | 7.16% |
+| 2 | `capacity_h0.060_resize_n19_net1.50` |  | no | 0.293233 | 0.310869 | 113.48% | 9.90 | 61.0 | 1.576 | 57.62% | 9.99% | 55.36% | 176.24R | -0.1244 | -0.1330 | 6 | 7.16% |
+| 2 | `capacity_h0.060_resize_n99_net1.50` |  | no | 0.293233 | 0.310869 | 113.48% | 9.90 | 61.0 | 1.576 | 57.62% | 9.99% | 55.36% | 176.24R | -0.1244 | -0.1330 | 6 | 7.16% |
+| 2 | `capacity_h0.075_resize_n19_net1.50` |  | no | 0.293233 | 0.310869 | 113.48% | 9.90 | 61.0 | 1.576 | 57.62% | 9.99% | 55.36% | 176.24R | -0.1244 | -0.1330 | 6 | 7.16% |
+| 2 | `capacity_h0.075_resize_n99_net1.50` |  | no | 0.293233 | 0.310869 | 113.48% | 9.90 | 61.0 | 1.576 | 57.62% | 9.99% | 55.36% | 176.24R | -0.1244 | -0.1330 | 6 | 7.16% |
+| 2 | `capacity_h0.045_resize_n19_net1.75` |  | no | 0.292322 | 0.317695 | 115.64% | 10.09 | 61.7 | 1.582 | 57.77% | 9.95% | 56.02% | 171.93R | -0.1190 | -0.1234 | 6 | 7.16% |
+| 2 | `capacity_h0.045_resize_n99_net1.75` |  | no | 0.292322 | 0.317695 | 115.64% | 10.09 | 61.7 | 1.582 | 57.77% | 9.95% | 56.02% | 171.93R | -0.1190 | -0.1234 | 6 | 7.16% |
+| 2 | `capacity_h0.045_resize_n19_net1.65` |  | no | 0.292002 | 0.315333 | 114.79% | 10.04 | 61.5 | 1.578 | 57.70% | 9.95% | 55.83% | 173.05R | -0.1211 | -0.1293 | 6 | 7.16% |
+| 2 | `capacity_h0.045_resize_n99_net1.65` |  | no | 0.292002 | 0.315333 | 114.79% | 10.04 | 61.5 | 1.578 | 57.70% | 9.95% | 55.83% | 173.05R | -0.1211 | -0.1293 | 6 | 7.16% |
+| 2 | `capacity_h0.045_resize_n19_net1.50` |  | no | 0.291865 | 0.309484 | 112.86% | 9.89 | 60.9 | 1.574 | 57.60% | 10.01% | 55.24% | 176.47R | -0.1258 | -0.1321 | 6 | 7.16% |
+| 2 | `capacity_h0.045_resize_n99_net1.50` |  | no | 0.291865 | 0.309484 | 112.86% | 9.89 | 60.9 | 1.574 | 57.60% | 10.01% | 55.24% | 176.47R | -0.1258 | -0.1321 | 6 | 7.16% |
+| 3 | `admission_control` | yes | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 4 | `governor_reserve0.0_d8.0_w24.0` | yes | yes | 0.569214 | 0.645793 | 174.43% | 17.56 | 107.7 | 1.601 | 57.61% | 9.63% | 97.72% | -1.03R | 0.0059 | 0.0000 | 0 | 6.61% |
+| 4 | `governor_reserve2.0_d8.0_w24.0` |  | yes | 0.569214 | 0.645793 | 174.43% | 17.56 | 107.7 | 1.601 | 57.61% | 9.63% | 97.72% | -1.03R | 0.0059 | 0.0000 | 0 | 6.61% |
+| 4 | `governor_reserve4.0_d8.0_w24.0` |  | yes | 0.569214 | 0.645793 | 174.43% | 17.56 | 107.7 | 1.601 | 57.61% | 9.63% | 97.72% | -1.03R | 0.0059 | 0.0000 | 0 | 6.61% |
+| 4 | `governor_reserve6.0_d8.0_w24.0` |  | yes | 0.569214 | 0.645793 | 174.43% | 17.56 | 107.7 | 1.601 | 57.61% | 9.63% | 97.72% | -1.03R | 0.0059 | 0.0000 | 0 | 6.61% |
+| 4 | `governor_reserve0.0_d0.0_w0.0` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 4 | `governor_reserve0.0_d10.0_w28.0` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 4 | `governor_reserve0.0_d12.0_w32.0` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 4 | `governor_reserve2.0_d0.0_w0.0` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 4 | `governor_reserve2.0_d10.0_w28.0` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 4 | `governor_reserve2.0_d12.0_w32.0` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 4 | `governor_reserve4.0_d0.0_w0.0` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 4 | `governor_reserve4.0_d10.0_w28.0` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 4 | `governor_reserve4.0_d12.0_w32.0` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 4 | `governor_reserve6.0_d0.0_w0.0` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 4 | `governor_reserve6.0_d10.0_w28.0` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 4 | `governor_reserve6.0_d12.0_w32.0` |  | yes | 0.568483 | 0.631924 | 171.71% | 17.50 | 108.2 | 1.585 | 57.61% | 10.49% | 98.20% | 0.44R | 0.0000 | 0.0000 | 0 | 7.45% |
+| 5 | `interaction_ff03` |  | yes | 0.570066 | 0.618006 | 174.00% | 17.72 | 107.1 | 1.597 | 57.65% | 9.80% | 97.18% | -4.72R | 0.0064 | 0.0000 | 0 | 6.89% |
+| 5 | `interaction_ff04` |  | yes | 0.570066 | 0.618006 | 174.00% | 17.72 | 107.1 | 1.597 | 57.65% | 9.80% | 97.18% | -4.72R | 0.0064 | 0.0000 | 0 | 6.89% |
+| 5 | `interaction_control` | yes | yes | 0.569214 | 0.645793 | 174.43% | 17.56 | 107.7 | 1.601 | 57.61% | 9.63% | 97.72% | -1.03R | 0.0059 | 0.0000 | 0 | 6.61% |
+| 5 | `interaction_heat_down` |  | yes | 0.569214 | 0.645793 | 174.43% | 17.56 | 107.7 | 1.601 | 57.61% | 9.63% | 97.72% | -1.03R | 0.0059 | 0.0000 | 0 | 6.61% |
+| 5 | `interaction_heat_up` |  | yes | 0.569214 | 0.645793 | 174.43% | 17.56 | 107.7 | 1.601 | 57.61% | 9.63% | 97.72% | -1.03R | 0.0059 | 0.0000 | 0 | 6.61% |
+| 5 | `interaction_risk_up` |  | yes | 0.569198 | 0.648622 | 174.47% | 17.61 | 107.6 | 1.601 | 57.63% | 9.63% | 97.69% | -2.14R | 0.0061 | 0.0000 | 0 | 6.61% |
+| 5 | `interaction_ff05` |  | yes | 0.566876 | 0.622670 | 174.61% | 17.24 | 108.6 | 1.601 | 57.44% | 9.54% | 98.55% | 6.37R | -0.0001 | 0.0000 | 0 | 6.97% |
+| 5 | `interaction_ff06` |  | yes | 0.566876 | 0.622670 | 174.61% | 17.24 | 108.6 | 1.601 | 57.44% | 9.54% | 98.55% | 6.37R | -0.0001 | 0.0000 | 0 | 6.97% |
+| 5 | `interaction_net_cap_up` |  | yes | 0.566474 | 0.526975 | 181.92% | 17.60 | 109.0 | 1.609 | 57.48% | 9.32% | 98.90% | -1.83R | 0.0198 | 0.0057 | 0 | 6.61% |
+| 5 | `interaction_risk_down` |  | yes | 0.566357 | 0.645241 | 174.61% | 17.55 | 107.7 | 1.602 | 57.53% | 9.60% | 97.72% | -0.74R | 0.0059 | 0.0000 | 0 | 6.61% |
+| 5 | `interaction_ff01` |  | yes | 0.561677 | 0.632557 | 171.04% | 17.46 | 109.8 | 1.630 | 57.54% | 7.48% | 99.69% | 1.39R | 0.0000 | 0.0000 | 0 | 5.66% |
+| 5 | `interaction_ff02` |  | yes | 0.561677 | 0.632557 | 171.04% | 17.46 | 109.8 | 1.630 | 57.54% | 7.48% | 99.69% | 1.39R | 0.0000 | 0.0000 | 0 | 5.66% |
+| 5 | `interaction_iaric_down` |  | yes | 0.559938 | 0.637970 | 173.39% | 17.53 | 109.5 | 1.614 | 57.54% | 8.66% | 99.41% | -0.25R | 0.0000 | 0.0000 | 0 | 6.38% |
+| 5 | `interaction_overnight_cap_down` |  | no | 0.555110 | 0.643335 | 173.59% | 17.56 | 107.5 | 1.601 | 57.58% | 9.60% | 97.57% | -0.94R | 0.0043 | 0.0000 | 0 | 6.61% |
+| 5 | `interaction_net_cap_down` |  | yes | 0.548907 | 0.589809 | 164.47% | 17.02 | 106.0 | 1.592 | 57.30% | 9.67% | 96.19% | 11.48R | -0.0132 | -0.0107 | 0 | 6.61% |
+| 5 | `interaction_overnight_cap_up` |  | yes | 0.493882 | 0.437192 | 175.73% | 17.56 | 107.6 | 1.603 | 57.57% | 9.60% | 97.65% | -1.04R | 0.0084 | 0.0000 | 0 | 6.61% |
+| 5 | `interaction_iaric_up` |  | no | 0.466936 | 0.042582 | 171.84% | 16.99 | 105.6 | 1.578 | 57.39% | 11.21% | 95.84% | 12.34R | 0.0073 | 0.0000 | 0 | 7.71% |
+| 5 | `interaction_ff08` |  | no | 0.444165 | -0.062148 | 168.45% | 16.43 | 103.9 | 1.564 | 57.14% | 11.86% | 94.27% | 25.19R | 0.0081 | 0.0000 | 0 | 8.40% |
+| 5 | `interaction_ff07` |  | no | 0.443566 | -0.066103 | 168.23% | 16.35 | 103.8 | 1.564 | 57.10% | 11.86% | 94.19% | 27.01R | 0.0077 | 0.0000 | 0 | 8.40% |
+
+### Selected configuration fold stability
+
+| Fold | Return | PnL | R/month | Trades/month | PF | DD | Accept | No-overlay return | No-overlay DD | CE synergy | Score |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| f1 | 16.23% | $+4,058 | 17.04 | 107.2 | 1.776 | 4.73% | 97.95% | 16.23% | 4.73% | 0.0000 | 0.65385 |
+| f2 | 15.26% | $+3,815 | 14.78 | 100.2 | 1.486 | 4.83% | 98.53% | 15.26% | 4.83% | 0.0000 | 0.57043 |
+| f3 | 12.44% | $+3,110 | 12.42 | 110.9 | 1.372 | 4.97% | 98.41% | 12.44% | 4.97% | 0.0000 | 0.50489 |
+| f4 | 16.12% | $+4,030 | 14.31 | 64.7 | 1.877 | 6.61% | 98.44% | 16.17% | 7.45% | 0.0026 | 0.55555 |
+| f5 | 25.90% | $+6,476 | 23.19 | 132.6 | 1.704 | 2.13% | 99.07% | 25.90% | 2.13% | 0.0000 | 0.71541 |
+| f6 | 20.46% | $+5,116 | 18.87 | 133.4 | 1.554 | 5.29% | 98.26% | 20.46% | 5.29% | 0.0000 | 0.67414 |
+
+## Alpha-ranking calibration
+
+Selected model: `constant`. Stable: `False`. The final config requests `candidate_rank_mode=expected_net_r`, but the model stability gate failed and alpha admission is disabled. Capacity rules, not a validated alpha ranker, drive most rejections.
+
+| Variant | Stable | Comparisons | Positive lifts | Median top-bottom lift R | Lower-quartile lift R | Selection score |
+|---|:---:|---:|---:|---:|---:|---:|
+| `constant` | no | 12 | 2 | -0.0502 | -0.1321 | -0.09642 |
+| `ridge_10` | no | 12 | 6 | 0.0379 | -0.0896 | 0.00650 |
+| `ridge_200` | no | 12 | 7 | 0.0920 | -0.0376 | 0.07881 |
+| `ridge_50` | no | 12 | 6 | 0.0379 | -0.0529 | 0.01937 |
+
+### Selected model lift by fold and strategy
+
+| Fold | Strategy | Count | Top-quartile R | Bottom-quartile R | Top-minus-bottom R |
+|---|---|---:|---:|---:|---:|
+| f1 | ALCB_R3 | 285 | 0.2379 | 0.0774 | 0.1605 |
+| f1 | IARIC_RESIDUAL_R3 | 68 | 0.4481 | 0.4481 | 0.0000 |
+| f2 | ALCB_R3 | 327 | -0.0161 | 0.2561 | -0.2722 |
+| f2 | IARIC_RESIDUAL_R3 | 90 | 0.6114 | 0.6825 | -0.0711 |
+| f3 | ALCB_R3 | 376 | 0.1311 | 0.1789 | -0.0478 |
+| f3 | IARIC_RESIDUAL_R3 | 75 | 0.4348 | 0.4461 | -0.0114 |
+| f4 | ALCB_R3 | 189 | 0.0887 | 0.3353 | -0.2466 |
+| f4 | IARIC_RESIDUAL_R3 | 76 | -0.1247 | 0.3665 | -0.4912 |
+| f5 | ALCB_R3 | 463 | 0.1544 | 0.1755 | -0.0210 |
+| f5 | IARIC_RESIDUAL_R3 | 82 | 0.2075 | -0.1567 | 0.3642 |
+| f6 | ALCB_R3 | 453 | 0.0134 | 0.1074 | -0.0940 |
+| f6 | IARIC_RESIDUAL_R3 | 65 | -0.0469 | 0.0057 | -0.0526 |
+
+## Robustness, perturbations and costs
+
+### Local parameter perturbations
+
+| Parameter | Multiplier | Return | PnL | R/month | Trades/month | PF | DD | Accept rate | Blocked R |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `strategy_allocations.ALCB_R3.unit_risk_pct` | 0.90x | 174.61% | $+43,653 | 17.55 | 107.7 | 1.602 | 9.60% | 97.72% | -0.74R |
+| `strategy_allocations.ALCB_R3.unit_risk_pct` | 1.10x | 174.47% | $+43,618 | 17.61 | 107.6 | 1.601 | 9.63% | 97.69% | -2.14R |
+| `strategy_allocations.IARIC_RESIDUAL_R3.unit_risk_pct` | 0.90x | 174.05% | $+43,512 | 17.33 | 109.1 | 1.607 | 8.98% | 98.98% | 4.39R |
+| `strategy_allocations.IARIC_RESIDUAL_R3.unit_risk_pct` | 1.10x | 173.20% | $+43,301 | 17.19 | 106.1 | 1.587 | 10.64% | 96.27% | 7.68R |
+| `portfolio_rules.heat_cap_R` | 0.90x | 174.43% | $+43,607 | 17.56 | 107.7 | 1.601 | 9.63% | 97.72% | -1.03R |
+| `portfolio_rules.heat_cap_R` | 1.10x | 174.43% | $+43,607 | 17.56 | 107.7 | 1.601 | 9.63% | 97.72% | -1.03R |
+| `account_rules.max_net_notional_pct` | 0.90x | 158.22% | $+39,556 | 16.77 | 104.2 | 1.586 | 9.86% | 94.55% | 17.24R |
+| `account_rules.max_net_notional_pct` | 1.10x | 181.99% | $+45,497 | 17.62 | 109.0 | 1.609 | 9.32% | 98.90% | -2.33R |
+| `account_rules.max_overnight_gross_notional_pct` | 0.90x | 173.61% | $+43,401 | 17.66 | 107.4 | 1.602 | 9.59% | 97.49% | -3.16R |
+| `account_rules.max_overnight_gross_notional_pct` | 1.10x | 176.04% | $+44,011 | 17.55 | 107.5 | 1.604 | 9.60% | 97.57% | -0.69R |
+
+### Incremental round-trip cost stress
+
+| Extra cost | Return | PnL | PF | DD | R/month |
+|---:|---:|---:|---:|---:|---:|
+| 5 bps | 127.87% | $+31,968 | 1.468 | 9.88% | 13.64R |
+| 10 bps | 86.27% | $+21,567 | 1.337 | 10.19% | 9.75R |
+| 20 bps | 25.76% | $+6,441 | 1.115 | 12.57% | 2.06R |
+
+- Weekly block bootstrap: 2,000 samples; probability total PnL is positive 100.00%; 95% total-PnL interval $+28,354 to $+58,823.
+- CSCV: 10 splits; PBO 90.00%; median test-rank logit -0.7732.
+
+## Optimized configuration and binding controls
+
+| Control | Value |
+|---|---:|
+| Risk stance | `aggressive_bounded_realism_round6` |
+| ALCB unit risk | 0.8073% |
+| IARIC unit risk | 0.2731% |
+| Gross / net / overnight notional cap | 1.75x / 1.65x / 1.15x |
+| Position / symbol notional cap | 20.00% / 20.00% |
+| Portfolio heat / long heat / symbol heat | 24.0R / 24.0R / 8.0R |
+| Maximum active positions | 19 |
+| Daily / weekly stop | 8.0R / 24.0R |
+| Alpha admission | `False` |
+| Rank mode / capacity action | `expected_net_r` / `block` |
+| Minimum capacity multiplier | 0.35 |
+
+### Shared-account realism
+
+- IS peak gross / net / overnight leverage: 1.73x / 1.73x / 1.15x; OOS: 1.65x / 1.65x / 0.72x.
+- Mark coverage IS/OOS: 100.00% / 100.00%; margin breaches: 0 / 0.
+- Financing cost IS/OOS: $+127 / $+3; minimum margin buffer: 56.83% / 58.77%.
+- Whole-share quantities are floored without forcing a minimum share. Debit-cash financing and Reg-T admission are applied. Shared buying power prevents duplicated-capital inflation.
+
+## Synergy decision criteria
+
+| Criterion | Status |
+|---|:---:|
+| `is_overlay_improves_certainty_equivalent_growth` | PASS |
+| `oos_overlay_improves_certainty_equivalent_growth` | FAIL |
+| `is_overlay_reduces_drawdown` | PASS |
+| `oos_overlay_reduces_drawdown` | FAIL |
+| `is_blocking_has_positive_net_value` | PASS |
+| `oos_blocking_has_nonnegative_net_value` | FAIL |
+| `is_accepted_trades_outperform_blocked` | PASS |
+| `oos_accepted_trades_outperform_blocked` | FAIL |
+| `is_post_drawdown_no_worse_than_pre` | FAIL |
+| `oos_post_drawdown_no_worse_than_pre` | FAIL |
+| `alpha_rank_model_stable` | FAIL |
+| `interaction_selection_pbo_within_limit` | FAIL |
+| `all_selected_folds_profitable` | PASS |
+
+## Promotion gates and research restrictions
+
+- `alcb_parity`: `True`
+- `cscv_pbo_below_limit`: `False`
+- `frozen_data_authority`: `False`
+- `iaric_parity`: `False`
+- `incremental_10bps_positive`: `True`
+- `interaction_selection_stable`: `True`
+- `is_selection_eligible`: `True`
+- `local_perturbations_positive`: `True`
+- `oos`: `True`
+- `point_in_time_universe`: `False`
+- `raw_signal_level_cosimulation`: `False`
+- `shared_account_realism`: `True`
+- `strategy_level_oos_clean`: `False`
+
+Production activation remains disallowed because:
+
+- no frozen authoritative stock-data bundle.
+- IARIC Round 3 configuration was informed by the declared portfolio OOS period.
+- live synchronization and shadow parity remain required.
+- the two strategy inputs remain completed trade streams rather than raw rejected and accepted signals.
+- the stock universe is not yet point-in-time survivorship controlled.
+
+## Final answer to the portfolio-synergy objective
+
+1. **Expected return and trade frequency:** preserved well. IS captures approximately the full native standalone R sum and OOS captures most of it, with high acceptance and both sleeves profitable.
+2. **Blocking worse trades:** demonstrated only in aggregate IS. Losses avoided slightly exceed winners forgone and accepted average R is higher. This is not validated OOS, where the only block is a +1.010R winner.
+3. **Minimizing good-trade blocks:** partly achieved IS because the positive-trade block rate is low relative to all winners, but the blocker precision is weak and many blocked trades are winners. The report therefore does not call routing alpha-selective.
+4. **Minimizing max drawdown:** the overlay reduces IS DD relative to the same aggressive allocation without overlay, but post DD is higher than the native-risk pre baseline and OOS overlay provides no DD benefit.
+5. **Maximized synergy:** not established. The system is a stable fallback local baseline, not the stable interaction winner. The 90% PBO, unstable alpha calibration, absent raw-signal co-simulation, IARIC parity failure and single harmful OOS block are decisive limitations.
+
+The correct operational conclusion is **retain as a realistic research baseline, not as proof of maximized synergy or as a production-ready portfolio**. The next valid optimization round must improve a causal ex-ante ranker and test blocker discrimination on raw fired signals under point-in-time data, while keeping the shared-account ledger and frozen OOS protocol unchanged.

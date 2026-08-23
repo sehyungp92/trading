@@ -45,6 +45,7 @@ def build_core_state(engine) -> ALCBCoreState:
         last_decision_code=engine._last_decision_code,
         last_decision_details=deepcopy(engine._last_decision_details),
         last_bar_ts=engine._last_bar_ts,
+        daily_realized_r=float(getattr(engine, "_daily_realized_r", 0.0)),
     )
 
 
@@ -61,6 +62,7 @@ def apply_core_state(engine, state: ALCBCoreState) -> None:
     engine._last_decision_code = state.last_decision_code
     engine._last_decision_details = deepcopy(state.last_decision_details)
     engine._last_bar_ts = state.last_bar_ts
+    engine._daily_realized_r = float(state.daily_realized_r)
 
 
 def apply_carry_roll(state: ALCBCoreState, carried_symbols: Iterable[str]) -> ALCBCoreState:

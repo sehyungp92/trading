@@ -49,6 +49,7 @@ def greedy_result_to_dict(greedy_result: GreedyResult) -> dict[str, Any]:
         "kept_features": greedy_result.kept_features,
         "rounds": [asdict(round_result) for round_result in greedy_result.rounds],
         "final_metrics": greedy_result.final_metrics,
+        "candidate_evaluations": list(greedy_result.candidate_evaluations),
     }
 
 
@@ -75,6 +76,7 @@ def greedy_result_from_state(
         total_candidates=int(total_candidates),
         accepted_count=int(phase_result.get("accepted_count", len(phase_result.get("kept_features", [])))),
         elapsed_seconds=float(phase_result.get("elapsed_seconds", 0.0)),
+        candidate_evaluations=list(phase_result.get("candidate_evaluations", [])),
     )
 
 

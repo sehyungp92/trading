@@ -14,17 +14,12 @@ from backtests.shared.auto.cache_keys import build_cache_key, fingerprint_paths,
 from backtests.shared.auto.replay_bundle import ReplayBundle
 from backtests.shared.auto.round_manager import RoundManager
 from backtests.stock.analysis.metrics import compute_cagr, compute_max_drawdown
-from backtests.stock.auto.alcb.time_utils import hydrate_time_mutations
-from backtests.stock.auto.config_mutator import mutate_alcb_config, mutate_iaric_config
-from backtests.stock.config_alcb import ALCBBacktestConfig
-from backtests.stock.config_iaric import IARICBacktestConfig
 from backtests.stock.data.cache import bar_path, load_bars
-from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
-from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
-from backtests.stock.models import TradeRecord
+from backtests.stock.models import Direction, TradeRecord
 from .core.state import PortfolioPosition
 
 from .core.logic import replay_trade_streams, run_portfolio_replay
+from .core.market import CausalPriceBook
 from .phase_candidates import INITIAL_EQUITY, SEED_PORTFOLIO_CONFIG
 
 __all__ = [
@@ -33,6 +28,7 @@ __all__ = [
     "evaluate_portfolio",
     "load_evaluation_bundle",
     "load_evaluation_data",
+    "load_trade_records",
     "replay_trade_streams",
 ]
 
@@ -75,16 +71,14 @@ def _load_evaluation_bundle_cached(
     start_date: str,
     end_date: str,
 ) -> ReplayBundle[StrategyTradeBundle]:
-    from backtests.stock.data.replay_cache import load_research_replay_bundle
-
     data_dir = Path(data_dir_str)
     repo_root = _repo_root()
-    replay_bundle = load_research_replay_bundle(data_dir)
-    mutation_paths = _latest_strategy_mutation_paths(repo_root)
+    alcb_path = repo_root / "backtests/output/stock/alcb/round_3/final_trades.json"
+    iaric_path = repo_root / "backtests/output/stock/iaric/round_3/final_trades.json"
+    source_paths = (alcb_path, iaric_path)
     source_fingerprint = stable_signature(
         {
-            "stock_replay": replay_bundle.cache_source_fingerprint,
-            "strategy_configs": fingerprint_paths(mutation_paths, root=repo_root),
+            "strategy_trade_artifacts": fingerprint_paths(source_paths, root=repo_root),
             "initial_equity": initial_equity,
             "start_date": start_date,
             "end_date": end_date,
@@ -100,40 +94,117 @@ def _load_evaluation_bundle_cached(
             "end_date": end_date,
         },
     )
-    replay = replay_bundle.data
-    alcb_mutations, iaric_mutations = _load_latest_strategy_mutations(repo_root)
-
-    alcb_cfg = mutate_alcb_config(
-        ALCBBacktestConfig(
-            start_date=start_date,
-            end_date=end_date,
-            initial_equity=initial_equity,
-            tier=2,
-            data_dir=data_dir,
-        ),
-        hydrate_time_mutations(alcb_mutations),
-    )
-    iaric_cfg = mutate_iaric_config(
-        IARICBacktestConfig(
-            start_date=start_date,
-            end_date=end_date,
-            initial_equity=initial_equity,
-            tier=3,
-            data_dir=data_dir,
-        ),
-        iaric_mutations,
-    )
-
-    alcb_result = ALCBIntradayEngine(alcb_cfg, replay).run()
-    iaric_result = IARICPullbackEngine(iaric_cfg, replay).run()
+    start = datetime.fromisoformat(start_date).date()
+    end = datetime.fromisoformat(end_date).date()
+    alcb_trades = _filter_entry_window(load_trade_records(alcb_path), start, end)
+    iaric_trades = _filter_entry_window(load_trade_records(iaric_path), start, end)
     return ReplayBundle(
         data=StrategyTradeBundle(
-            alcb_trades=tuple(alcb_result.trades),
-            iaric_trades=tuple(iaric_result.trades),
+            alcb_trades=alcb_trades,
+            iaric_trades=iaric_trades,
         ),
         cache_key=cache_key,
         cache_source_fingerprint=source_fingerprint,
     )
+
+
+def load_trade_records(path: Path) -> tuple[TradeRecord, ...]:
+    """Load either canonical ALCB records or current residual-IARIC records."""
+
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    rows = payload if isinstance(payload, list) else payload.get("trades", [])
+    records = [_trade_record_from_payload(row) for row in rows]
+    return tuple(sorted(records, key=lambda trade: trade.entry_time))
+
+
+def _trade_record_from_payload(row: dict[str, Any]) -> TradeRecord:
+    if "qty_entry" in row:
+        quantity = float(row.get("qty_entry", 0.0) or 0.0)
+        initial_risk = float(row.get("initial_risk_dollars", 0.0) or 0.0)
+        metadata = {
+            "residual_score": float(row.get("score", 0.0) or 0.0),
+            "failed_continuation_r": float(
+                row.get("failed_continuation_r", 0.0) or 0.0
+            ),
+            "sector_return_5d": float(row.get("sector_return_5d", 0.0) or 0.0),
+            "factor_model": str(row.get("factor_model", "")),
+            "formation_sessions": int(row.get("formation_sessions", 0) or 0),
+            "residual_lane_id": str(row.get("residual_lane_id", "")),
+            "split": str(row.get("split", "")),
+        }
+        entry_time = _parse_datetime(row["entry_time"])
+        return TradeRecord(
+            strategy="iaric_daily_residual",
+            symbol=str(row["symbol"]),
+            direction=Direction.LONG,
+            entry_time=entry_time,
+            exit_time=_parse_datetime(row["exit_time"]),
+            entry_price=float(row.get("entry_price", 0.0) or 0.0),
+            exit_price=float(row.get("exit_price", 0.0) or 0.0),
+            quantity=quantity,
+            pnl=float(row.get("gross_pnl", row.get("net_pnl", 0.0)) or 0.0),
+            r_multiple=float(row.get("r_multiple", 0.0) or 0.0),
+            risk_per_share=initial_risk / max(quantity, 1.0),
+            commission=float(row.get("commission", 0.0) or 0.0),
+            slippage=0.0,
+            entry_type="DAILY_RESIDUAL_REVERSION",
+            exit_reason=str(row.get("exit_reason", "")),
+            sector=str(row.get("sector", "")),
+            hold_bars=int(row.get("held_sessions", 0) or 0),
+            metadata=metadata,
+            signal_time=entry_time,
+            fill_time=entry_time,
+        )
+
+    entry_time = _parse_datetime(row["entry_time"])
+    raw_direction = row.get("direction", 1) or 1
+    if isinstance(raw_direction, str) and not raw_direction.lstrip("-").isdigit():
+        direction = Direction[raw_direction.upper()]
+    else:
+        direction = Direction(int(raw_direction))
+    pnl = float(row.get("pnl", row.get("pnl_net", 0.0)) or 0.0)
+    return TradeRecord(
+        strategy=str(row.get("strategy", "alcb")),
+        symbol=str(row["symbol"]),
+        direction=direction,
+        entry_time=entry_time,
+        exit_time=_parse_datetime(row["exit_time"]),
+        entry_price=float(row.get("entry_price", 0.0) or 0.0),
+        exit_price=float(row.get("exit_price", 0.0) or 0.0),
+        quantity=float(row.get("quantity", 0.0) or 0.0),
+        pnl=pnl,
+        r_multiple=float(row.get("r_multiple", row.get("r", 0.0)) or 0.0),
+        risk_per_share=float(row.get("risk_per_share", 0.0) or 0.0),
+        commission=float(row.get("commission", 0.0) or 0.0),
+        slippage=float(row.get("slippage", 0.0) or 0.0),
+        entry_type=str(row.get("entry_type", row.get("route", ""))),
+        exit_reason=str(row.get("exit_reason", "")),
+        sector=str(row.get("sector", "")),
+        regime_tier=str(row.get("regime_tier", "")),
+        hold_bars=int(row.get("hold_bars", 0) or 0),
+        max_favorable=float(row.get("max_favorable", 0.0) or 0.0),
+        max_adverse=float(row.get("max_adverse", 0.0) or 0.0),
+        metadata=dict(row.get("metadata", {}) or {}),
+        signal_time=(
+            _parse_datetime(row["signal_time"]) if row.get("signal_time") else entry_time
+        ),
+        signal_bar_index=int(row.get("signal_bar_index", -1) or -1),
+        fill_time=(
+            _parse_datetime(row["fill_time"]) if row.get("fill_time") else entry_time
+        ),
+        fill_bar_index=int(row.get("fill_bar_index", -1) or -1),
+        reentry_sequence=int(row.get("reentry_sequence", 0) or 0),
+    )
+
+
+def _parse_datetime(value: Any) -> datetime:
+    return value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
+
+
+def _filter_entry_window(
+    trades: tuple[TradeRecord, ...], start, end
+) -> tuple[TradeRecord, ...]:
+    return tuple(trade for trade in trades if start <= trade.entry_time.date() <= end)
 
 
 def evaluate_portfolio(
@@ -153,7 +224,19 @@ def evaluate_portfolio(
         start_date=start_date,
         end_date=end_date,
     )
-    result = run_portfolio_replay(data.alcb_trades, data.iaric_trades, effective)
+    accepted_symbols = {
+        trade.symbol for trade in (*data.alcb_trades, *data.iaric_trades)
+    }
+    bars_by_symbol = price_bars_by_symbol or _load_stock_price_bars(
+        data_dir,
+        accepted_symbols,
+    )
+    result = run_portfolio_replay(
+        data.alcb_trades,
+        data.iaric_trades,
+        effective,
+        mark_price_provider=CausalPriceBook(bars_by_symbol),
+    )
     metrics = dict(result.metrics)
     metrics.update(
         _headline_mtm_metrics(
@@ -161,7 +244,7 @@ def evaluate_portfolio(
             metrics,
             initial_equity=initial_equity,
             data_dir=data_dir,
-            price_bars_by_symbol=price_bars_by_symbol,
+            price_bars_by_symbol=bars_by_symbol,
         )
     )
     return metrics
@@ -277,6 +360,23 @@ def _stock_portfolio_mtm_metrics(
         symbol: series.reindex(timeline, method="ffill").to_numpy(dtype=float)
         for symbol, series in close_series.items()
     }
+    # Trade artifacts may use split-adjusted prices while retained intraday bars
+    # use an unadjusted scale (KLAC is a known 10x example).  Anchor each
+    # position's raw series to its recorded entry price before marking it.
+    price_adjustments: dict[int, float] = {}
+    for idx, position in enumerate(accepted):
+        series = close_series.get(position.symbol)
+        if series is None:
+            continue
+        entry_ts = _aware_utc(position.entry_time)
+        at_or_before = series[series.index <= entry_ts]
+        if len(at_or_before):
+            raw_anchor = float(at_or_before.iloc[-1])
+        else:
+            after = series[series.index > entry_ts]
+            raw_anchor = float(after.iloc[0]) if len(after) else 0.0
+        if np.isfinite(raw_anchor) and raw_anchor > 0.0:
+            price_adjustments[idx] = float(position.entry_price) / raw_anchor
     events: list[tuple[datetime, int, int]] = []
     for idx, position in enumerate(accepted):
         events.append((_aware_utc(position.exit_time), 0, idx))
@@ -308,6 +408,7 @@ def _stock_portfolio_mtm_metrics(
             close_price = float(prices[step])
             if not np.isfinite(close_price):
                 continue
+            close_price *= price_adjustments.get(position_idx, 1.0)
             unrealized += (
                 (close_price - position.entry_price)
                 * float(position.direction)

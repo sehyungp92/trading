@@ -278,7 +278,7 @@ def _load_strategy_assessments(repo_root: Path) -> list[StrategyAssessment]:
     raw: list[tuple[LatestRoundSource, dict[str, Any]]] = []
     observed_months: list[float] = []
     for source in LATEST_ROUNDS:
-        summary_path = repo_root / source.summary_path
+        summary_path = _resolve_round_artifact(repo_root, source.summary_path)
         metrics = _load_json(summary_path).get("final_metrics", {})
         raw.append((source, metrics))
         total_trades = _metric(metrics, "total_trades")
@@ -298,8 +298,8 @@ def _load_strategy_assessments(repo_root: Path) -> list[StrategyAssessment]:
         if total_r_per_month <= 0:
             total_r_per_month = trades_per_month * avg_r
         primary_read, risk_read, allocation_bias = STRATEGY_READS[source.key]
-        summary_path = repo_root / source.summary_path
-        diagnostics_path = repo_root / source.diagnostics_path
+        summary_path = _resolve_round_artifact(repo_root, source.summary_path)
+        diagnostics_path = _resolve_round_artifact(repo_root, source.diagnostics_path)
         assessments.append(
             StrategyAssessment(
                 key=source.key,
@@ -316,8 +316,8 @@ def _load_strategy_assessments(repo_root: Path) -> list[StrategyAssessment]:
                 primary_read=primary_read,
                 risk_read=risk_read,
                 allocation_bias=allocation_bias,
-                summary_path=source.summary_path,
-                diagnostics_path=source.diagnostics_path,
+                summary_path=str(summary_path),
+                diagnostics_path=str(diagnostics_path),
                 source_hashes={
                     "summary": _file_sha256(summary_path),
                     "diagnostics": _file_sha256(diagnostics_path),
@@ -325,6 +325,26 @@ def _load_strategy_assessments(repo_root: Path) -> list[StrategyAssessment]:
             )
         )
     return assessments
+
+
+def _resolve_round_artifact(repo_root: Path, relative_path: str) -> Path:
+    direct = repo_root / relative_path
+    if direct.is_file():
+        return direct
+    requested = Path(relative_path)
+    try:
+        momentum_index = requested.parts.index("momentum")
+        strategy = requested.parts[momentum_index + 1]
+        round_name = requested.parts[momentum_index + 2]
+    except (ValueError, IndexError):
+        return direct
+    archive = repo_root / "backtests" / "output" / "momentum" / strategy / "archive"
+    candidates = sorted(
+        path
+        for path in archive.rglob(requested.name)
+        if path.parent.name == round_name
+    )
+    return candidates[-1] if candidates else direct
 
 
 def _load_json(path: Path) -> dict[str, Any]:

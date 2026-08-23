@@ -260,27 +260,12 @@ def _evaluate_setup_lane(
                 block_reason=f"daily room < {cfg.daily_room_min_r}R to next level",
                 direction=direction, grade=grade, daily_room_min_r=cfg.daily_room_min_r)
         return None
-    asset_context_score, asset_context_details = context.score_asset_context(bar_input, direction, cfg)
-    context_votes = asset_context_details.get("votes", {})
-    daily_context_vote = context_votes.get("context_daily")
-    if cfg.asset_context_block_opposed_daily and daily_context_vote is not None and daily_context_vote < 0.0:
-        _reject(
-            rejection_collector,
-            symbol=symbol,
-            lane=lane_name,
-            blocked_by="asset_context_daily_opposed",
-            block_reason="completed daily asset context opposes the trade direction",
-            direction=direction,
-            grade=grade,
-            asset_context_score=float(asset_context_score),
-            asset_context_daily_vote=float(daily_context_vote),
-        )
-        return None
-    if asset_context_score < cfg.asset_context_min_score:
-        _reject(rejection_collector, symbol=symbol, lane=lane_name, blocked_by="asset_context_score_low",
-                block_reason=f"asset_context_score={asset_context_score:.3f} < min={cfg.asset_context_min_score}",
-                direction=direction, grade=grade, asset_context_score=float(asset_context_score),
-                asset_context_min_score=float(cfg.asset_context_min_score))
+    etf_context_score, etf_context_details = context.score_etf_context(bar_input, direction, cfg)
+    if etf_context_score < cfg.etf_context_min_score:
+        _reject(rejection_collector, symbol=symbol, lane=lane_name, blocked_by="etf_context_score_low",
+                block_reason=f"etf_context_score={etf_context_score:.3f} < min={cfg.etf_context_min_score}",
+                direction=direction, grade=grade, etf_context_score=float(etf_context_score),
+                etf_context_min_score=float(cfg.etf_context_min_score))
         return None
     score = allocator.score_setup(
         grade,
@@ -288,7 +273,7 @@ def _evaluate_setup_lane(
         confirmations,
         rr,
         has_news_risk=False,
-        asset_context_score=asset_context_score,
+        etf_context_score=etf_context_score,
         daily_has_room=daily_has_room,
         orderly_pullback=pullback.orderly,
         score_model=cfg.score_model,
@@ -359,8 +344,8 @@ def _evaluate_setup_lane(
             "rr": rr,
             "atr_4h": atr4,
             "daily_levels": daily_levels,
-            "asset_context_score": asset_context_score,
-            "asset_context_details": asset_context_details,
+            "etf_context_score": etf_context_score,
+            "etf_context_details": etf_context_details,
             "setup_lane": lane_name,
             "pullback_timeframe": pullback_timeframe,
             "score": float(score),

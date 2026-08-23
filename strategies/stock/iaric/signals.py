@@ -21,6 +21,7 @@ from .indicators import (
     volume_climax_ratio,
 )
 from .models import Bar, ResearchSymbol
+from .core.residual import align_values_by_date
 
 
 # ---------------------------------------------------------------------------
@@ -30,6 +31,7 @@ from .models import Bar, ResearchSymbol
 def compute_indicator_cache(
     symbol: ResearchSymbol,
     benchmark_closes: np.ndarray | None = None,
+    benchmark_dates: list[object] | None = None,
 ) -> dict[str, np.ndarray]:
     """Compute all pullback indicators from daily bars.
 
@@ -44,6 +46,16 @@ def compute_indicator_cache(
     volumes = np.array([b.volume for b in bars], dtype=np.float64)
 
     atr14 = atr(highs, lows, closes, 14)
+    aligned_benchmark = benchmark_closes
+    if benchmark_closes is not None and benchmark_dates is not None:
+        aligned_benchmark = np.asarray(
+            align_values_by_date(
+                [bar.trade_date for bar in bars],
+                benchmark_dates,
+                benchmark_closes,
+            ),
+            dtype=np.float64,
+        )
     return {
         "rsi2": rsi(closes, 2),
         "rsi5": rsi(closes, 5),
@@ -52,7 +64,7 @@ def compute_indicator_cache(
         "depth": pullback_depth(highs, closes, atr14, lookback=10),
         "bb_pctb": bollinger_pctb(closes, 20, 2.0),
         "vcr": volume_climax_ratio(volumes, 20),
-        "rs_ratio": relative_strength_ratio(closes, benchmark_closes, 20),
+        "rs_ratio": relative_strength_ratio(closes, aligned_benchmark, 20),
         "roc5": rate_of_change(closes, 5),
         "rsi14": rsi(closes, 14),
         "sma50": rolling_sma(closes, 50),
@@ -65,10 +77,100 @@ def compute_indicator_cache(
 # Daily candidate scoring (7 triggers)
 # ---------------------------------------------------------------------------
 
+
+def _peak01(value: float, *, target: float, width: float) -> float:
+    if np.isnan(value):
+        return 0.5
+    return _clip01(1.0 - abs(float(value) - float(target)) / max(float(width), 1e-6))
+
+
+def score_daily_pullback_context(
+    *,
+    trend_tier: str,
+    rsi2: float,
+    rsi5: float,
+    cdd: int,
+    depth_atr: float,
+    bb_pctb: float,
+    volume_climax: float,
+    is_down_day: bool,
+    rs_ratio: float,
+    roc5: float,
+    sma_slope_positive: bool = True,
+    sma_dist_pct: float = 0.0,
+    trigger_tier: str = "MEDIUM",
+    n_triggers: int = 1,
+    regime_tier: str = "B",
+    persistence: float = 0.0,
+) -> dict[str, float]:
+    """Score the intended trend-pullback context with seven components.
+
+    This is the shared/live form of the historically useful replay context
+    model, grouped into seven independent economic ideas.  Pullback depth is
+    peak-shaped; intraday reclaim quality remains the primary discriminator.
+    """
+
+    trend = 7.0 if sma_slope_positive else 0.0
+    trend += 7.0 if trend_tier == "STRONG" else 4.0 if trend_tier == "SECULAR" else 0.0
+    if 0.0 <= sma_dist_pct <= 12.0:
+        trend += 8.0
+    elif -5.0 <= sma_dist_pct <= 20.0:
+        trend += 4.0
+    elif trend_tier != "EXCLUDED":
+        trend += 1.0
+
+    if np.isnan(depth_atr):
+        pullback = 0.0
+    elif depth_atr > 3.5:
+        pullback = 4.0
+    elif depth_atr > 2.5:
+        pullback = 10.0
+    elif depth_atr > 1.5:
+        pullback = 18.0
+    elif depth_atr > 1.0:
+        pullback = 12.0
+    elif depth_atr > 0.5:
+        pullback = 7.0
+    else:
+        pullback = 2.0
+
+    trigger = 15.0 if trigger_tier == "HIGH" else 10.0
+    if n_triggers >= 2:
+        trigger += 3.0
+
+    rsi2_score = 15.0 if rsi2 < 5 else 12.0 if rsi2 < 10 else 9.0 if rsi2 < 15 else 6.0 if rsi2 < 20 else 0.0
+    rsi5_score = 12.0 if rsi5 < 20 else 9.0 if rsi5 < 25 else 6.0 if rsi5 < 30 else 0.0
+    oversold = max(rsi2_score, rsi5_score)
+
+    exhaustion = 3.0
+    if is_down_day:
+        exhaustion = 10.0 if volume_climax > 2.5 else 8.0 if volume_climax > 2.0 else 6.0 if volume_climax > 1.5 else 3.0
+    elif volume_climax > 2.0:
+        exhaustion = 4.0
+
+    relative_strength = 1.0
+    if not np.isnan(rs_ratio):
+        relative_strength = 8.0 if rs_ratio > 1.10 else 7.0 if rs_ratio > 1.05 else 5.0 if rs_ratio > 1.00 else 3.0 if rs_ratio > 0.95 else 1.0
+    regime = 6.0 if regime_tier == "A" else 4.0 if regime_tier == "B" else 1.0
+    context = regime + (4.0 if persistence > 0.70 else 3.0 if persistence > 0.50 else 1.0 if persistence > 0.0 else 0.0)
+    components = {
+        "trend_quality": float(trend),
+        "pullback_quality": float(pullback),
+        "trigger_quality": float(trigger),
+        "oversold_quality": float(oversold),
+        "exhaustion_quality": float(exhaustion),
+        "relative_strength": float(relative_strength),
+        "market_persistence_context": float(context),
+    }
+    components["score"] = float(sum(components.values()))
+    return components
+
 def score_daily_candidate(
     symbol: ResearchSymbol,
     indicators: dict[str, np.ndarray],
     config: StrategySettings,
+    *,
+    regime_tier: str = "B",
 ) -> tuple[float, list[str]]:
     """Score a symbol for pullback candidacy using 7 triggers.
 
@@ -78,9 +180,6 @@ def score_daily_candidate(
         return 0.0, []
 
     idx = -1  # latest bar
-    triggers: list[str] = []
-    weights: list[float] = []
-
     def _val(key: str) -> float:
         arr = indicators.get(key)
         if arr is None or len(arr) == 0:
@@ -97,55 +196,67 @@ def score_daily_candidate(
     rs_val = _val("rs_ratio")
     roc5_val = _val("roc5")
 
+    triggers: list[str] = []
+
     # Trigger A: RSI(2) < 15
     if not np.isnan(rsi2_val) and rsi2_val < config.pb_v2_rsi2_thresh:
         triggers.append("RSI2")
-        weights.append(20.0)
 
     # Trigger B: RSI(5) < 30 + CDD >= 2
     if not np.isnan(rsi5_val) and rsi5_val < config.pb_v2_rsi5_thresh and cdd_val >= config.pb_v2_cdd_min_for_rsi5:
         triggers.append("RSI5_CDD")
-        weights.append(18.0)
 
     # Trigger C: Pullback depth > 1.5 ATR
     if not np.isnan(depth_val) and depth_val > config.pb_v2_depth_thresh:
         triggers.append("DEPTH")
-        weights.append(16.0)
 
     # Trigger D: Bollinger %B < 0.05
     if not np.isnan(bb_val) and bb_val < config.pb_v2_bb_pctb_thresh:
         triggers.append("BB_PCTB")
-        weights.append(14.0)
 
     # Trigger E: Volume climax ratio > 2.0
     if not np.isnan(vcr_val) and vcr_val > config.pb_v2_vol_climax_thresh:
         triggers.append("VOL_CLIMAX")
-        weights.append(12.0)
 
     # Trigger F: Relative strength > 1.02 OR ROC(5) < -3%
     if not np.isnan(rs_val) and rs_val > config.pb_v2_rs_ratio_thresh:
         triggers.append("RS_STRONG")
-        weights.append(10.0)
     elif not np.isnan(roc5_val) and roc5_val < config.pb_v2_roc_thresh:
         triggers.append("ROC5_DROP")
-        weights.append(10.0)
-
-    # Trigger G: Gap-down < -2% at open
-    if len(symbol.daily_bars) >= 2:
-        prev_close = symbol.daily_bars[-2].close
-        today_open = symbol.daily_bars[-1].open
-        if prev_close > 0:
-            gap_pct = (today_open - prev_close) / prev_close * 100.0
-            if gap_pct < config.pb_v2_gap_fill_thresh:
-                triggers.append("GAP_DOWN")
-                weights.append(10.0)
 
     if not triggers:
         return 0.0, []
 
-    # Composite score: sum of trigger weights, capped at 100
-    raw_score = min(100.0, sum(weights))
-    return raw_score, triggers
+    trend_tier = compute_trend_tier(symbol, indicators, config)
+    is_down_day = len(symbol.daily_bars) >= 2 and symbol.daily_bars[-1].close < symbol.daily_bars[-2].close
+    sma50 = indicators.get("sma50")
+    sma50_now = float(sma50[-1]) if sma50 is not None and len(sma50) and not np.isnan(sma50[-1]) else 0.0
+    sma50_prior = float(sma50[-11]) if sma50 is not None and len(sma50) >= 11 and not np.isnan(sma50[-11]) else sma50_now
+    close_now = float(symbol.daily_bars[-1].close)
+    sma_dist_pct = (close_now - sma50_now) / sma50_now * 100.0 if sma50_now > 0 else 0.0
+    high_quality_triggers = {"RSI2", "BB_PCTB", "VOL_CLIMAX"}
+    trigger_tier = "HIGH" if any(name in high_quality_triggers for name in triggers) else "MEDIUM"
+    flow_window = symbol.flow_proxy_history[-10:]
+    persistence = sum(value > 0 for value in flow_window) / len(flow_window) if flow_window else 0.0
+    bundle = score_daily_pullback_context(
+        trend_tier=trend_tier,
+        rsi2=rsi2_val,
+        rsi5=rsi5_val,
+        cdd=cdd_val,
+        depth_atr=depth_val,
+        bb_pctb=bb_val,
+        volume_climax=vcr_val,
+        is_down_day=is_down_day,
+        rs_ratio=rs_val,
+        roc5=roc5_val,
+        sma_slope_positive=sma50_now > sma50_prior,
+        sma_dist_pct=sma_dist_pct,
+        trigger_tier=trigger_tier,
+        n_triggers=len(triggers),
+        regime_tier=regime_tier,
+        persistence=persistence,
+    )
+    return min(100.0, float(bundle["score"])), triggers
 
 
 def compute_trigger_tier(score: float, config: StrategySettings) -> tuple[str, float]:
@@ -204,6 +315,8 @@ def build_daily_watchlist(
     universe: dict[str, ResearchSymbol],
     indicators_cache: dict[str, dict[str, np.ndarray]],
     config: StrategySettings,
+    *,
+    regime_tier: str = "B",
 ) -> list[tuple[str, float, list[str]]]:
     """Score all symbols, filter by minimum score, rank.
 
@@ -214,8 +327,9 @@ def build_daily_watchlist(
         ind = indicators_cache.get(sym_name, {})
         if not ind:
             continue
-        score, triggers = score_daily_candidate(symbol, ind, config)
-        if score >= config.pb_daily_signal_min_score:
+        score, triggers = score_daily_candidate(symbol, ind, config, regime_tier=regime_tier)
+        minimum_score = config.pb_v2_signal_floor if config.pb_v2_enabled else config.pb_daily_signal_min_score
+        if score > 0.0 and score >= minimum_score:
             candidates.append((sym_name, score, triggers))
 
     candidates.sort(key=lambda x: x[1], reverse=True)

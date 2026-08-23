@@ -16,6 +16,7 @@ EXCHANGE_TIMEZONE = "America/New_York"
 CALENDAR_VERSION = "us_equities_xnys_xnas_rules_2024_2026_v2"
 RTH_SESSION_POLICY = "us_equity_rth_0930_exchange_close_v1"
 EXTENDED_SESSION_POLICY = "us_equity_extended_0400_2000_v1"
+RAW_SESSION_POLICY = "raw_cache_unfiltered_v1"
 
 _RTH_OPEN = time(9, 30)
 _RTH_CLOSE = time(16, 0)
@@ -196,6 +197,30 @@ def rth_mask(index: pd.DatetimeIndex) -> pd.Series:
             and stamp.time().replace(tzinfo=None) < session_close(day)
         )
     return pd.Series(flags, index=index, dtype=bool)
+
+
+def bar_open_in_session(timestamp: datetime, session_policy: str) -> bool:
+    """Return whether a bar-open timestamp belongs to the requested session.
+
+    ``RAW_SESSION_POLICY`` deliberately preserves the historical replay
+    behaviour and is intended only for controlled validity comparisons.
+    """
+    if session_policy == RAW_SESSION_POLICY:
+        return True
+
+    stamp = timestamp
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=ZoneInfo("UTC"))
+    local = stamp.astimezone(ZoneInfo(EXCHANGE_TIMEZONE))
+    day = local.date()
+    if not is_trading_day(day):
+        return False
+    local_time = local.time().replace(tzinfo=None)
+    if session_policy == RTH_SESSION_POLICY:
+        return _RTH_OPEN <= local_time < session_close(day)
+    if session_policy == EXTENDED_SESSION_POLICY:
+        return _EXTENDED_OPEN <= local_time < _EXTENDED_CLOSE
+    raise ValueError(f"unknown session policy: {session_policy}")
 
 
 def session_dates(index: pd.DatetimeIndex, *, daily_labels: bool = False) -> list[date]:

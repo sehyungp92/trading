@@ -116,8 +116,8 @@ def _archive_current(round_dir: Path) -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     archive = (
         round_dir.parent
-        / "archived_rounds"
-        / f"{timestamp}_pre_final_risk_optimization_round4"
+        / "archive"
+        / f"{timestamp}_pre_final_risk_r4"
         / "round_4"
     )
     archive.mkdir(parents=True, exist_ok=False)

@@ -34,7 +34,7 @@ from .core.logic import on_order_update as core_on_order_update
 from .core.serializers import hydrate_state, snapshot_state
 from .core.state import AuthorizationEvent, BarData, FillEvent, OrderUpdateEvent, RegimeCoreState
 from .modules.base import NewsEvent, SetupCandidate
-from strategies.scalp._shared.time_utils import session_date
+from strategies.momentum.nq_regime.time_utils import session_date
 
 logger = logging.getLogger(__name__)
 

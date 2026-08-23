@@ -166,6 +166,8 @@
     ]
   },
   "decision_count": 0,
+  "diagnostics_generated_at_utc": "2026-08-23T22:52:14.150645+00:00",
+  "diagnostics_schema_version": "momentum_portfolio_synergy_comprehensive_diagnostics.v2",
   "family": "momentum",
   "final_components": {
     "drawdown_control": 0.8067903232374991,
@@ -6778,6 +6780,31 @@
     "NQDTC_v2.1": 38,
     "NQ_REGIME": 171,
     "VdubusNQ_v4": 101
+  },
+  "synergy_assessment": {
+    "blocker_quality_passes": false,
+    "calmar_delta_vs_relaxed": -47.512546448309415,
+    "criteria": {
+      "accepted_average_r_exceeds_blocked": false,
+      "all_four_strategies_active": true,
+      "block_net_value_r_nonnegative": false,
+      "block_rate_within_15pct_target": false,
+      "frequency_at_least_40_per_month": false,
+      "nonpositive_block_rate_exceeds_positive_block_rate": false,
+      "optimized_calmar_at_least_relaxed": false,
+      "optimized_drawdown_no_worse_than_relaxed": true,
+      "optimized_profit_factor_at_least_relaxed": false,
+      "optimized_score_at_least_relaxed": false,
+      "trade_capture_at_least_90pct": false
+    },
+    "drawdown_delta_vs_relaxed": -0.017126601760018692,
+    "maximized": false,
+    "profit_capture_vs_relaxed": 0.014144884498385649,
+    "profit_factor_delta_vs_relaxed": -0.7871057209109749,
+    "profit_gap_vs_relaxed": -6084230.671957663,
+    "risk_return_passes": false,
+    "trade_capture_vs_relaxed": 0.3333333333333333,
+    "verdict": "severe_destructive_rule_interference_not_synergistic"
   },
   "targets": {
     "calmar": 8.0,

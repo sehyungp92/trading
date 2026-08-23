@@ -1,0 +1,53 @@
+{
+  "avg_r": 0.7244908123524617,
+  "basis": "current-code TPC optimized-config replay",
+  "closed_pnl": 152483.58499999825,
+  "commission": 6234.765,
+  "config_path": "backtests/output/swing/tpc/round_8/optimized_config.json",
+  "data_dir": "backtests/swing/data/raw",
+  "dollar_profit_factor": 2.2178665074617094,
+  "end_date": "2025-11-01",
+  "entry_model_counts": {
+    "confirmation_close": 95,
+    "structure_stop": 30
+  },
+  "final_equity": 252483.58499999778,
+  "initial_equity": 100000.0,
+  "market_data_inputs": [
+    "QQQ_15m",
+    "QQQ_1h",
+    "QQQ_1d",
+    "GLD_15m",
+    "GLD_1h",
+    "GLD_1d"
+  ],
+  "market_data_scope": "traded_etfs_only",
+  "max_drawdown_dollars": 22963.14499999993,
+  "max_drawdown_pct": 13.846465000000082,
+  "min_fill_minus_signal_bar": 1.0,
+  "mutation_count": 96,
+  "negative_holds": 0.0,
+  "net_return_pct": 152.4835849999978,
+  "noncausal_entries": 0.0,
+  "open_mtm_pnl": -4.656612873077393e-10,
+  "profit_factor": 2.2178665074617094,
+  "profit_factor_basis": "net_pnl_dollars",
+  "r_profit_factor": 2.4125081005542355,
+  "replay_loader": "load_tpc_replay_bundle",
+  "result_total_commission": 6234.765000000001,
+  "simultaneous_entry_request_bars": 0.0,
+  "source_fingerprint": "c5a033cd45e229262f8d3f864b5ddfe91c90b7875c463c65b7dee0675d844737",
+  "start_date": "2021-02-08",
+  "symbol_counts": {
+    "GLD": 95,
+    "QQQ": 30
+  },
+  "total_pnl": 152483.58499999825,
+  "total_r": 90.56135154405771,
+  "total_trades": 125.0,
+  "trade_outcome_count": 125.0,
+  "trade_outcome_gross_pnl": 158718.34999999823,
+  "trade_outcome_net_pnl": 152483.58499999825,
+  "win_rate_pct": 59.199999999999996,
+  "zero_net_trade_outcomes": 0.0
+}

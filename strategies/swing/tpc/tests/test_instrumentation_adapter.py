@@ -96,7 +96,7 @@ def _make_setup(symbol: str = "QQQ", score: float = 18.0) -> SetupSnapshot:
             "depth": 0.40,
             "rr": 3.0,
             "atr_4h": 1.2,
-            "asset_context_score": 1.5,
+            "etf_context_score": 1.5,
             "setup_lane": "primary",
             "pullback_timeframe": "1h",
             "score": score,
@@ -173,7 +173,7 @@ def test_route_entry_emits_log_entry_with_full_payload():
     assert kwargs["expected_entry_price"] == setup.entry_price
     factor_names = {f["factor_name"] for f in kwargs["signal_factors"]}
     assert factor_names == {
-        "grade", "setup_type", "score", "confirmations_count", "asset_context_score",
+        "grade", "setup_type", "score", "confirmations_count", "etf_context_score",
         "depth_atr", "rr_planned", "daily_has_room", "orderly_pullback",
     }
     assert kwargs["strategy_params"]["param_set_id"] == adapter.param_set_id(cfg)
@@ -265,11 +265,11 @@ def test_route_missed_payload_shape():
     rejection = {
         "symbol": "QQQ",
         "lane": "primary",
-        "blocked_by": "asset_context_score_low",
-        "block_reason": "asset_context_score=0.5 < min=1.0",
+        "blocked_by": "etf_context_score_low",
+        "block_reason": "etf_context_score=0.5 < min=1.0",
         "direction": "LONG",
         "grade": "a",
-        "details": {"asset_context_score": 0.5, "asset_context_min_score": 1.0},
+        "details": {"etf_context_score": 0.5, "etf_context_min_score": 1.0},
     }
 
     bar_ts = datetime(2026, 5, 9, 14, 0, tzinfo=timezone.utc)
@@ -280,7 +280,7 @@ def test_route_missed_payload_shape():
     assert kwargs["pair"] == "QQQ"
     assert kwargs["side"] == "LONG"
     assert kwargs["signal"] == "TPC_primary"
-    assert kwargs["blocked_by"] == "asset_context_score_low"
+    assert kwargs["blocked_by"] == "etf_context_score_low"
     assert kwargs["market_regime"] == "a"
     assert 0.0 <= kwargs["signal_strength"] <= 1.0
     assert "primary" in kwargs["signal_id"]
@@ -302,8 +302,7 @@ _BLOCK_REASONS: tuple[str, ...] = (
     "entry_plan_invalid",
     "stop_validation_failed",
     "daily_room_insufficient",
-    "asset_context_daily_opposed",
-    "asset_context_score_low",
+    "etf_context_score_low",
     "type_c_requires_a_plus",
     "min_short_score",
     "score_below_grade_threshold",
@@ -343,7 +342,7 @@ def test_route_filter_decisions_emits_per_rejection():
     bar = _StubBar(timestamp=datetime(2026, 5, 9, 14, 0, tzinfo=timezone.utc))
     bar_input = _StubBarInput(symbol="QQQ", bar_15m=bar)
     rejections = [
-        {"blocked_by": "asset_context_score_low", "lane": "primary", "grade": "a",
+        {"blocked_by": "etf_context_score_low", "lane": "primary", "grade": "a",
          "details": {"score": 10.0, "threshold": 14.0, "actual": 10.0}},
         {"blocked_by": "regime_flat", "lane": "prelude", "grade": "flat",
          "details": {}},
@@ -353,7 +352,7 @@ def test_route_filter_decisions_emits_per_rejection():
     assert len(kit.calls) == 2
     names = {c[0] for c in kit.calls}
     assert names == {"on_filter_decision"}
-    assert kit.calls[0][1]["filter_name"] == "asset_context_score_low"
+    assert kit.calls[0][1]["filter_name"] == "etf_context_score_low"
     assert kit.calls[0][1]["passed"] is False
     assert kit.calls[1][1]["filter_name"] == "regime_flat"
 

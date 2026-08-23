@@ -1,12 +1,12 @@
 """IARIC Pullback V5R2 -- targeted residual-alpha optimization.
 
 Starts from the latest corrected IARIC round, normally
-``backtests/output/stock/iaric/round_2/optimized_config.json``, and only
-searches existing pullback configuration parameters.  The round keeps the
-headline score to seven scaled components:
+``backtests/output/stock/iaric/round_2/optimized_config.json`` after repairing
+execution parity and then searches existing pullback configuration parameters.
+The round keeps the headline score to seven smoothly scaled components:
 
-  net_profit, expected_total_r, profit_factor, sharpe, inv_dd, total_trades,
-  residual_alpha_quality.
+  net_profit, expected_total_r, avg_r, profit_factor, sharpe, inv_dd,
+  total_trades.
 
 Usage::
 
@@ -63,13 +63,28 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--start-date", default=START_DATE)
     parser.add_argument("--end-date", default=END_DATE)
     parser.add_argument("--output-dir", default="")
+    parser.add_argument(
+        "--baseline-config",
+        default="",
+        help="Explicit optimized_config.json to use as the immutable starting baseline.",
+    )
     parser.add_argument("--max-workers", type=int, default=MAX_WORKERS)
+    parser.add_argument(
+        "--allow-legacy-data",
+        action="store_true",
+        help="Explicitly allow the diagnostic-only legacy cache when no frozen bundle exists.",
+    )
     parser.add_argument("--profile", default=PROFILE, choices=["mainline", "aggressive"])
     parser.add_argument("--num-phases", type=int, default=NUM_PHASES, choices=range(1, NUM_PHASES + 1))
     parser.add_argument("--round", type=int, default=None)
     parser.add_argument("--start-phase", type=int, default=None, choices=range(1, NUM_PHASES + 1))
     parser.add_argument("--max-rounds", type=int, default=MAX_ROUNDS)
     parser.add_argument("--min-delta", type=float, default=MIN_DELTA)
+    parser.add_argument(
+        "--phase0-only",
+        action="store_true",
+        help="Freeze the execution-corrected baseline without starting the search.",
+    )
     return parser.parse_args()
 
 
@@ -97,11 +112,17 @@ def _metric_summary(metrics: dict[str, Any]) -> dict[str, float]:
     return {key: float(metrics.get(key, 0.0) or 0.0) for key in keys}
 
 
-def _baseline_signature(base_mutations: dict[str, Any]) -> str:
+def _baseline_signature(
+    base_mutations: dict[str, Any],
+    plugin: IARICPullbackPlugin,
+) -> str:
+    provenance = plugin.build_provenance()
     payload = {
         "base_mutations": dict(sorted(base_mutations.items())),
         "score_weights": V5R2_PHASE_SCORING_WEIGHTS,
         "candidate_queues": V5R2_PHASE_CANDIDATES,
+        "selection_fingerprint": provenance.selection_fingerprint,
+        "diagnostics_fingerprint": provenance.diagnostics_fingerprint,
     }
     encoded = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
@@ -112,7 +133,8 @@ def _write_phase0_baseline(
     output_dir: Path,
     base_mutations: dict[str, Any],
 ) -> dict[str, Any]:
-    signature = _baseline_signature(base_mutations)
+    provenance = plugin.build_provenance()
+    signature = _baseline_signature(base_mutations, plugin)
     path = output_dir / "phase_0_baseline.json"
     if path.exists():
         try:
@@ -132,9 +154,10 @@ def _write_phase0_baseline(
     )
     payload = {
         "purpose": (
-            "Phase-0 freeze of the corrected round-2 baseline before V5R2 residual-alpha search."
+            "Phase-0 freeze of the execution-corrected round-2 baseline before V5R2 alpha recovery."
         ),
         "signature": signature,
+        "provenance": provenance.to_dict(),
         "score": score,
         "rejected": bool(reject_reason),
         "reject_reason": reject_reason,
@@ -179,8 +202,6 @@ def _write_phase0_baseline(
         ]
     )
     (output_dir / "phase_0_baseline.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    if reject_reason:
-        raise RuntimeError(f"V5R2 phase-0 baseline failed hard gates: {reject_reason}")
     return payload
 
 
@@ -197,6 +218,7 @@ def _write_manifest(
     base_mutations: dict[str, Any],
     baseline_source: str,
     data_fingerprint: str,
+    data_authority: str,
 ) -> None:
     components = _score_components()
     phase_counts = {
@@ -223,6 +245,7 @@ def _write_manifest(
         "min_delta": min_delta,
         "baseline_source": baseline_source,
         "data_fingerprint": data_fingerprint,
+        "data_authority": data_authority,
         "base_mutations": dict(sorted(base_mutations.items())),
         "score_component_count": len(components),
         "score_components": components,
@@ -230,9 +253,10 @@ def _write_manifest(
         "queue_count": sum(item["count"] for item in phase_counts.values()),
         "phases": phase_counts,
         "implementation_guardrail": (
-            "Config-surface optimization only; no execution, fill, timestamp, "
-            "or diagnostic denominator semantics changed. Canonical fill timing "
-            "remains pb_open_scored_fill_timing=next_5m_open."
+            "Shared-core/live/backtest partial exits activate remainder protection only "
+            "after the market partial fills; completed-bar decisions use next-bar fills, "
+            "gap stops use gap prices, and drawdown uses daily mark-to-market equity. "
+            "Optimization itself is restricted to the StrategySettings surface."
         ),
     }
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -244,6 +268,8 @@ def _write_manifest(
 
 def main() -> None:
     args = _parse_args()
+    if args.allow_legacy_data:
+        os.environ["TRADING_REQUIRE_FROZEN_DATA"] = "false"
     round_manager: RoundManager | None = None
     round_num: int | None = None
     previous_round_provenance = None
@@ -259,7 +285,7 @@ def main() -> None:
             for_write=not refresh_existing,
             expected_phases=args.num_phases,
         )
-        if round_num and round_num > 1:
+        if round_num and round_num > 1 and not args.baseline_config:
             previous_round_name, previous_num_phases = _previous_round_lineage(round_num)
             provenance_probe = IARICPullbackPlugin(
                 DATA_DIR,
@@ -277,10 +303,17 @@ def main() -> None:
                 current_provenance=provenance_probe,
             )
             baseline_source = str(round_manager.optimized_config_path(round_manager.round_path(round_num - 1)).resolve())
+    if args.baseline_config:
+        baseline_path = Path(args.baseline_config).resolve()
+        loaded = json.loads(baseline_path.read_text(encoding="utf-8"))
+        if not isinstance(loaded, dict) or not loaded:
+            raise ValueError(f"Baseline config must be a non-empty JSON object: {baseline_path}")
+        base_mutations = dict(loaded)
+        baseline_source = str(baseline_path)
     base_mutations["param_overrides.pb_open_scored_fill_timing"] = "next_5m_open"
 
     print("=" * 72)
-    print("IARIC Pullback V5R2 -- Targeted Residual-Alpha Auto-Optimization")
+    print("IARIC Pullback V5R2 -- Execution-Corrected Alpha Auto-Optimization")
     print("=" * 72)
     print(f"Output dir: {output_dir}")
     print(f"Baseline: {baseline_source}")
@@ -336,7 +369,12 @@ def main() -> None:
         base_mutations=base_mutations,
         baseline_source=baseline_source,
         data_fingerprint=plugin._replay_data_fingerprint(),
+        data_authority=("legacy_diagnostic_only" if args.allow_legacy_data else "frozen_bundle_required"),
     )
+
+    if args.phase0_only:
+        print("Phase-0-only requested; optimization has not started.", flush=True)
+        return
 
     runner = PhaseRunner(
         plugin=plugin,

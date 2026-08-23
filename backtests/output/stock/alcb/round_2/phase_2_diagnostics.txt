@@ -1,11 +1,11 @@
 ======================================================================
 ALCB ROUND-3 RESIDUAL ALPHA PHASE 2 SNAPSHOT
 ======================================================================
-Focus: Early-failure protective stop tightening
-Score 0.0000 -> 0.0000 with 0 accepted mutations.
+Focus: Broad signal-gate alpha recovery
+Score 0.5237 -> 0.7441 with 2 accepted mutations.
 
-Core: trades=591, net_profit=+11704.46, expectancy_dollar=+19.80, expected_total_r=+147.47, pf=2.069, dd=3.2%, trades/month=22.83
-Quality: signal_quality=0.533, timing_quality=0.947, extended_avwap_inverse=1.000, bar9_inverse=0.865, late_entry_quality=0.975, score_monotonicity=0.333
-Management: profit_protection=0.670, short24_inv=0.316, flow_mfe_inv=0.983, mfe_capture_eff=0.767, sizing_alignment=1.000, long_hold_capture=0.989, inv_dd=0.730
-Focus metric deltas: expected_total_r=+147.467->+147.467, net_profit=+11704.460->+11704.460, profit_factor=+2.069->+2.069, profit_protection=+0.670->+0.670, short_hold_24_drag_inverse=+0.316->+0.316, mfe_capture_efficiency=+0.767->+0.767, trades_per_month=+22.828->+22.828
-Hard floors: max_dd_pct=4.70%, min_expectancy_dollar=17.8241, min_expected_total_r=140.0938, min_flow_mfe_exit_inverse=0.8359, min_mfe_capture_efficiency=0.7400, min_net_profit=11002.1924, min_pf=1.9450, min_profit_protection=0.5691, min_short_hold_24_drag_inverse=0.3200, min_trades_per_month=21.0019
+Core: trades=1346, net_profit=+11005.92, expectancy_dollar=+8.18, expected_total_r=+147.63, pf=1.509, dd=4.3%, trades/month=58.19
+Quality: signal_quality=0.491, timing_quality=0.597, extended_avwap_inverse=1.000, bar9_inverse=0.500, late_entry_quality=0.291, score_monotonicity=0.453
+Management: profit_protection=0.457, short24_inv=0.000, flow_mfe_inv=0.470, mfe_capture_eff=0.872, sizing_alignment=1.000, long_hold_capture=0.979, inv_dd=0.641
+Focus metric deltas: expected_total_r=+108.421->+147.628, trades_per_month=+49.937->+58.194, expectancy=+0.094->+0.110, profit_factor=+1.470->+1.509, signal_quality=+0.558->+0.491, rvol_selectivity=+0.830->+0.579, max_drawdown_pct=+0.035->+0.043
+Hard floors: max_dd_pct=4.70%, min_expectancy_dollar=5.9328, min_expected_total_r=99.7473, min_net_profit=7255.4940, min_pf=1.3229, min_signal_quality=0.4744, min_trades_per_month=48.9378

@@ -1,0 +1,41 @@
+{
+  "catastrophic_stop": {
+    "average_loser_r": -2.317546677623851,
+    "average_r": -2.317546677623851,
+    "average_winner_r": 0.0,
+    "commission": 616.5917198940867,
+    "gross_pnl": -43631.92885182657,
+    "median_r": -2.16918559213171,
+    "net_pnl": -44248.520571720655,
+    "profit_factor": 0.0,
+    "total_r": -141.3703473350549,
+    "trades": 61,
+    "win_rate": 0.0
+  },
+  "fold_end_marked_liquidation": {
+    "average_loser_r": -1.1466959423186716,
+    "average_r": -0.04566679507903174,
+    "average_winner_r": 1.0553623521606081,
+    "commission": 72.35559953500001,
+    "gross_pnl": -110.49558999999255,
+    "median_r": -0.038747048804256834,
+    "net_pnl": -182.85118953499256,
+    "profit_factor": 0.9203506467692012,
+    "total_r": -0.27400077047419047,
+    "trades": 6,
+    "win_rate": 0.5
+  },
+  "residual_half_life_time_stop": {
+    "average_loser_r": -0.7397843627546392,
+    "average_r": 0.8297400067347827,
+    "average_winner_r": 1.6058784312075738,
+    "commission": 2655.50003173,
+    "gross_pnl": 74977.56056000027,
+    "median_r": 0.7227402373039575,
+    "net_pnl": 72322.06052827027,
+    "profit_factor": 4.389715724300029,
+    "total_r": 225.68928183186088,
+    "trades": 272,
+    "win_rate": 0.6691176470588235
+  }
+}

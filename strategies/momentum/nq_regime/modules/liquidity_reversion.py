@@ -7,7 +7,7 @@ from strategies.momentum.nq_regime.core.indicators import IndicatorSnapshot
 from strategies.momentum.nq_regime.core.session import SessionPhase
 from strategies.momentum.nq_regime.core.state import BarEvent, RegimeCoreState
 from strategies.momentum.nq_regime.modules.base import SetupCandidate
-from strategies.scalp._shared.nq_contract import round_to_tick
+from strategies.momentum.nq_regime.contract import round_to_tick
 
 
 def evaluate(state: RegimeCoreState, event: BarEvent, indicators: IndicatorSnapshot) -> SetupCandidate | None:

@@ -45,6 +45,8 @@ class IARICPartialExitRequest:
     symbol: str
     qty: int
     reason: str = "TP"
+    remainder_stop_price: float = 0.0
+    execution_buffer: float = 0.0
 
 
 @dataclass(slots=True)
@@ -92,6 +94,12 @@ class IARICEntryAcceptance:
     score: float
     session_atr: float
     score_components: dict[str, float] = field(default_factory=dict)
+    lane_id: str = ""
+    event_id: str = ""
+    reversion_anchor: float = 0.0
+    stop_anchor: float = 0.0
+    remaining_room_atr: float = 0.0
+    prospective_reward_risk: float = 0.0
 
 
 @dataclass(slots=True)
@@ -102,3 +110,4 @@ class IARICRouteStep:
     score: float = 0.0
     entry_feasible: bool = False
     acceptance: IARICEntryAcceptance | None = None
+    lane_id: str = ""

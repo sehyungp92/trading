@@ -1,2 +1,4 @@
-2026-05-23 22:23:01,126 INFO research.backtests.shared.auto.phase.08f6f983986e.6: Starting phase 6 with 1 candidates
-2026-05-23 22:31:34,278 INFO research.backtests.shared.auto.phase.08f6f983986e.6: Phase 6 complete: 0.6236 -> 0.7729 (1 accepted)
+2026-08-16 13:32:25,372 INFO research.backtests.shared.auto.phase.08f6f983986e.6: Starting phase 6 with 4 candidates
+2026-08-16 14:08:52,311 INFO research.backtests.shared.auto.phase.08f6f983986e.6:   Pruned 1 persistently-rejected candidates (1+ consecutive).
+2026-08-16 14:17:08,953 INFO research.backtests.shared.auto.phase.08f6f983986e.6: Round 2 best candidate r2_base_risk_00800 did not clear min_delta 0.10%; stopping.
+2026-08-16 14:24:38,110 INFO research.backtests.shared.auto.phase.08f6f983986e.6: Phase 6 complete: 0.8225 -> 0.8343 (1 accepted)

@@ -468,18 +468,18 @@ def shadow_first_failure(bar_input: TPCBarInput, cfg: Any) -> tuple[str, dict[st
     base["daily_has_room"] = bool(daily_has_room)
     if not daily_has_room:
         return "daily_room", base
-    asset_context_score, asset_context_details = context.score_asset_context(bar_input, direction, cfg)
-    base["asset_context_score"] = float(asset_context_score)
-    base["asset_context_details"] = asset_context_details
-    if asset_context_score < cfg.asset_context_min_score:
-        return "asset_context", base
+    etf_context_score, etf_context_details = context.score_etf_context(bar_input, direction, cfg)
+    base["etf_context_score"] = float(etf_context_score)
+    base["etf_context_details"] = etf_context_details
+    if etf_context_score < cfg.etf_context_min_score:
+        return "etf_context", base
     score = allocator.score_setup(
         grade,
         pullback.pullback_type,
         confirmations,
         3.0,
         has_news_risk=False,
-        asset_context_score=asset_context_score,
+        etf_context_score=etf_context_score,
         daily_has_room=daily_has_room,
         orderly_pullback=pullback.orderly,
         score_model=cfg.score_model,
@@ -622,9 +622,9 @@ def interpretation_flags(
         "prob_zero_qqq_excellent_given_train_rate": prob_zero_qqq_ex,
         "qqq_oos_negative_avg_r": float(qqq_oos.get("avg_r", 0.0) or 0.0) < 0,
         "gld_oos_positive_avg_r": float(gld_oos.get("avg_r", 0.0) or 0.0) > 0,
-        "asset_context_is_stubbed_in_code": False,
+        "etf_context_is_stubbed_in_code": False,
         "news_filter_is_stubbed_in_code": True,
-        "score_gets_asset_context_credit_unconditionally": False,
+        "score_gets_etf_context_credit_unconditionally": False,
         "shadow_qqq_oos_entry_ready_rate": shadow.get("oos_QQQ", {}).get("entry_ready_rate", 0.0),
         "shadow_gld_oos_entry_ready_rate": shadow.get("oos_GLD", {}).get("entry_ready_rate", 0.0),
     }
@@ -646,9 +646,9 @@ def format_report(summary: dict[str, Any]) -> str:
         )
 
     context_line = (
-        "- Asset context/news are currently stubbed in the executable code, so the implementation captures a narrower edge than the `swing_3.md` thesis."
-        if flags.get("asset_context_is_stubbed_in_code", False)
-        else "- Asset context is now executable via completed-bar proxy context; the news-risk input remains a stub, so that part of the `swing_3.md` thesis is still not captured."
+        "- ETF self-context is unavailable in executable code."
+        if flags.get("etf_context_is_stubbed_in_code", False)
+        else "- TPC uses completed-bar QQQ/GLD self-context only; it has no cross-asset or futures input."
     )
     lines = [
         "# TPC Round 6 Alpha Audit",

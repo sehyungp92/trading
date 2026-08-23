@@ -1,180 +1,45 @@
 {
-  "phases": {
-    "1": {
-      "status": "completed",
-      "updated_at": "2026-05-23T21:22:19.888904+00:00",
-      "completed_phases": [
-        1
-      ],
-      "current_phase": 1,
-      "total_mutations": 35,
-      "base_score": 0.0,
-      "final_score": 0.0,
-      "kept_features": [],
-      "gate_passed": false,
-      "failure_category": "candidates_exhausted",
-      "scoring_retries": 0,
-      "diagnostic_retries": 1,
-      "focus": "Completed-bar score component discrimination",
-      "candidate_count": 0
+  "completed_at_utc": "2026-08-22T16:40:40.844657+00:00",
+  "live_settings_mismatches": {
+    "adaptive_trail_late_activate_r": {
+      "candidate": 0.18,
+      "live": 0.22
     },
-    "2": {
-      "status": "completed",
-      "updated_at": "2026-05-23T21:22:29.215831+00:00",
-      "completed_phases": [
-        1,
-        2
-      ],
-      "current_phase": 2,
-      "total_mutations": 35,
-      "base_score": 0.0,
-      "final_score": 0.0,
-      "kept_features": [],
-      "gate_passed": true,
-      "failure_category": null,
-      "scoring_retries": 0,
-      "diagnostic_retries": 0,
-      "focus": "Early-failure protective stop tightening",
-      "candidate_count": 0
+    "adaptive_trail_start_bars": {
+      "candidate": 30,
+      "live": 25
     },
-    "3": {
-      "status": "completed",
-      "updated_at": "2026-05-23T21:22:39.610683+00:00",
-      "completed_phases": [
-        1,
-        2,
-        3
-      ],
-      "current_phase": 3,
-      "total_mutations": 35,
-      "base_score": 0.0,
-      "final_score": 0.0,
-      "kept_features": [],
-      "gate_passed": true,
-      "failure_category": null,
-      "scoring_retries": 0,
-      "diagnostic_retries": 0,
-      "focus": "Exit management and profit retention",
-      "candidate_count": 0
+    "adaptive_trail_tighten_bars": {
+      "candidate": 30,
+      "live": 25
     },
-    "4": {
-      "status": "completed",
-      "updated_at": "2026-05-23T21:22:49.712097+00:00",
-      "completed_phases": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "current_phase": 4,
-      "total_mutations": 35,
-      "base_score": 0.6788026971477945,
-      "final_score": 0.6788026971477945,
-      "kept_features": [],
-      "gate_passed": true,
-      "failure_category": null,
-      "scoring_retries": 0,
-      "diagnostic_retries": 0,
-      "focus": "Quality-preserved frequency recovery",
-      "candidate_count": 0
+    "entry_window_end": {
+      "candidate": "13:30:00",
+      "live": "12:30:00"
     },
-    "5": {
-      "status": "completed",
-      "updated_at": "2026-05-23T21:23:00.935941+00:00",
-      "completed_phases": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
-      "current_phase": 5,
-      "total_mutations": 35,
-      "base_score": 0.7226362291318732,
-      "final_score": 0.7226362291318732,
-      "kept_features": [],
-      "gate_passed": true,
-      "failure_category": null,
-      "scoring_retries": 0,
-      "diagnostic_retries": 0,
-      "focus": "Entry geometry retest and extension control",
-      "candidate_count": 0
+    "late_entry_cutoff": {
+      "candidate": "12:30:00",
+      "live": "11:00:00"
     },
-    "6": {
-      "status": "completed",
-      "updated_at": "2026-05-23T21:31:34.222657+00:00",
-      "completed_phases": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
-      "current_phase": 6,
-      "total_mutations": 35,
-      "base_score": 0.6236431949552981,
-      "final_score": 0.772876175480488,
-      "kept_features": [
-        "r3_archived_value_tune"
-      ],
-      "gate_passed": true,
-      "failure_category": null,
-      "scoring_retries": 0,
-      "diagnostic_retries": 0,
-      "focus": "Round-3 structural synthesis",
-      "candidate_count": 1
+    "late_entry_score_min": {
+      "candidate": 5,
+      "live": 0
     },
-    "7": {
-      "status": "completed",
-      "updated_at": "2026-05-23T21:31:39.824784+00:00",
-      "completed_phases": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7
-      ],
-      "current_phase": 7,
-      "total_mutations": 35,
-      "base_score": 0.0,
-      "final_score": 0.0,
-      "kept_features": [],
-      "gate_passed": true,
-      "failure_category": null,
-      "scoring_retries": 0,
-      "diagnostic_retries": 0,
-      "focus": "Causal early trade-maturation protection",
-      "candidate_count": 0
-    },
-    "8": {
-      "status": "completed",
-      "updated_at": "2026-05-23T21:31:48.029559+00:00",
-      "completed_phases": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8
-      ],
-      "current_phase": 8,
-      "total_mutations": 35,
-      "base_score": 0.0,
-      "final_score": 0.0,
-      "kept_features": [],
-      "gate_passed": true,
-      "failure_category": null,
-      "scoring_retries": 0,
-      "diagnostic_retries": 0,
-      "focus": "Delayed entry confirmation and maturation synthesis",
-      "candidate_count": 0
+    "rvol_threshold": {
+      "candidate": 1.1,
+      "live": 1.4
     }
   },
-  "last_updated": "2026-05-23T21:31:48.072561+00:00",
-  "current_phase": 8
+  "live_settings_sync_required": true,
+  "production_deployment_approved": false,
+  "provenance_status": "provisional_development_selected_projected_rth_consumed_lineage_fresh_lockbox_required",
+  "round": 3,
+  "selected_candidate": "bundle__rvol_late_quality",
+  "selected_patch": {
+    "param_overrides.entry_window_end": "13:30:00",
+    "param_overrides.late_entry_cutoff": "12:30:00",
+    "param_overrides.late_entry_score_min": 5,
+    "param_overrides.rvol_threshold": 1.1
+  },
+  "status": "complete"
 }

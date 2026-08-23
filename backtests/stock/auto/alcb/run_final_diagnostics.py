@@ -54,6 +54,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--end", default="2026-03-01")
     parser.add_argument("--equity", type=float, default=10_000.0)
     parser.add_argument("--max-workers", type=int, default=1)
+    # round_3 was generated against the legacy RTH-projected cache; without
+    # this the plugin demands a frozen bundle and the round cannot be replayed.
+    parser.add_argument("--allow-projected-rth-data", action="store_true")
     return parser
 
 
@@ -72,6 +75,7 @@ def main() -> None:
         end_date=args.end,
         initial_equity=float(args.equity),
         max_workers=max(1, int(args.max_workers)),
+        allow_projected_rth_data=bool(args.allow_projected_rth_data),
     )
     provenance = plugin.build_provenance()
     _hydrate_final_phase_runtime_context(plugin, state)

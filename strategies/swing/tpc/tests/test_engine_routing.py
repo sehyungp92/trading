@@ -85,7 +85,7 @@ def _setup(symbol: str = "QQQ") -> SetupSnapshot:
         t2_r=2.75, t2_partial_pct=0.275,
         meta={
             "confirmations": ["vwap"], "depth": 0.4, "rr": 3.0, "atr_4h": 1.2,
-            "asset_context_score": 1.0, "setup_lane": "primary", "pullback_timeframe": "1h",
+            "etf_context_score": 1.0, "setup_lane": "primary", "pullback_timeframe": "1h",
             "score": 18.0, "daily_has_room": True, "orderly_pullback": True,
         },
     )
@@ -126,7 +126,7 @@ def _bars(count: int, step: timedelta) -> list[SimpleNamespace]:
 
 
 @pytest.mark.asyncio
-async def test_live_bar_input_hydrates_panama_futures_context_and_indicators() -> None:
+async def test_live_bar_input_uses_only_traded_etf_bars_and_indicators() -> None:
     raw_ib = SimpleNamespace(
         isConnected=lambda: True,
         qualifyContractsAsync=AsyncMock(side_effect=lambda contract: [contract]),
@@ -147,17 +147,16 @@ async def test_live_bar_input_hydrates_panama_futures_context_and_indicators() -
         "1 day": _bars(120, timedelta(days=1)),
     }
     engine._req_bars = AsyncMock(side_effect=lambda _contract, _duration, size, **_kw: by_size[size])
-    engine._req_context_bars = AsyncMock(
-        side_effect=lambda _symbol, _duration, size, **_kw: by_size[size]
-    )
-
     bar_input = await engine._build_bar_input("QQQ", "test")
 
     assert bar_input is not None
     assert bar_input.indicators["ema20_15m"] > 0
-    assert bar_input.indicators["context_sma50_1h"] > 0
-    assert bar_input.indicators["context_sma50_daily"] > 0
-    assert [call.args[0] for call in engine._req_context_bars.await_args_list] == ["NQ", "NQ"]
+    assert bar_input.indicators["ma50_4h"] > 0
+    assert not any(name.startswith("context_") for name in bar_input.indicators)
+    assert [call.args[2] for call in engine._req_bars.await_args_list] == [
+        "15 mins", "30 mins", "1 hour", "4 hours", "1 day",
+    ]
+    assert not hasattr(engine, "_req_context_bars")
 
 
 def test_entry_filled_routes_to_log_entry():
@@ -380,8 +379,8 @@ def test_setup_rejected_event_routes_to_log_missed():
         code="SETUP_REJECTED",
         details={
             "symbol": "QQQ", "lane": "primary",
-            "blocked_by": "asset_context_score_low",
-            "block_reason": "low cross-asset score",
+            "blocked_by": "etf_context_score_low",
+            "block_reason": "low traded-ETF context score",
             "direction": "LONG", "grade": "a",
         },
         symbol="QQQ", ts=bar.timestamp, timeframe="15m", strategy_id="TPC",
@@ -398,7 +397,7 @@ def test_setup_rejected_event_routes_to_log_missed():
     missed = [c for c in kit.calls if c[0] == "log_missed"]
     assert len(missed) == 1
     _, kwargs = missed[0]
-    assert kwargs["blocked_by"] == "asset_context_score_low"
+    assert kwargs["blocked_by"] == "etf_context_score_low"
     assert kwargs["pair"] == "QQQ"
     assert kwargs["signal"] == "TPC_primary"
 

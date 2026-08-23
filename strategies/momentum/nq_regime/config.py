@@ -5,7 +5,7 @@ from datetime import time
 from enum import Enum
 from typing import Final
 
-from strategies.scalp._shared.nq_contract import FuturesSpec, spec_for
+from strategies.momentum.nq_regime.contract import FuturesSpec, spec_for
 from libs.oms.models.instrument import Instrument
 from libs.oms.models.instrument_registry import InstrumentRegistry
 

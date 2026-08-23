@@ -457,6 +457,7 @@ class PhaseRunner:
                 "final_score": adopted_final_score,
                 "kept_features": adopted_kept_features,
                 "rounds": [_to_dict(round_result) for round_result in greedy_result.rounds],
+                "candidate_evaluations": list(greedy_result.candidate_evaluations),
                 "final_metrics": adopted_final_metrics,
                 "total_candidates": greedy_result.total_candidates,
                 "accepted_count": adopted_accepted_count,

@@ -1,0 +1,237 @@
+{
+  "continuous_metrics": {
+    "average_r": 0.24792015848475454,
+    "final_equity": 127890.68876701457,
+    "initial_equity": 100000.0,
+    "max_drawdown_pct": 0.15620706121905398,
+    "profit_factor": 1.397580420498738,
+    "return_pct": 0.2789068876701457,
+    "total_r": 84.04493372633179,
+    "trades": 339,
+    "win_rate": 0.5457227138643068
+  },
+  "evaluation_contract": "continuous_shared_capital_with_purged_entry_cohorts_v1",
+  "fold_boundary_diagnostics": {
+    "calibration": {
+      "carried_in_positions": 9,
+      "purged_boundary_entry_count": 0
+    },
+    "discovery": {
+      "carried_in_positions": 0,
+      "purged_boundary_entry_count": 9
+    }
+  },
+  "folds": {
+    "calibration": {
+      "average_r": 0.11250893834426952,
+      "carried_in_positions": 9,
+      "entry_cohort_contract": "entry_and_exit_within_fold_purged_boundary",
+      "entry_delivery_attribution": {
+        "average_open_to_exit_return": 0.005059383740167263,
+        "average_signal_close_to_exit_return": 0.004955794191735821,
+        "average_signal_close_to_open_return": -5.8349710695870806e-05,
+        "positive_post_open_share": 0.53125
+      },
+      "expected_shortfall_r_5pct": -2.772794123754226,
+      "final_equity": 127890.68876701457,
+      "initial_equity": 122177.49696208946,
+      "max_drawdown_pct": 0.15620706121905398,
+      "portfolio_state_contract": "continuous_shared_capital_no_fold_reset",
+      "positive_sectors": 7,
+      "profit_factor": 1.1642173800308646,
+      "purged_boundary_entry_count": 0,
+      "r_per_month": 2.264126155936333,
+      "return_pct": 0.046761408172389274,
+      "top_issuer_entry_risk_share": 0.06527008281390279,
+      "top_positive_issuer_share": 0.08755861172572794,
+      "top_positive_sector_share": 0.2969948662195786,
+      "top_sector_entry_risk_share": 0.24133771169036794,
+      "total_r": 18.001430135083123,
+      "trades": 160,
+      "trades_per_month": 20.123966942148762,
+      "win_rate": 0.51875
+    },
+    "discovery": {
+      "average_r": 0.2914119075730551,
+      "carried_in_positions": 0,
+      "entry_cohort_contract": "entry_and_exit_within_fold_purged_boundary",
+      "entry_delivery_attribution": {
+        "average_open_to_exit_return": 0.01302876698142307,
+        "average_signal_close_to_exit_return": 0.014254739813370295,
+        "average_signal_close_to_open_return": 0.001165008967677141,
+        "positive_post_open_share": 0.5588235294117647
+      },
+      "expected_shortfall_r_5pct": -3.093141011686738,
+      "final_equity": 122177.49696208946,
+      "initial_equity": 100000.0,
+      "max_drawdown_pct": 0.06143486009570871,
+      "portfolio_state_contract": "continuous_shared_capital_no_fold_reset",
+      "positive_sectors": 7,
+      "profit_factor": 1.4913004535587848,
+      "purged_boundary_entry_count": 9,
+      "r_per_month": 6.0314979569933085,
+      "return_pct": 0.2217749696208946,
+      "top_issuer_entry_risk_share": 0.062175689941494694,
+      "top_positive_issuer_share": 0.15718281219253621,
+      "top_positive_sector_share": 0.23551260565521212,
+      "top_sector_entry_risk_share": 0.23612433625750584,
+      "total_r": 49.540024287419364,
+      "trades": 170,
+      "trades_per_month": 20.6975,
+      "win_rate": 0.5529411764705883
+    }
+  },
+  "gates": {
+    "at_least_100_trades_each_fold": true,
+    "calibration_average_r_gte_0p07": true,
+    "calibration_pf_gte_1p15": true,
+    "positive_continuous_calibration_equity_return": true,
+    "positive_continuous_period": true,
+    "positive_each_fold": true,
+    "score_top_tail_separation_each_fold": false,
+    "top_issuer_entry_risk_share_lte_15pct": true,
+    "top_sector_entry_risk_share_lte_35pct": true
+  },
+  "immutable_score": {
+    "raw": {
+      "average_r_and_discrimination": 0.33392406305018085,
+      "cost_and_neighbourhood_robustness": 0.7227663548574486,
+      "downside_risk": -2.604068190341417,
+      "executable_trades_per_month": 20.972179878048784,
+      "issuer_sector_concentration": 0.8466961027478647,
+      "net_expected_r_per_month": 5.199426159136634,
+      "worst_fold_r_per_month": 2.264126155936333
+    },
+    "scaled": {
+      "average_r_and_discrimination": 0.998743893168214,
+      "cost_and_neighbourhood_robustness": 0.7227663548574486,
+      "downside_risk": 0.07397203294847428,
+      "executable_trades_per_month": 1.0,
+      "issuer_sector_concentration": 0.8466961027478647,
+      "net_expected_r_per_month": 0.9945105692217074,
+      "worst_fold_r_per_month": 0.9893158500325261
+    },
+    "score": 0.873733321374268,
+    "spec": {
+      "average_r_and_discrimination": {
+        "scale": 0.1,
+        "weight": 0.14
+      },
+      "cost_and_neighbourhood_robustness": {
+        "scale": 1.0,
+        "weight": 0.07
+      },
+      "downside_risk": {
+        "scale": 1.0,
+        "weight": 0.1
+      },
+      "executable_trades_per_month": {
+        "scale": 20.0,
+        "weight": 0.18
+      },
+      "issuer_sector_concentration": {
+        "scale": 1.0,
+        "weight": 0.07
+      },
+      "net_expected_r_per_month": {
+        "scale": 2.0,
+        "weight": 0.26
+      },
+      "worst_fold_r_per_month": {
+        "scale": 1.0,
+        "weight": 0.18
+      }
+    }
+  },
+  "independent_restart_folds": {
+    "calibration": {
+      "average_r": 0.1137467587964795,
+      "entry_delivery_attribution": {
+        "average_open_to_exit_return": 0.006888859333694693,
+        "average_signal_close_to_exit_return": 0.007283444294589306,
+        "average_signal_close_to_open_return": 0.0004861148405478495,
+        "positive_post_open_share": 0.5157232704402516
+      },
+      "expected_shortfall_r_5pct": -2.7098557142979103,
+      "final_equity": 104468.88485641936,
+      "initial_equity": 100000.0,
+      "max_drawdown_pct": 0.1679524451581976,
+      "positive_sectors": 7,
+      "profit_factor": 1.1722012279889589,
+      "r_per_month": 2.2747295387106914,
+      "return_pct": 0.04468884856419364,
+      "top_issuer_entry_risk_share": 0.06598596835867285,
+      "top_positive_issuer_share": 0.09076507130746207,
+      "top_positive_sector_share": 0.3078710326610778,
+      "top_sector_entry_risk_share": 0.2378986509318417,
+      "total_r": 18.08573464864024,
+      "trades": 159,
+      "trades_per_month": 19.99819214876033,
+      "win_rate": 0.5157232704402516
+    },
+    "discovery": {
+      "average_r": 0.3421905675519182,
+      "entry_delivery_attribution": {
+        "average_open_to_exit_return": 0.014786036955589625,
+        "average_signal_close_to_exit_return": 0.015848147052055436,
+        "average_signal_close_to_open_return": 0.0010064010687668877,
+        "positive_post_open_share": 0.5810055865921788
+      },
+      "expected_shortfall_r_5pct": -3.093141011686738,
+      "final_equity": 122081.19537350695,
+      "initial_equity": 100000.0,
+      "max_drawdown_pct": 0.06143486009570871,
+      "positive_sectors": 7,
+      "profit_factor": 1.607452068087167,
+      "r_per_month": 7.457444586300841,
+      "return_pct": 0.22081195373506946,
+      "top_issuer_entry_risk_share": 0.0657420718926273,
+      "top_positive_issuer_share": 0.15815963057302712,
+      "top_positive_sector_share": 0.22918534791996323,
+      "top_sector_entry_risk_share": 0.23694016873775253,
+      "total_r": 61.25211159179335,
+      "trades": 179,
+      "trades_per_month": 21.79325,
+      "win_rate": 0.5754189944134078
+    }
+  },
+  "independent_restart_stress": {
+    "common_entry_trades": 296,
+    "common_reset_minus_continuous_r": -4.791391999455321,
+    "continuous_total_r": 84.04493372633179,
+    "continuous_trades": 339,
+    "continuous_unique_total_r": -9.29423980163548,
+    "continuous_unique_trades": 43,
+    "independently_reset_total_r": 79.33784624043359,
+    "independently_reset_trades": 338,
+    "intermediate_forced_liquidations": 9,
+    "reset_minus_continuous_r": -4.7070874858981995,
+    "reset_unique_total_r": -9.209935288078364,
+    "reset_unique_trades": 42,
+    "restart_stability": 0.9455327097148972,
+    "status": "secondary_non_economic_restart_sensitivity_only",
+    "used_for_candidate_expected_return_or_frequency": false
+  },
+  "score_quintiles": {
+    "calibration": {
+      "passed": true,
+      "values": {
+        "Q1": -0.01612137738625946,
+        "Q2": 0.4048150241739448,
+        "Q3": -0.35432529080348574,
+        "Q4": 0.08136779322508722,
+        "Q5": 0.44680854251206076
+      }
+    },
+    "discovery": {
+      "passed": false,
+      "values": {
+        "Q1": -0.05362729308321564,
+        "Q2": 0.060426394472744546,
+        "Q3": 0.7547524994390834,
+        "Q4": -0.04009398267943706,
+        "Q5": 0.7356019197161001
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
 from datetime import time
+from math import tanh
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -14,130 +15,30 @@ _NEUTRAL_STRUCTURAL_SCORE = 0.50
 
 
 IMMUTABLE_SCORING_WEIGHTS: dict[str, float] = {
-    "expected_total_r": 0.24,
-    "trades_per_month": 0.20,
-    "expectancy_dollar": 0.13,
-    "profit_factor": 0.12,
-    "net_profit": 0.10,
-    "profit_protection": 0.09,
-    "signal_quality": 0.06,
-    "timing_quality": 0.03,
-    "mfe_capture_efficiency": 0.02,
-    "inv_dd": 0.01,
+    "expected_total_r": 0.25,
+    "trades_per_month": 0.18,
+    "net_profit": 0.16,
+    "expectancy": 0.13,
+    "profit_factor": 0.11,
+    "max_drawdown_pct": 0.11,
+    "sharpe": 0.06,
 }
 
 PHASE_SCORING_WEIGHTS: dict[int, dict[str, float]] = {
-    1: {
-        "expected_total_r": 0.23,
-        "trades_per_month": 0.17,
-        "profit_factor": 0.12,
-        "expectancy_dollar": 0.12,
-        "signal_quality": 0.14,
-        "score_monotonicity": 0.10,
-        "sizing_alignment": 0.07,
-        "timing_quality": 0.03,
-        "inv_dd": 0.02,
-    },
-    2: {
-        "expected_total_r": 0.22,
-        "net_profit": 0.16,
-        "profit_protection": 0.16,
-        "short_hold_24_drag_inverse": 0.14,
-        "mfe_capture_efficiency": 0.10,
-        "profit_factor": 0.08,
-        "trades_per_month": 0.08,
-        "expectancy_dollar": 0.06,
-    },
-    3: {
-        "expected_total_r": 0.21,
-        "net_profit": 0.16,
-        "profit_protection": 0.14,
-        "flow_mfe_exit_inverse": 0.12,
-        "mfe_capture_efficiency": 0.11,
-        "long_hold_capture": 0.08,
-        "profit_factor": 0.08,
-        "trades_per_month": 0.05,
-        "expectancy_dollar": 0.05,
-    },
-    4: {
-        "trades_per_month": 0.27,
-        "expected_total_r": 0.22,
-        "net_profit": 0.15,
-        "expectancy_dollar": 0.09,
-        "profit_factor": 0.08,
-        "late_entry_quality": 0.07,
-        "timing_quality": 0.05,
-        "signal_quality": 0.04,
-        "inv_dd": 0.03,
-    },
-    5: {
-        "expected_total_r": 0.22,
-        "trades_per_month": 0.16,
-        "profit_factor": 0.12,
-        "expectancy_dollar": 0.10,
-        "timing_quality": 0.10,
-        "extended_avwap_inverse": 0.10,
-        "rvol_selectivity": 0.07,
-        "net_profit": 0.08,
-        "inv_dd": 0.05,
-    },
-    6: {
-        "expected_total_r": 0.24,
-        "trades_per_month": 0.17,
-        "net_profit": 0.14,
-        "profit_factor": 0.12,
-        "expectancy_dollar": 0.10,
-        "signal_quality": 0.07,
-        "timing_quality": 0.06,
-        "sizing_alignment": 0.05,
-        "profit_protection": 0.03,
-        "inv_dd": 0.02,
-    },
-    7: {
-        "expected_total_r": 0.23,
-        "net_profit": 0.15,
-        "profit_protection": 0.17,
-        "short_hold_24_drag_inverse": 0.16,
-        "mfe_capture_efficiency": 0.10,
-        "profit_factor": 0.08,
-        "trades_per_month": 0.07,
-        "expectancy_dollar": 0.04,
-    },
-    8: {
-        "expected_total_r": 0.24,
-        "trades_per_month": 0.18,
-        "net_profit": 0.14,
-        "expectancy_dollar": 0.12,
-        "profit_factor": 0.11,
-        "signal_quality": 0.07,
-        "timing_quality": 0.06,
-        "profit_protection": 0.06,
-        "inv_dd": 0.02,
-    },
+    phase: dict(IMMUTABLE_SCORING_WEIGHTS) for phase in range(1, 7)
 }
 
-NORMALIZATION_RANGES: dict[str, tuple[float, float]] = {
-    "expected_total_r": (115.0, 155.0),
-    "net_profit": (9000.0, 12500.0),
-    "trades_per_month": (19.0, 24.5),
-    "expectancy": (0.20, 0.32),
-    "expectancy_dollar": (16.0, 25.0),
-    "profit_factor": (1.85, 2.40),
-    "mfe_capture_efficiency": (0.76, 0.90),
-    "profit_protection": (0.60, 0.80),
-    "short_hold_24_drag_inverse": (0.35, 0.60),
-    "flow_mfe_exit_inverse": (0.78, 0.92),
-    "inv_dd": (0.70, 0.84),
-    "entry_quality": (0.60, 1.00),
-    "signal_quality": (0.55, 0.76),
-    "timing_quality": (0.45, 0.70),
-    "extended_avwap_inverse": (0.45, 0.78),
-    "bar9_inverse": (0.35, 0.78),
-    "late_entry_quality": (0.50, 0.90),
-    "score_monotonicity": (0.40, 0.70),
-    "rvol_selectivity": (0.60, 0.88),
-    "sizing_alignment": (0.85, 1.05),
-    "long_hold_capture": (0.78, 1.00),
+# Centers are the recovered, freshly reproduced round-1 baseline.  The scales
+# are deliberately broad (roughly 25-35% changes) so the score remains
+# sensitive near the baseline without rewarding tiny sample-specific moves.
+SCORING_CENTERS_SCALES: dict[str, tuple[float, float]] = {
+    "expected_total_r": (106.38602224538246, 30.0),
+    "trades_per_month": (49.979758522727266, 15.0),
+    "net_profit": (7747.940000000004, 2500.0),
+    "expectancy": (0.09202943100811632, 0.040),
+    "profit_factor": (1.4632090327656573, 0.25),
+    "max_drawdown_pct": (0.03428447090057068, 0.015),
+    "sharpe": (3.130325868379215, 1.0),
 }
 
 
@@ -613,10 +514,11 @@ def _avwap_premium_pct(trade: Any) -> float:
 
 def _normalize(metric_name: str, metrics: dict[str, float]) -> float:
     value = float(metrics.get(metric_name, 0.0))
-    lo, hi = NORMALIZATION_RANGES.get(metric_name, (0.0, 1.0))
-    if hi <= lo:
+    center, scale = SCORING_CENTERS_SCALES.get(metric_name, (0.0, 1.0))
+    if scale <= 0:
         return 0.0
-    return _clip01((value - lo) / (hi - lo))
+    signed_delta = (center - value) if metric_name == "max_drawdown_pct" else (value - center)
+    return _clip01(0.5 + 0.5 * tanh(signed_delta / scale))
 
 
 def _normalize_exit(exit_reason: str | None) -> str:

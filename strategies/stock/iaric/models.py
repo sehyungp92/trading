@@ -74,6 +74,10 @@ class ResearchSymbol:
     intraday_atr_seed: float = 0.0
     average_30m_volume: float = 0.0
     expected_5m_volume: float = 0.0
+    expected_5m_profile: tuple[float, ...] = ()
+    # True only when the snapshot owns a point-in-time earnings/news source.
+    # Missing data is not equivalent to a verified no-news state.
+    information_state_available: bool = False
 
     @property
     def trend_price(self) -> float:
@@ -138,6 +142,34 @@ class HeldPositionResearch:
     initial_r: float
     setup_tag: str = ""
     carry_eligible_flag: bool = False
+    sleeve_id: str = ""
+    issuer: str = ""
+    sector: str = ""
+    residual_factor_model: str = ""
+    residual_formation_sessions: int = 0
+    residual_volatility: float = 0.0
+    residual_initial_dislocation_r: float = 0.0
+    residual_cumulative_normalization_r: float = 0.0
+    residual_peak_normalization_r: float = 0.0
+    residual_held_sessions: int = 0
+    residual_partial_taken: bool = False
+    residual_last_processed_session: date | None = None
+    residual_qty_entry: int = 0
+    residual_entry_commission: float = 0.0
+    residual_exit_commission: float = 0.0
+    residual_realized_pnl_usd: float = 0.0
+    residual_entry_score: float = 0.0
+    residual_trade_id: str = ""
+    residual_protective_stop_client_order_id: str = ""
+    residual_protective_stop_price: float = 0.0
+    residual_protective_stop_qty: int = 0
+    residual_lane_id: str = ""
+    residual_model_contract_version: str = ""
+    residual_model_intercept: float = 0.0
+    residual_factor_names: tuple[str, ...] = ()
+    residual_factor_betas: tuple[float, ...] = ()
+    residual_peer_symbols: tuple[str, ...] = ()
+    residual_model_estimation_session: date | None = None
 
 
 @dataclass(slots=True)
@@ -147,6 +179,11 @@ class ResearchSnapshot:
     sectors: dict[str, SectorResearch]
     symbols: dict[str, ResearchSymbol]
     held_positions: list[HeldPositionResearch] = field(default_factory=list)
+    benchmark_dates: list[date] = field(default_factory=list)
+    benchmark_closes: list[float] = field(default_factory=list)
+    # Completed SPY and sector-ETF sessions used by the residual selector.
+    # These are explanatory references only and can never become candidates.
+    reference_daily_bars: dict[str, list[ResearchDailyBar]] = field(default_factory=dict)
 
 
 @dataclass(slots=True, frozen=True)
@@ -172,6 +209,42 @@ class HeldPositionDirective:
     time_stop_deadline: datetime | None
     carry_eligible_flag: bool
     flow_reversal_flag: bool
+    issuer: str = ""
+    sector: str = ""
+    exchange: str = "SMART"
+    primary_exchange: str = ""
+    currency: str = "USD"
+    tick_size: float = 0.01
+    point_value: float = 1.0
+    sleeve_id: str = ""
+    residual_factor_model: str = ""
+    residual_formation_sessions: int = 0
+    residual_volatility: float = 0.0
+    residual_initial_dislocation_r: float = 0.0
+    residual_cumulative_normalization_r: float = 0.0
+    residual_peak_normalization_r: float = 0.0
+    residual_held_sessions: int = 0
+    residual_partial_taken: bool = False
+    residual_last_processed_session: date | None = None
+    residual_pending_action: str = "hold"
+    residual_pending_reason: str = ""
+    residual_pending_exit_fraction: float = 0.0
+    residual_qty_entry: int = 0
+    residual_entry_commission: float = 0.0
+    residual_exit_commission: float = 0.0
+    residual_realized_pnl_usd: float = 0.0
+    residual_entry_score: float = 0.0
+    residual_trade_id: str = ""
+    residual_protective_stop_client_order_id: str = ""
+    residual_protective_stop_price: float = 0.0
+    residual_protective_stop_qty: int = 0
+    residual_lane_id: str = ""
+    residual_model_contract_version: str = ""
+    residual_model_intercept: float = 0.0
+    residual_factor_names: tuple[str, ...] = ()
+    residual_factor_betas: tuple[float, ...] = ()
+    residual_peer_symbols: tuple[str, ...] = ()
+    residual_model_estimation_session: date | None = None
 
 
 @dataclass(slots=True)
@@ -214,6 +287,11 @@ class WatchlistItem:
     recommended_risk_r: float
     average_30m_volume: float = 0.0
     expected_5m_volume: float = 0.0
+    # Prior-session volume at each 5m bar index.  Intraday volume is U-shaped,
+    # so a single flat average makes every opening bar an extreme multiple and
+    # saturates any downstream ratio; this keeps RVOL discriminating all session.
+    expected_5m_profile: tuple[float, ...] = ()
+    information_state_available: bool = False
     entry_gap_pct: float = 0.0
     flow_proxy_gate_pass: bool = True   # True = flow positive (or unavailable), safe default
     overflow_rank: int | None = None
@@ -227,6 +305,42 @@ class WatchlistItem:
     cdd_value: int = 0                    # consecutive down days at selection time
     ema10_daily: float = 0.0              # latest daily EMA(10) for exit chain
     rsi14_daily: float = 0.0              # latest daily RSI(14) for exit chain
+    entry_rank: int = 0                   # optimized backtest candidate rank
+    entry_rank_pct: float = 100.0         # optimized backtest candidate rank percentile
+    entry_rsi: float = 50.0               # RSI used as the backtest ranking tie-breaker
+    previous_close: float = 0.0            # completed daily close used by the shared opening-gap gate
+    # Route-neutral reversion aperture.  These are all completed daily inputs;
+    # they let the live and replay intraday detectors evaluate the same broad
+    # candidate without borrowing the incumbent pullback score.
+    aperture_candidate: bool = False
+    aperture_context_score: float = 0.0
+    previous_high: float = 0.0
+    previous_low: float = 0.0
+    five_day_return: float = 0.0
+    sma20_slope_atr: float = 0.0
+    # Daily residual sleeve context.  All fields are frozen at the completed
+    # formation session and persisted through artifacts for live/replay parity.
+    sleeve_id: str = ""
+    residual_factor_model: str = ""
+    residual_formation_sessions: int = 0
+    residual_z: float = 0.0
+    residual_volatility: float = 0.0
+    residual_initial_dislocation_r: float = 0.0
+    residual_anchor_price: float = 0.0
+    residual_remaining_room_r: float = 0.0
+    residual_score_components: dict[str, float] = field(default_factory=dict)
+    residual_admission_score: float = 0.0
+    residual_ranking_score: float = 0.0
+    residual_failed_continuation_r: float = 0.0
+    residual_sector_return_5d: float = 0.0
+    residual_lane_id: str = ""
+    residual_model_contract_version: str = ""
+    residual_model_intercept: float = 0.0
+    residual_factor_names: tuple[str, ...] = ()
+    residual_factor_betas: tuple[float, ...] = ()
+    residual_peer_symbols: tuple[str, ...] = ()
+    residual_model_estimation_session: date | None = None
+    entry_clock: str = ""
 
 
 @dataclass(slots=True)
@@ -239,6 +353,9 @@ class WatchlistArtifact:
     overflow: list[WatchlistItem]
     market_wide_institutional_selling: bool = False
     held_positions: list[HeldPositionDirective] = field(default_factory=list)
+    strategy_mode: str = "legacy_pullback"
+    selection_contract_version: str = ""
+    strategy_parameters: dict[str, Any] = field(default_factory=dict)
 
     @property
     def by_symbol(self) -> dict[str, WatchlistItem]:
@@ -344,6 +461,17 @@ class PositionState:
     exit_commission: float = 0.0
     setup_tag: str = "UNCLASSIFIED"
     time_stop_deadline: datetime | None = None
+    # A partial exit is decided from a completed bar but its protective-stop
+    # change is not valid until the market exit actually fills.  Persist the
+    # requested post-fill stop so live restarts and backtest replay share the
+    # same two-stage transition.
+    pending_partial_stop: float = 0.0
+    pending_partial_stop_buffer: float = 0.0
+    opportunity_event_id: str = ""
+    reversion_anchor: float = 0.0
+    structural_stop_anchor: float = 0.0
+    initial_remaining_room_atr: float = 0.0
+    prospective_reward_risk: float = 0.0
 
     @property
     def total_initial_risk_usd(self) -> float:
@@ -495,13 +623,35 @@ class PBSymbolState:
     accepted_score: float = 0.0
     accepted_session_atr: float = 0.0
     accepted_score_components: dict[str, float] = field(default_factory=dict)
+    accepted_lane_id: str = ""
+    accepted_event_id: str = ""
+    accepted_reversion_anchor: float = 0.0
+    accepted_stop_anchor: float = 0.0
+    accepted_remaining_room_atr: float = 0.0
+    accepted_prospective_reward_risk: float = 0.0
+    entry_rank: int = 0
+    entry_rank_pct: float = 100.0
+    entry_rsi: float = 50.0
+    opportunity_family: str = ""
+    opportunity_signal_bar_idx: int = -1
+    opportunity_signal_close: float = 0.0
+    opportunity_event_id: str = ""
+    opportunity_reversion_anchor: float = 0.0
+    opportunity_stop_anchor: float = 0.0
+    opportunity_remaining_room_atr: float = 0.0
+    opportunity_prospective_reward_risk: float = 0.0
+    opportunity_consumed_families: list[str] = field(default_factory=list)
+    opportunity_audit_bar_idx: int = -1
+    opportunity_audit_events: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
 class IntradayStateSnapshot:
     trade_date: date
     saved_at: datetime
-    symbols: list[SymbolIntradayState]
+    # Legacy pullback states and typed residual states share the persistence
+    # envelope; adapters discriminate using ``meta.strategy_mode``.
+    symbols: list[Any]
     last_decision_code: str = ""
     meta: dict[str, Any] = field(default_factory=dict)
 

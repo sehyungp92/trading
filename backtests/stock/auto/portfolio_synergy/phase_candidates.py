@@ -62,6 +62,24 @@ BLOCKED_ALPHA_ROUND_TARGETS: dict[str, float] = {
 SEED_PORTFOLIO_CONFIG: dict[str, Any] = {
     "initial_equity": INITIAL_EQUITY,
     "risk_stance": RISK_STANCE,
+    "account_rules": {
+        "account_type": "reg_t_margin",
+        "enforce_shared_buying_power": True,
+        "allow_fractional_shares": False,
+        "oversize_action": "resize",
+        "max_gross_notional_pct": 1.75,
+        "max_net_notional_pct": 1.65,
+        "max_overnight_gross_notional_pct": 1.15,
+        "max_symbol_notional_pct": 0.20,
+        "max_position_notional_pct": 0.20,
+        "initial_margin_long_pct": 0.50,
+        "initial_margin_short_pct": 0.60,
+        "maintenance_margin_long_pct": 0.25,
+        "maintenance_margin_short_pct": 0.30,
+        "minimum_margin_buffer_pct": 0.10,
+        "annual_margin_interest_rate": 0.08,
+        "annual_cash_interest_rate": 0.00,
+    },
     "portfolio_rules": {
         "reference_risk_pct": 0.0060,
         "heat_cap_R": 6.00,
@@ -82,6 +100,7 @@ SEED_PORTFOLIO_CONFIG: dict[str, Any] = {
     "strategy_allocations": {
         "IARIC_V5R1": {
             "unit_risk_pct": 0.0080,
+            "max_position_notional_pct": 0.18,
             "max_heat_R": 4.60,
             "max_concurrent": 9,
             "daily_stop_R": 2.75,
@@ -90,6 +109,7 @@ SEED_PORTFOLIO_CONFIG: dict[str, Any] = {
         },
         "ALCB_R3": {
             "unit_risk_pct": 0.0065,
+            "max_position_notional_pct": 0.20,
             "max_heat_R": 3.25,
             "max_concurrent": 6,
             "daily_stop_R": 2.35,

@@ -70,7 +70,7 @@ def _alcb_artifact(trade_date: date) -> CandidateArtifact:
         tick_size=0.01,
         point_value=1.0,
         sector="Technology",
-        adv20_usd=25_000_000.0,
+        adv20_usd=2_500_000_000.0,
         median_spread_pct=0.001,
         selection_score=87,
         selection_detail={"compression": 40, "momentum": 47},
@@ -167,6 +167,9 @@ def _iaric_watchlist_artifact(trade_date: date) -> WatchlistArtifact:
         cdd_value=2,
         ema10_daily=405.5,
         rsi14_daily=63.0,
+        entry_rank=3,
+        entry_rank_pct=30.0,
+        entry_rsi=7.5,
     )
     held = HeldPositionDirective(
         symbol="MSFT",
@@ -209,6 +212,9 @@ def _iaric_intraday_snapshot(trade_date: date) -> IntradayStateSnapshot:
                 symbol="MSFT",
                 stage="IN_POSITION",
                 route_family="OPENING_RECLAIM",
+                entry_rank=3,
+                entry_rank_pct=30.0,
+                entry_rsi=7.5,
                 in_position=True,
                 position=PositionState(
                     entry_price=408.5,
@@ -357,6 +363,8 @@ def test_iaric_watchlist_artifact_roundtrip_preserves_directive_fields(tmp_path)
     assert restored.items[0].trigger_types == ["OPENING_RECLAIM", "VWAP_BOUNCE"]
     assert restored.items[0].sizing_mult == pytest.approx(1.15)
     assert restored.items[0].entry_gap_pct == pytest.approx(0.4)
+    assert restored.items[0].entry_rank_pct == pytest.approx(30.0)
+    assert restored.items[0].entry_rsi == pytest.approx(7.5)
     assert restored.held_positions[0].setup_tag == "PB_CARRY"
     assert restored.held_positions[0].time_stop_deadline == datetime(2026, 4, 25, 18, 0, tzinfo=UTC)
 
@@ -375,3 +383,5 @@ def test_iaric_intraday_state_roundtrip_preserves_route_and_partial_fields(tmp_p
         assert item.symbols[0].route_family == "OPENING_RECLAIM"
         assert item.symbols[0].v2_partial_taken is True
         assert item.symbols[0].carry_decision_path == "STRONG_TREND_CARRY"
+        assert item.symbols[0].entry_rank_pct == pytest.approx(30.0)
+        assert item.symbols[0].entry_rsi == pytest.approx(7.5)

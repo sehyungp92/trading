@@ -29,7 +29,7 @@ from strategies.momentum.nq_regime.engine import NQRegimeEngine
 from strategies.momentum.nq_regime.modules import second_wind as second_wind_module
 from strategies.momentum.nq_regime.modules.base import SetupCandidate
 from strategies.momentum.nq_regime.modules.structural_expansion import evaluate as evaluate_structural
-from strategies.scalp._shared.time_utils import session_date
+from strategies.momentum.nq_regime.time_utils import session_date
 
 ET = ZoneInfo("America/New_York")
 

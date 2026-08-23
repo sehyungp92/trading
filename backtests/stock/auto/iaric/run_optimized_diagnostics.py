@@ -4,6 +4,7 @@ Usage::
 
     python -m backtests.stock.auto.iaric.run_optimized_diagnostics
     python -m backtests.stock.auto.iaric.run_optimized_diagnostics --phase-state path/to/phase_state.json
+    python -m backtests.stock.auto.iaric.run_optimized_diagnostics --allow-legacy-data
 """
 from __future__ import annotations
 
@@ -23,7 +24,7 @@ from backtests.stock.auto.iaric.plugin import IARICPullbackPlugin
 
 
 DATA_DIR = Path("backtests/stock/data/raw")
-START_DATE = "2024-01-01"
+START_DATE = "2024-03-25"
 END_DATE = "2026-03-01"
 INITIAL_EQUITY = 10_000.0
 ROUND_MANAGER = RoundManager("stock", "iaric")
@@ -90,6 +91,11 @@ def main() -> None:
     parser.add_argument("--equity", type=float, default=INITIAL_EQUITY)
     parser.add_argument("--title", default="IARIC PULLBACK OPTIMIZED DIAGNOSTICS")
     parser.add_argument("--summary-json", default="", help="Optional summary JSON output path.")
+    parser.add_argument(
+        "--allow-legacy-data",
+        action="store_true",
+        help="Allow the legacy filename cache for provisional diagnostic-only replay.",
+    )
     args = parser.parse_args()
 
     round_num, round_dir = ROUND_MANAGER.resolve_round(args.round, for_write=False)
@@ -122,6 +128,8 @@ def main() -> None:
     print(f"Loaded {len(mutations)} mutations from {phase_state_path}")
     print(f"Date range: {args.start} -- {args.end}")
     print(f"Initial equity: ${args.equity:,.0f}")
+    data_authority = "legacy_diagnostic_only" if args.allow_legacy_data else "frozen_bundle"
+    print(f"Data authority: {data_authority}")
     print()
 
     # Build config with mutations applied
@@ -134,7 +142,7 @@ def main() -> None:
         max_workers=1,
     )
     provenance = provenance_plugin.build_provenance()
-    replay = ResearchReplayEngine(data_dir=data_dir)
+    replay = ResearchReplayEngine(data_dir=data_dir, require_bundle=not args.allow_legacy_data)
     print("Loading bar data...")
     replay.load_all_data()
 
@@ -184,6 +192,7 @@ def main() -> None:
         f"  Mutation count:  {len(mutations)}",
         f"  Date range:      {args.start} -- {args.end}",
         f"  Initial equity:  ${args.equity:,.0f}",
+        f"  Data authority:  {data_authority}",
     ]
     if mutations:
         header_lines.append("  Mutations:")
@@ -212,6 +221,12 @@ def main() -> None:
         "phase_result": args.phase_result or "current",
         "mutation_kind": args.mutation_kind,
         "date_range": {"start": args.start, "end": args.end},
+        "data_authority": data_authority,
+        "status": (
+            "provisional_legacy_data_revalidation_required"
+            if args.allow_legacy_data
+            else "authoritative_frozen_bundle"
+        ),
         "initial_equity": args.equity,
         "mutation_count": len(mutations),
         "mutations": mutations,
@@ -226,8 +241,24 @@ def main() -> None:
         shutil.copy2(phase_state_path, ROUND_MANAGER.phase_state_path(round_dir))
 
     completed_phases = [int(phase) for phase in phase_state.get("completed_phases", [])]
-    metrics_payload = dict(trade_stats)
+    metrics_payload = {
+        **trade_stats,
+        "total_trades": trade_stats.get("n"),
+        "win_rate": trade_stats.get("wr"),
+        "profit_factor": trade_stats.get("pf"),
+        "net_profit": trade_stats.get("pnl"),
+        "expected_total_r": trade_stats.get("total_r"),
+        "net_return_pct": (
+            float(trade_stats.get("pnl", 0.0)) / float(args.equity)
+            if args.equity
+            else None
+        ),
+    }
     metrics_payload.update({key: value for key, value in ((reference or {}).get("metrics") or {}).items() if value is not None})
+    max_drawdown = metrics_payload.get("max_drawdown_pct")
+    net_return = metrics_payload.get("net_return_pct")
+    if max_drawdown not in (None, 0) and net_return is not None:
+        metrics_payload["calmar_ratio"] = float(net_return) / float(max_drawdown)
     ROUND_MANAGER.write_run_spec(
         round_dir,
         round_num,
@@ -237,8 +268,14 @@ def main() -> None:
             ROUND_MANAGER.get_previous_mutations(round_num, current_provenance=provenance)
             if round_num > 1 else {}
         ),
+        execution_context={
+            "data_authority": data_authority,
+            "training_window": {"start": args.start, "end": args.end},
+            "sealed_holdout_start": "2026-03-02",
+        },
         provenance=provenance,
         provenance_status="complete",
+        overwrite=True,
     )
     ROUND_MANAGER.write_run_summary(
         round_dir,
@@ -258,6 +295,27 @@ def main() -> None:
         metrics_payload,
         provenance=provenance,
         provenance_status="complete",
+        round_metadata={
+            "data_authority": data_authority,
+            "validation_status": (
+                "provisional_legacy_data_revalidation_required"
+                if args.allow_legacy_data
+                else "authoritative_frozen_bundle"
+            ),
+            "training_window": {"start": args.start, "end": args.end},
+            "sealed_holdout": {"start": "2026-03-02", "used": False},
+            "baseline_score": (reference or {}).get("score"),
+            "score_component_count": 7,
+            "score_components": [
+                "net_profit",
+                "expected_total_r",
+                "avg_r",
+                "profit_factor",
+                "sharpe",
+                "inv_dd",
+                "total_trades",
+            ],
+        },
     )
     print(f"Summary saved to {round_summary_path}")
 

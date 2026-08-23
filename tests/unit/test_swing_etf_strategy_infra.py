@@ -124,6 +124,25 @@ def test_tpc_overrides_apply_warmup_and_symbol_fields_together() -> None:
     assert cfg.symbol_configs["GLD"].max_extension_atr_mult == 1.85
 
 
+def test_tpc_etf_context_overrides_and_legacy_aliases_are_migration_safe() -> None:
+    current = TPCBacktestConfig().with_overrides({
+        "QQQ.etf_context_enabled": False,
+        "QQQ.etf_context_min_score": 0.10,
+    })
+    archived = TPCBacktestConfig().with_overrides({
+        "QQQ.asset_context_enabled": False,
+        "QQQ.asset_context_min_score": 0.10,
+        "QQQ.asset_context_block_opposed_daily": True,
+        "QQQ.asset_context_symbol": "NQ",
+    })
+
+    assert current.symbol_configs["QQQ"].etf_context_enabled is False
+    assert current.symbol_configs["QQQ"].etf_context_min_score == 0.10
+    assert archived.symbol_configs["QQQ"].etf_context_enabled is False
+    assert archived.symbol_configs["QQQ"].etf_context_min_score == 0.10
+    assert not hasattr(archived.symbol_configs["QQQ"], "asset_context_symbol")
+
+
 def test_tpc_second_entry_fields_are_overridable() -> None:
     cfg = TPCBacktestConfig().with_overrides({
         "all.type_c_mode": "real_reentry",

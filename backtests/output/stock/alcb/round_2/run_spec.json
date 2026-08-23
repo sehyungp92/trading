@@ -4,70 +4,94 @@
   "strategy_name": "alcb",
   "round": 2,
   "description": "alcb",
-  "generated_at_utc": "2026-05-23T21:46:42.923856+00:00",
+  "generated_at_utc": "2026-08-16T10:37:49.110641+00:00",
   "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_1\\optimized_config.json",
-  "baseline_mutation_count": 35,
+  "baseline_mutation_count": 50,
   "baseline_mutations": {
     "ablation.use_adaptive_trail": true,
     "ablation.use_combined_quality_gate": true,
+    "ablation.use_daily_stop": true,
     "ablation.use_mfe_conviction_exit": true,
     "ablation.use_or_width_min": true,
+    "ablation.use_orb_entry_range_gate": true,
     "ablation.use_partial_takes": false,
-    "param_overrides.adaptive_trail_late_activate_r": 0.25,
-    "param_overrides.adaptive_trail_late_distance_r": 0.2,
+    "intraday_session_policy": "us_equity_rth_0930_exchange_close_v1",
+    "param_overrides.adaptive_trail_late_activate_r": 0.22,
+    "param_overrides.adaptive_trail_late_distance_r": 0.04,
     "param_overrides.adaptive_trail_start_bars": 25,
     "param_overrides.adaptive_trail_tighten_bars": 25,
+    "param_overrides.base_risk_fraction": 0.00702,
     "param_overrides.block_combined_regime_b": true,
+    "param_overrides.breakout_distance_cap_r": 1.0,
     "param_overrides.carry_min_cpr": 0.6,
     "param_overrides.carry_min_r": 0.5,
-    "param_overrides.combined_avwap_cap_pct": 0.003,
+    "param_overrides.combined_avwap_cap_pct": 0.0,
     "param_overrides.combined_breakout_min_rvol": 2.5,
     "param_overrides.combined_breakout_score_min": 5,
+    "param_overrides.daily_stop_r": 2.35,
+    "param_overrides.entry_detail_size_mults": {
+      "OR_BREAKOUT:5:!bar_vol_surge": 0.55
+    },
+    "param_overrides.entry_score_blocklist": [
+      "COMBINED_BREAKOUT:5"
+    ],
+    "param_overrides.entry_score_size_mults": {
+      "COMBINED_BREAKOUT:7": 1.15,
+      "OR_BREAKOUT:5": 0.75,
+      "PDH_BREAKOUT:6": 0.5
+    },
     "param_overrides.entry_window_end": "12:30:00",
-    "param_overrides.flow_reversal_min_hold_bars": 12,
+    "param_overrides.failure_stop_bars": 10,
+    "param_overrides.failure_stop_current_r_max": 0.0,
+    "param_overrides.failure_stop_mfe_max_r": 0.2,
+    "param_overrides.failure_stop_to_r": -0.25,
+    "param_overrides.flow_reversal_min_hold_bars": 8,
     "param_overrides.fr_cpr_threshold": 0.3,
     "param_overrides.fr_mfe_grace_r": 0.2,
     "param_overrides.fr_trailing_activate_r": 0.0,
+    "param_overrides.heat_cap_r": 4.0,
+    "param_overrides.max_positions": 6,
     "param_overrides.mfe_conviction_check_bars": 16,
     "param_overrides.mfe_conviction_floor_r": -0.15,
     "param_overrides.mfe_conviction_min_r": 0.2,
-    "param_overrides.opening_range_bars": 6,
+    "param_overrides.opening_range_bars": 9,
     "param_overrides.or_width_min_pct": 0.0015,
-    "param_overrides.pdh_avwap_cap_pct": 0.005,
+    "param_overrides.orb_entry_range_cap_r": 1.25,
+    "param_overrides.pdh_avwap_cap_pct": 0.0,
     "param_overrides.pdh_size_mult": 0.75,
+    "param_overrides.portfolio_daily_stop_r": 3.5,
+    "param_overrides.qe_stage1_bars": 10,
     "param_overrides.regime_mult_b": 0.7,
-    "param_overrides.rvol_threshold": 2.0,
-    "param_overrides.entry_detail_size_mults": {
-      "OR_BREAKOUT:5:!bar_vol_surge": 0.65,
-      "*:5:!adx_trending": 0.85
-    },
-    "param_overrides.entry_score_size_mults": {
-      "OR_BREAKOUT:5": 0.7,
-      "COMBINED_BREAKOUT:7": 1.15,
-      "PDH_BREAKOUT:6": 0.65
-    },
-    "param_overrides.failure_stop_bars": 10,
-    "param_overrides.failure_stop_mfe_max_r": 0.2,
-    "param_overrides.failure_stop_current_r_max": 0.0,
-    "param_overrides.failure_stop_to_r": -0.25
+    "param_overrides.rvol_threshold": 1.5,
+    "param_overrides.sector_mult_financials": 0.65,
+    "param_overrides.selection_long_count": 30,
+    "param_overrides.stop_atr_multiple": 0.8
   },
-  "scoring_weights": {},
+  "scoring_weights": {
+    "expected_total_r": 0.25,
+    "trades_per_month": 0.18,
+    "net_profit": 0.16,
+    "expectancy": 0.13,
+    "profit_factor": 0.11,
+    "max_drawdown_pct": 0.11,
+    "sharpe": 0.06
+  },
   "execution_context": {
-    "data_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\stock\\data\\raw",
+    "data_dir": "backtests\\stock\\data\\raw",
     "initial_equity": 10000.0,
-    "start_date": "2024-01-01",
+    "start_date": "2024-03-25",
     "end_date": "2026-03-01",
-    "max_workers": 1
+    "max_workers": 2
   },
   "provenance": {
     "schema_version": 1,
-    "selection_fingerprint": "039ca8aae69a9d9214c252642ebb4cedb65ac14667d21f40de0ba85ab3c0e8ec",
-    "diagnostics_fingerprint": "039ca8aae69a9d9214c252642ebb4cedb65ac14667d21f40de0ba85ab3c0e8ec",
+    "selection_fingerprint": "987a9f2b5a3705f31ff1e9160c5af156a72b00298f509a1567df63d546187d33",
+    "diagnostics_fingerprint": "987a9f2b5a3705f31ff1e9160c5af156a72b00298f509a1567df63d546187d33",
     "items": [
       {
         "name": "data_dir",
         "kind": "tree_contents",
-        "fingerprint": "3e7834170767b1c4a57550d5241863253af0fde2317d2a6893e3735dda63779c",
+        "fingerprint": "a21bdf0a056398a873e4f921bb8ed6c6fa43ab66a5435969622aa8e2d2b0d97b",
         "paths": [
           "backtests/stock/data/raw"
         ],
@@ -87,7 +111,7 @@
       {
         "name": "code:backtests/stock/config_alcb.py",
         "kind": "file_contents",
-        "fingerprint": "7c183316397cc568f7b737832bdeff2c5426d26743cce93d410755fbf5c29a92",
+        "fingerprint": "1ab3cc187ee18488909bec59a60085ab50efbc5592dfe0b157f43470d75b20b1",
         "paths": [
           "backtests/stock/config_alcb.py"
         ],
@@ -97,7 +121,7 @@
       {
         "name": "code:backtests/stock/data/replay_cache.py",
         "kind": "file_contents",
-        "fingerprint": "a22a7f855ed5f31aa4447f2a54c1599f21dd0c35c3608a80316bc680bd304cdd",
+        "fingerprint": "77976ba9326e27ad3dba03309865cacaed1f64179e03cc7e2e158b3d4e726f36",
         "paths": [
           "backtests/stock/data/replay_cache.py"
         ],
@@ -107,7 +131,7 @@
       {
         "name": "code:backtests/stock/engine/alcb_engine.py",
         "kind": "file_contents",
-        "fingerprint": "0027f3f47ab7a2fafe0512c312fae0a7bee2932c62f19f876ffca830f7786268",
+        "fingerprint": "beb21e9c6215a56848ee734a6e49d82cca6c4d089eeb2d33f8b495114c2f8aba",
         "paths": [
           "backtests/stock/engine/alcb_engine.py"
         ],
@@ -127,7 +151,7 @@
       {
         "name": "code:strategies/stock/alcb/core/logic.py",
         "kind": "file_contents",
-        "fingerprint": "17ed09f67c2baf96931d2d91c6a071e9cb061612833f323d230952d07e5a5dc3",
+        "fingerprint": "1e380c74c66f34d247fe0dcf24829e96ec748951ec12b0d8979cfdd976bdad48",
         "paths": [
           "strategies/stock/alcb/core/logic.py"
         ],
@@ -145,7 +169,7 @@
       {
         "name": "selection_context",
         "kind": "stable_json",
-        "fingerprint": "1bd06866fefdad72a3947437eedc03ab8ca90776e40e0249399150fd2897cff8",
+        "fingerprint": "6c3bbdf4ff2b003ec5d3246545bcf555d80745a4b1ed7a2b5673efe948bf81f3",
         "paths": [],
         "scope": "selection",
         "notes": ""
@@ -153,7 +177,7 @@
       {
         "name": "code_tree:backtests/stock/auto/alcb",
         "kind": "tree_contents",
-        "fingerprint": "205bef7d54a504b931e29f9ea60a208644a06ee1d500cc25f91af4a388c0469b",
+        "fingerprint": "3d374c9340ba737cdf2e76b93407bde141d9ad9335a6296a90526d83885cd65a",
         "paths": [
           "backtests/stock/auto/alcb"
         ],
@@ -163,7 +187,7 @@
       {
         "name": "code_tree:strategies/stock/alcb",
         "kind": "tree_contents",
-        "fingerprint": "d71d20ae54d843bbe48ef63086ada1df9dc7ddb34bb037a4c549daac22157889",
+        "fingerprint": "6463109361a45d748fcee0329da33f8cd98722701564d2010802ae9b57053163",
         "paths": [
           "strategies/stock/alcb"
         ],
@@ -173,7 +197,7 @@
       {
         "name": "shared_auto_package",
         "kind": "tree_contents",
-        "fingerprint": "b58cff0ef3381b09a3e6abcacca3dbbcc093afc7c8583a6e34c39a8886dd6f3c",
+        "fingerprint": "da7af7c3ddd9e100d11693718d2d44e800a9423e0ca9f6653a2345bec60c22f1",
         "paths": [
           "backtests/shared/auto"
         ],
@@ -182,5 +206,5 @@
       }
     ]
   },
-  "provenance_status": "complete"
+  "provenance_status": "selection_drift_accepted"
 }

@@ -75,6 +75,10 @@ class PortfolioPosition:
     entry_price: float = 0.0
     exit_price: float = 0.0
     quantity: float = 0.0
+    entry_notional: float = 0.0
+    current_mark: float = 0.0
+    mark_price_scale: float = 1.0
+    last_mark_time: datetime | None = None
     price_scale: float = 0.0
     commission: float = 0.0
     exit_reason: str = ""
@@ -92,7 +96,10 @@ class ReplayCandidate:
     heat_r: float
     quality: float
     size_mult: float
+    requested_quantity: int = 0
+    requested_notional: float = 0.0
     portfolio_size_mult: float = 1.0
+    capacity_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -105,6 +112,8 @@ class BlockedCandidate:
     reason: str
     quality: float
     heat_r: float
+    requested_quantity: int = 0
+    requested_notional: float = 0.0
 
 
 @dataclass
@@ -112,27 +121,58 @@ class PortfolioCoreState:
     equity: float
     peak_equity: float
     reference_risk_pct: float
+    cash: float = 0.0
+    net_liquidation_value: float = 0.0
+    peak_net_liquidation_value: float = 0.0
     active_positions: list[PortfolioPosition] = field(default_factory=list)
     accepted_positions: list[PortfolioPosition] = field(default_factory=list)
     blocked_candidates: list[BlockedCandidate] = field(default_factory=list)
     equity_points: list[float] = field(default_factory=list)
     equity_times: list[datetime] = field(default_factory=list)
+    nlv_points: list[float] = field(default_factory=list)
+    nlv_times: list[datetime] = field(default_factory=list)
     daily_realized_r: dict[str, float] = field(default_factory=dict)
     weekly_realized_r: dict[str, float] = field(default_factory=dict)
+    strategy_daily_realized_r: dict[str, float] = field(default_factory=dict)
     strategy_recent: dict[str, deque[float]] = field(default_factory=dict)
     risk_by_strategy: dict[str, float] = field(default_factory=dict)
     candidate_count: int = 0
     decision_seq: int = 0
+    last_account_time: datetime | None = None
+    financing_cost: float = 0.0
+    gross_notional_peak: float = 0.0
+    gross_leverage_peak: float = 0.0
+    net_notional_peak_abs: float = 0.0
+    net_leverage_peak_abs: float = 0.0
+    overnight_gross_leverage_peak: float = 0.0
+    initial_margin_peak: float = 0.0
+    maintenance_margin_peak: float = 0.0
+    minimum_margin_buffer_pct: float = 1.0
+    margin_breach_count: int = 0
+    in_margin_breach: bool = False
+    mark_observation_count: int = 0
+    missing_mark_count: int = 0
 
     @classmethod
-    def initial(cls, *, initial_equity: float, reference_risk_pct: float, lookback_trades: int) -> "PortfolioCoreState":
+    def initial(
+        cls,
+        *,
+        initial_equity: float,
+        reference_risk_pct: float,
+        lookback_trades: int,
+        strategy_ids: tuple[str, ...] = STRATEGY_ORDER,
+    ) -> "PortfolioCoreState":
         return cls(
             equity=float(initial_equity),
             peak_equity=float(initial_equity),
             reference_risk_pct=float(reference_risk_pct),
+            cash=float(initial_equity),
+            net_liquidation_value=float(initial_equity),
+            peak_net_liquidation_value=float(initial_equity),
             equity_points=[float(initial_equity)],
-            strategy_recent={strategy: deque(maxlen=int(lookback_trades)) for strategy in STRATEGY_ORDER},
-            risk_by_strategy={strategy: 0.0 for strategy in STRATEGY_ORDER},
+            nlv_points=[float(initial_equity)],
+            strategy_recent={strategy: deque(maxlen=int(lookback_trades)) for strategy in strategy_ids},
+            risk_by_strategy={strategy: 0.0 for strategy in strategy_ids},
         )
 
 

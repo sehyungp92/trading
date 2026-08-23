@@ -174,6 +174,39 @@ def test_manifest_entries_persist_provenance_fields(tmp_path) -> None:
     assert entry["provenance_status"] == "complete"
 
 
+def test_manifest_entries_persist_noncanonical_round_metadata(tmp_path) -> None:
+    manager = RoundManager("stock", "sample", base_dir=tmp_path / "output")
+
+    manager.append_to_manifest(
+        1,
+        {"flags.enabled": True},
+        {"total_trades": 8},
+        round_metadata={
+            "data_authority": "legacy_diagnostic_only",
+            "sealed_holdout": {"start": "2026-03-02", "used": False},
+        },
+    )
+
+    entry = manager.load_manifest()["rounds"][0]
+    assert entry["data_authority"] == "legacy_diagnostic_only"
+    assert entry["sealed_holdout"] == {"start": "2026-03-02", "used": False}
+
+
+def test_manifest_round_metadata_cannot_override_canonical_fields(tmp_path) -> None:
+    manager = RoundManager("stock", "sample", base_dir=tmp_path / "output")
+
+    try:
+        manager.append_to_manifest(
+            1,
+            {"flags.enabled": True},
+            {"total_trades": 8},
+            round_metadata={"total_trades": 999},
+        )
+        assert False, "Expected canonical manifest field override to be rejected."
+    except ValueError as exc:
+        assert "canonical manifest field" in str(exc)
+
+
 def test_validate_previous_round_provenance_rejects_selection_drift(tmp_path) -> None:
     manager = RoundManager("momentum", "sample", base_dir=tmp_path / "output")
     round_dir = manager.get_round_dir(1)

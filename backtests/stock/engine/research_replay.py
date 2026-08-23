@@ -26,10 +26,26 @@ from backtests.shared.auto.cache_keys import fingerprint_paths, stable_signature
 from backtests.stock.config import UniverseConfig
 from backtests.stock.data.cache import bar_path, load_bars
 from backtests.stock.data.bundle import FrozenBundleResolver
-from backtests.stock.data.calendar import EXCHANGE_TIMEZONE, RTH_SESSION_POLICY
+from backtests.stock.data.calendar import (
+    EXCHANGE_TIMEZONE,
+    RTH_SESSION_POLICY,
+    bar_open_in_session,
+)
 from backtests.stock.data.downloader import REFERENCE_SYMBOLS, SECTOR_ETFS
+from backtests.stock.data.price_basis import align_intraday_to_daily_price_basis
 
 from strategies.stock.alcb.universe_constituents import KNOWN_ETFS, SP500_CONSTITUENTS
+
+# ---------------------------------------------------------------------------
+# IBKR share-volume units.  Left uncorrected, the $20M ADV pre-filter behaved as
+# a $2bn filter and silently reduced the tradable universe from 98 S&P names to
+# ~16 megacaps every session -- upstream of all strategy logic.  The shared
+# module documents the unit convention and the verification evidence.
+from strategies.stock.volume_units import (  # noqa: E402
+    IBKR_SHARE_VOLUME_MULTIPLIER,
+    dollar_volume,
+)
+
 from strategies.stock.live_universe import BACKTESTED_INTRADAY_STOCK_SYMBOLS
 
 # Strategy model imports — both ALCB and IARIC define identical
@@ -40,6 +56,8 @@ import strategies.stock.alcb.research as alcb_research
 import strategies.stock.iaric.models as iaric_models
 import strategies.stock.iaric.config as iaric_config
 import strategies.stock.iaric.research as iaric_research
+from strategies.stock.iaric.bar_policy import completed_rth_5m_bars
+from strategies.stock.iaric.core.opportunity import prior_session_volume_expectations
 
 logger = logging.getLogger(__name__)
 
@@ -316,6 +334,8 @@ class ResearchReplayEngine:
         alcb_snap = engine.build_alcb_snapshot(trading_date)
     """
 
+    supports_alcb_session_policy = True
+
     def __init__(
         self,
         data_dir: str | Path = "backtests/stock/data/raw",
@@ -398,14 +418,16 @@ class ResearchReplayEngine:
         #   research across candidates that share the same universe filter.
         # Tier 2 (selection): keyed on (date, as_of, full_settings_sig) — applies
         #   scoring/containment/quality gates on top of the cached snapshot.
-        self._alcb_snapshot_cache: dict[tuple[date, date, float, float], alcb_models.ResearchSnapshot] = {}
-        self._alcb_selection_cache: dict[tuple[date, date, str], alcb_models.CandidateArtifact] = {}
+        self._alcb_snapshot_cache: dict[tuple[date, date, float, float, str], alcb_models.ResearchSnapshot] = {}
+        self._alcb_selection_cache: dict[tuple[date, date, str, str], alcb_models.CandidateArtifact] = {}
         # Two-tier IARIC cache (mirrors ALCB pattern above):
         # Tier 1 (snapshot): keyed on (date, min_price, min_adv) — only params
         #   that affect build_iaric_snapshot.
         # Tier 2 (selection): keyed on (date, full_settings_sig) — applies
         #   scoring/filtering gates on top of the cached snapshot.
-        self._iaric_snapshot_cache: dict[tuple[date, float, float], iaric_models.ResearchSnapshot] = {}
+        self._iaric_snapshot_cache: dict[
+            tuple[date, date, float, float], iaric_models.ResearchSnapshot
+        ] = {}
         self._iaric_selection_cache: dict[tuple[date, str], iaric_models.WatchlistArtifact] = {}
 
         # Sector return cache: (sector, date, lookback) → float
@@ -439,11 +461,14 @@ class ResearchReplayEngine:
         self._iaric_daily_bars: dict[str, list[iaric_models.ResearchDailyBar]] = {}
         self._30m_bars: dict[str, list[alcb_models.Bar]] = {}
         self._30m_bar_dates: dict[str, list[date]] = {}  # per-bar dates for bisect
+        self._30m_rth_bars: dict[str, list[alcb_models.Bar]] = {}
+        self._30m_rth_bar_dates: dict[str, list[date]] = {}
         self._5m_arrays: dict[str, dict[str, np.ndarray]] = {}  # per-symbol numpy arrays for on-demand bar creation
         self._5m_paths: dict[str, Path] = {}  # deferred 5m parquet paths for lazy loading
 
         self._trading_dates: list[date] = []
         self._data_fingerprint: str | None = None
+        self._price_basis_adjustments: dict[str, dict[str, dict[str, float]]] = {}
 
     # ------------------------------------------------------------------
     # Data loading
@@ -452,6 +477,7 @@ class ResearchReplayEngine:
     def load_all_data(self) -> None:
         """Load all parquet files into memory and pre-compute indices."""
         self._data_fingerprint = None
+        self._price_basis_adjustments = {}
         all_symbols = [sym for sym, _, _ in self._universe]
         ref_symbols = list(REFERENCE_SYMBOLS)
 
@@ -494,6 +520,13 @@ class ResearchReplayEngine:
             path_30m = self._bar_path(sym, "30m")
             if path_30m.exists():
                 df = load_bars(path_30m)
+                daily = self._daily_cache.get(sym)
+                if daily is not None:
+                    df, factors = align_intraday_to_daily_price_basis(df, daily)
+                    if factors:
+                        self._price_basis_adjustments.setdefault(sym, {})["30m"] = {
+                            day.isoformat(): factor for day, factor in sorted(factors.items())
+                        }
                 self._intraday_30m_cache[sym] = df
                 self._30m_didx[sym] = _build_date_index(df)
             path_5m = self._bar_path(sym, "5m")
@@ -586,6 +619,13 @@ class ResearchReplayEngine:
                 bar_dates[i] = timestamps[i].date()
             self._30m_bars[sym] = bars
             self._30m_bar_dates[sym] = bar_dates
+            rth_pairs = [
+                (bar, bar_date)
+                for bar, bar_date in zip(bars, bar_dates)
+                if bar_open_in_session(bar.start_time, RTH_SESSION_POLICY)
+            ]
+            self._30m_rth_bars[sym] = [pair[0] for pair in rth_pairs]
+            self._30m_rth_bar_dates[sym] = [pair[1] for pair in rth_pairs]
 
         # 5m bars -- on-demand per-date creation from cached numpy arrays
         # See _ensure_5m_arrays() and get_5m_bar_objects_for_date()
@@ -603,6 +643,17 @@ class ResearchReplayEngine:
     @property
     def trading_dates(self) -> list[date]:
         return self._trading_dates
+
+    @property
+    def price_basis_adjustments(self) -> dict[str, dict[str, dict[str, float]]]:
+        """Audit copy of causal split-basis corrections applied by timeframe."""
+        return {
+            symbol: {
+                timeframe: dict(factors)
+                for timeframe, factors in timeframes.items()
+            }
+            for symbol, timeframes in self._price_basis_adjustments.items()
+        }
 
     def data_fingerprint(self) -> str:
         if self._bundle_resolver is not None:
@@ -690,12 +741,25 @@ class ResearchReplayEngine:
         self._market_research_cache.clear()
         self._sector_research_cache.clear()
 
-    def _slice_30m_bars(self, sym: str, trade_date: date, lookback_days: int = 90) -> list[alcb_models.Bar]:
+    def _slice_30m_bars(
+        self,
+        sym: str,
+        trade_date: date,
+        lookback_days: int = 90,
+        *,
+        session_policy: str | None = None,
+    ) -> list[alcb_models.Bar]:
         """Fast slice of pre-built 30m bar list using binary search."""
-        bars = self._30m_bars.get(sym)
+        if session_policy == RTH_SESSION_POLICY:
+            bars = self._30m_rth_bars.get(sym)
+            bar_dates = self._30m_rth_bar_dates.get(sym)
+        else:
+            bars = self._30m_bars.get(sym)
+            bar_dates = self._30m_bar_dates.get(sym)
         if not bars:
             return []
-        bar_dates = self._30m_bar_dates[sym]
+        if not bar_dates:
+            return []
         end_idx = bisect.bisect_right(bar_dates, trade_date)
         if end_idx == 0:
             return []
@@ -894,7 +958,11 @@ class ResearchReplayEngine:
     # ------------------------------------------------------------------
 
     def _build_alcb_research_symbol(
-        self, sym: str, as_of_date: date,
+        self,
+        sym: str,
+        as_of_date: date,
+        *,
+        session_policy: str = RTH_SESSION_POLICY,
     ) -> alcb_models.ResearchSymbol | None:
         """Build an ALCB ResearchSymbol for one stock as of a causal date."""
         didx = self._daily_didx.get(sym)
@@ -916,9 +984,9 @@ class ResearchReplayEngine:
 
         # ADV20 (in USD)
         if len(closes) >= 20:
-            adv20_usd = float(np.mean(closes[-20:] * volumes[-20:]))
+            adv20_usd = float(np.mean(dollar_volume(closes[-20:], volumes[-20:])))
         else:
-            adv20_usd = float(np.mean(closes * volumes))
+            adv20_usd = float(np.mean(dollar_volume(closes, volumes)))
 
         # Flow proxy history (last 40 bars) — vectorized
         flow_arr = self._daily_flow[sym]
@@ -931,7 +999,11 @@ class ResearchReplayEngine:
         sector_return_60d = self._compute_sector_return(sector, as_of_date, 60)
 
         # 30m bar data (for Tier 2 / qualify_breakout) — pre-built, fast slice
-        bars_30m = self._slice_30m_bars(sym, as_of_date)
+        bars_30m = self._slice_30m_bars(
+            sym,
+            as_of_date,
+            session_policy=session_policy,
+        )
 
         # Average 30m volume
         avg_30m_vol = 0.0
@@ -1008,9 +1080,9 @@ class ResearchReplayEngine:
         price = float(closes[-1])
 
         if len(closes) >= 20:
-            adv20_usd = float(np.mean(closes[-20:] * volumes[-20:]))
+            adv20_usd = float(np.mean(dollar_volume(closes[-20:], volumes[-20:])))
         else:
-            adv20_usd = float(np.mean(closes * volumes))
+            adv20_usd = float(np.mean(dollar_volume(closes, volumes)))
 
         # Flow proxy history (vectorized)
         flow_arr = self._daily_flow[sym]
@@ -1041,6 +1113,14 @@ class ResearchReplayEngine:
             if end_30m >= 0:
                 avg_30m_vol = float(arrs_30m["volume"].values[:end_30m + 1].mean())
 
+        prior_session_bars = completed_rth_5m_bars(
+            self.get_5m_bar_objects_for_date(sym, trade_date)
+        )
+        expected_5m_volume, expected_5m_profile = prior_session_volume_expectations(
+            prior_session_bars,
+            fallback_daily_volume=float(volumes[-1]) if len(volumes) else 0.0,
+        )
+
         cfg = self._universe_config
         return iaric_models.ResearchSymbol(
             symbol=sym,
@@ -1068,7 +1148,8 @@ class ResearchReplayEngine:
             sector_return_60d=sector_return_60d,
             intraday_atr_seed=intraday_atr_seed,
             average_30m_volume=avg_30m_vol,
-            expected_5m_volume=avg_30m_vol / 6.0 if avg_30m_vol > 0 else 0.0,
+            expected_5m_volume=expected_5m_volume,
+            expected_5m_profile=expected_5m_profile,
         )
 
     # ------------------------------------------------------------------
@@ -1098,7 +1179,7 @@ class ResearchReplayEngine:
         if min_adv_usd is not None:
             c = arrs["close"][end - 19:end + 1]
             v = arrs["volume"][end - 19:end + 1]
-            if float(np.dot(c, v)) / 20 < min_adv_usd:
+            if float(np.sum(dollar_volume(c, v))) / 20 < min_adv_usd:
                 return True
         return False
 
@@ -1109,6 +1190,7 @@ class ResearchReplayEngine:
         min_price: float | None = None,
         min_adv_usd: float | None = None,
         as_of_date: date | None = None,
+        session_policy: str = RTH_SESSION_POLICY,
     ) -> alcb_models.ResearchSnapshot:
         """Build a complete ALCB ResearchSnapshot for *trade_date*.
 
@@ -1125,7 +1207,11 @@ class ResearchReplayEngine:
         for sym, _, _ in self._universe:
             if use_filter and self._skip_symbol_prefilter(sym, effective_date, min_price, min_adv_usd):
                 continue
-            rs = self._build_alcb_research_symbol(sym, effective_date)
+            rs = self._build_alcb_research_symbol(
+                sym,
+                effective_date,
+                session_policy=session_policy,
+            )
             if rs is not None:
                 symbols[sym] = rs
 
@@ -1138,7 +1224,12 @@ class ResearchReplayEngine:
         )
 
     def build_iaric_snapshot(
-        self, trade_date: date, *, min_price: float | None = None, min_adv_usd: float | None = None,
+        self,
+        trade_date: date,
+        *,
+        min_price: float | None = None,
+        min_adv_usd: float | None = None,
+        as_of_date: date | None = None,
     ) -> iaric_models.ResearchSnapshot:
         """Build a complete IARIC ResearchSnapshot for *trade_date*.
 
@@ -1146,8 +1237,9 @@ class ResearchReplayEngine:
         symbols that will be rejected anyway (ETFs, low price, low ADV).
         Without optional params, builds all symbols as before.
         """
+        effective_as_of = as_of_date or trade_date
         # IARIC uses identical MarketResearch / SectorResearch shapes
-        alcb_market = self._compute_market_research(trade_date)
+        alcb_market = self._compute_market_research(effective_as_of)
         market = iaric_models.MarketResearch(
             price_ok=alcb_market.price_ok,
             breadth_pct_above_20dma=alcb_market.breadth_pct_above_20dma,
@@ -1156,7 +1248,7 @@ class ResearchReplayEngine:
             market_wide_institutional_selling=alcb_market.market_wide_institutional_selling,
         )
 
-        alcb_sectors = self._compute_sector_research(trade_date)
+        alcb_sectors = self._compute_sector_research(effective_as_of)
         sectors: dict[str, iaric_models.SectorResearch] = {}
         for name, sr in alcb_sectors.items():
             sectors[name] = iaric_models.SectorResearch(
@@ -1169,11 +1261,56 @@ class ResearchReplayEngine:
         use_filter = min_price is not None or min_adv_usd is not None
         symbols: dict[str, iaric_models.ResearchSymbol] = {}
         for sym, _, _ in self._universe:
-            if use_filter and self._skip_symbol_prefilter(sym, trade_date, min_price, min_adv_usd):
+            if use_filter and self._skip_symbol_prefilter(
+                sym, effective_as_of, min_price, min_adv_usd
+            ):
                 continue
-            rs = self._build_iaric_research_symbol(sym, trade_date)
+            rs = self._build_iaric_research_symbol(sym, effective_as_of)
             if rs is not None:
                 symbols[sym] = rs
+
+        benchmark_dates: list[date] = []
+        benchmark_closes: list[float] = []
+        spy_index = self._ref_didx.get("SPY")
+        spy_arrays = self._ref_arrs.get("SPY")
+        if spy_index is not None and spy_arrays is not None:
+            for session, iloc in zip(spy_index[0], spy_index[1]):
+                if session > effective_as_of:
+                    break
+                benchmark_dates.append(session)
+                benchmark_closes.append(float(spy_arrays["close"][iloc]))
+
+        reference_daily_bars: dict[str, list[iaric_models.ResearchDailyBar]] = {}
+        for reference_symbol in ["SPY", *sorted(set(SECTOR_ETFS.values()))]:
+            didx = self._ref_didx.get(reference_symbol)
+            arrays = self._ref_arrs.get(reference_symbol)
+            if didx is None or arrays is None:
+                continue
+            end = _iloc_upto(didx[0], didx[1], effective_as_of)
+            if end < 0:
+                continue
+            start = max(0, end - 249)
+            dates_by_iloc: dict[int, date] = {}
+            for session, last_iloc in zip(didx[0], didx[1]):
+                if session > effective_as_of:
+                    break
+                dates_by_iloc[int(last_iloc)] = session
+            bars: list[iaric_models.ResearchDailyBar] = []
+            for index in range(start, end + 1):
+                session = dates_by_iloc.get(index)
+                if session is None:
+                    continue
+                bars.append(
+                    iaric_models.ResearchDailyBar(
+                        trade_date=session,
+                        open=float(arrays["open"][index]),
+                        high=float(arrays["high"][index]),
+                        low=float(arrays["low"][index]),
+                        close=float(arrays["close"][index]),
+                        volume=float(arrays["volume"][index]),
+                    )
+                )
+            reference_daily_bars[reference_symbol] = bars
 
         snapshot = iaric_models.ResearchSnapshot(
             trade_date=trade_date,
@@ -1181,6 +1318,9 @@ class ResearchReplayEngine:
             sectors=sectors,
             symbols=symbols,
             held_positions=[],
+            benchmark_dates=benchmark_dates,
+            benchmark_closes=benchmark_closes,
+            reference_daily_bars=reference_daily_bars,
         )
         return snapshot
 
@@ -1222,6 +1362,7 @@ class ResearchReplayEngine:
         settings: alcb_config.StrategySettings | None = None,
         *,
         as_of_date: date | None = None,
+        session_policy: str = RTH_SESSION_POLICY,
     ) -> alcb_models.CandidateArtifact:
         """Build snapshot + run ALCB selection in one call.
 
@@ -1244,13 +1385,19 @@ class ResearchReplayEngine:
 
         # Tier 2: full selection cache (cheapest check first)
         settings_sig = self._alcb_settings_signature(s)
-        selection_key = (trade_date, effective_as_of, settings_sig)
+        selection_key = (trade_date, effective_as_of, settings_sig, session_policy)
         cached = self._alcb_selection_cache.get(selection_key)
         if cached is not None:
             return cached
 
         # Tier 1: snapshot cache (expensive build_alcb_snapshot)
-        snapshot_key = (trade_date, effective_as_of, s.min_price, s.min_adv_usd)
+        snapshot_key = (
+            trade_date,
+            effective_as_of,
+            s.min_price,
+            s.min_adv_usd,
+            session_policy,
+        )
         snapshot = self._alcb_snapshot_cache.get(snapshot_key)
         if snapshot is None:
             snapshot = self.build_alcb_snapshot(
@@ -1258,6 +1405,7 @@ class ResearchReplayEngine:
                 min_price=s.min_price,
                 min_adv_usd=s.min_adv_usd,
                 as_of_date=effective_as_of,
+                session_policy=session_policy,
             )
             self._alcb_snapshot_cache[snapshot_key] = snapshot
 
@@ -1291,11 +1439,33 @@ class ResearchReplayEngine:
             return cached
 
         # Tier 1: snapshot cache (expensive build_iaric_snapshot)
-        snapshot_key = (trade_date, s.min_price, s.min_adv_usd)
+        residual_mode = s.strategy_mode == "daily_residual_reversion"
+        if residual_mode:
+            position = bisect.bisect_left(self._trading_dates, trade_date) - 1
+            if position < 0:
+                raise ValueError(
+                    f"no prior completed session is available for {trade_date}"
+                )
+            effective_as_of = self._trading_dates[position]
+            snapshot_min_price = 0.0
+            snapshot_min_adv = 0.0
+        else:
+            effective_as_of = trade_date
+            snapshot_min_price = s.min_price
+            snapshot_min_adv = s.min_adv_usd
+        snapshot_key = (
+            trade_date,
+            effective_as_of,
+            snapshot_min_price,
+            snapshot_min_adv,
+        )
         snapshot = self._iaric_snapshot_cache.get(snapshot_key)
         if snapshot is None:
             snapshot = self.build_iaric_snapshot(
-                trade_date, min_price=s.min_price, min_adv_usd=s.min_adv_usd,
+                trade_date,
+                min_price=snapshot_min_price,
+                min_adv_usd=snapshot_min_adv,
+                as_of_date=effective_as_of,
             )
             self._iaric_snapshot_cache[snapshot_key] = snapshot
 
@@ -1436,6 +1606,7 @@ class ResearchReplayEngine:
             "high": arrs["highs"][s],
             "low": arrs["lows"][s],
             "close": arrs["closes"][s],
+            "time": arrs["index"][s].to_pydatetime(),
         }
 
     def get_30m_bar_objects_for_date(
@@ -1460,6 +1631,13 @@ class ResearchReplayEngine:
             return
         path = self._5m_paths[symbol]
         df = load_bars(path)
+        daily = self._daily_cache.get(symbol)
+        if daily is not None:
+            df, factors = align_intraday_to_daily_price_basis(df, daily)
+            if factors:
+                self._price_basis_adjustments.setdefault(symbol, {})["5m"] = {
+                    day.isoformat(): factor for day, factor in sorted(factors.items())
+                }
         self._intraday_5m_cache[symbol] = df
         self._5m_didx[symbol] = _build_date_index(df)
 

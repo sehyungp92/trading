@@ -1,0 +1,101 @@
+{
+  "active": true,
+  "artifacts": {
+    "artifact_manifest": "round_1/artifact_manifest.json",
+    "baseline_config": "round_1/baseline_config.json",
+    "data_contract": "round_1/baseline_data_contract.json",
+    "final_concentration": "round_1/final_concentration.json",
+    "final_cost_stress": "round_1/final_cost_stress.json",
+    "final_equity_curve": "round_1/final_equity_curve.json",
+    "final_exits": "round_1/final_exits.json",
+    "final_fold_metrics": "round_1/final_fold_metrics.json",
+    "final_metrics": "round_1/final_metrics.json",
+    "final_monthly": "round_1/final_monthly.json",
+    "final_score_diagnostics": "round_1/final_score_diagnostics.json",
+    "final_symbols": "round_1/final_symbols.json",
+    "final_trades": "round_1/final_trades.json",
+    "full_final_diagnostics": "round_1/round_final_diagnostics.txt",
+    "optimized_config": "round_1/optimized_config.json",
+    "run_spec": "round_1/run_spec.json",
+    "run_summary": "round_1/run_summary.json",
+    "selection_receipt": "round_1/selection_receipt.json"
+  },
+  "baseline_eligible": true,
+  "configuration_role": "continuous_reconciled_representative_starting_baseline",
+  "contract_id": "iaric_residual_continuous_reconciled_exact98_v1",
+  "data_authority": "project_official_local_snapshot",
+  "execution_contract": "iaric_daily_residual_execution_v2",
+  "family": "stock",
+  "headline": "339 trades, +84.04R, PF 1.40, 20.93 trades/month",
+  "known_optimization_targets": [
+    "discovery_fold_top_tail_score_ordering",
+    "catastrophic_stop_value_destruction",
+    "profitable_mfe_surrender",
+    "february_march_2025_regime_drawdown"
+  ],
+  "metrics": {
+    "average_r": 0.24792015848475454,
+    "max_drawdown_fraction": 0.15620706121905398,
+    "profit_factor": 1.397580420498738,
+    "total_r": 84.04493372633179,
+    "total_trades": 339,
+    "trades_per_month": 20.92963995943205
+  },
+  "official": true,
+  "promotion_ready": false,
+  "representative_alpha_baseline": true,
+  "restart_sensitivity": {
+    "common_entry_trades": 296,
+    "common_reset_minus_continuous_r": -4.791391999455321,
+    "continuous_total_r": 84.04493372633179,
+    "continuous_trades": 339,
+    "continuous_unique_total_r": -9.29423980163548,
+    "continuous_unique_trades": 43,
+    "independently_reset_total_r": 79.33784624043359,
+    "independently_reset_trades": 338,
+    "intermediate_forced_liquidations": 9,
+    "reset_minus_continuous_r": -4.7070874858981995,
+    "reset_unique_total_r": -9.209935288078364,
+    "reset_unique_trades": 42,
+    "restart_stability": 0.9455327097148972,
+    "status": "secondary_non_economic_restart_sensitivity_only",
+    "used_for_candidate_expected_return_or_frequency": false
+  },
+  "round": 1,
+  "sealed_holdout": {
+    "accessed": false,
+    "start": "2026-03-02"
+  },
+  "selection_fold_qualification_complete": false,
+  "selection_folds": {
+    "calibration": {
+      "average_r": 0.11250893834426952,
+      "portfolio_return": 0.046761408172389274,
+      "profit_factor": 1.1642173800308646,
+      "total_r": 18.001430135083123,
+      "trades": 160
+    },
+    "discovery": {
+      "average_r": 0.2914119075730551,
+      "portfolio_return": 0.2217749696208946,
+      "profit_factor": 1.4913004535587848,
+      "total_r": 49.540024287419364,
+      "trades": 170
+    }
+  },
+  "starting_baseline": true,
+  "status": "complete_round1_continuous_representative_starting_baseline",
+  "strategy": "iaric",
+  "training_window": {
+    "end": "2025-07-31",
+    "start": "2024-03-25"
+  },
+  "validation": {
+    "continuous_shared_capital": true,
+    "costs_bps": 20.0,
+    "locked_validation_accessed": false,
+    "positive_continuous_calibration_equity_return": true,
+    "positive_in_both_purged_selection_cohorts": true,
+    "score_top_tail_separation_passed_each_fold": false
+  }
+}

@@ -1,0 +1,43 @@
+[
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__failure8_mfe015_to_m020__plus__target__frequency_entry1300",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__failure8_mfe015_to_m020 + target__frequency_entry1300."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__failure8_mfe015_to_m020__plus__target__frequency_entry1300_combined_score6",
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 6,
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__failure8_mfe015_to_m020 + target__frequency_entry1300_combined_score6."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__frequency_entry1300__plus__target__frequency_entry1300_combined_score6",
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 6,
+      "param_overrides.entry_window_end": "13:00:00"
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__frequency_entry1300 + target__frequency_entry1300_combined_score6."
+  }
+]

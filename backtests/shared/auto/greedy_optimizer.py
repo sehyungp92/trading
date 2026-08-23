@@ -48,6 +48,7 @@ def save_greedy_checkpoint(
     rounds: list[GreedyRound],
     checkpoint_identity: str,
     path: Path,
+    candidate_evaluations: list[dict[str, object]] | None = None,
 ) -> None:
     payload = {
         "current_mutations": current_mutations,
@@ -56,11 +57,12 @@ def save_greedy_checkpoint(
         "remaining_names": remaining_names,
         "rounds": [asdict(round_result) for round_result in rounds],
         "checkpoint_identity": checkpoint_identity,
+        "candidate_evaluations": list(candidate_evaluations or []),
     }
     _atomic_write_json(payload, path)
 
 
-def load_greedy_checkpoint(path: Path) -> tuple[dict[str, object], list[str], float, set[str], list[GreedyRound], str] | None:
+def load_greedy_checkpoint(path: Path) -> tuple[dict[str, object], list[str], float, set[str], list[GreedyRound], list[dict[str, object]], str] | None:
     if not path.exists():
         return None
 
@@ -73,6 +75,7 @@ def load_greedy_checkpoint(path: Path) -> tuple[dict[str, object], list[str], fl
         float(data.get("current_score", 0.0)),
         set(data.get("remaining_names", [])),
         [GreedyRound(**round_data) for round_data in data.get("rounds", [])],
+        list(data.get("candidate_evaluations", [])),
         data.get("checkpoint_identity") or data.get("base_mutations_hash", ""),
     )
 
@@ -103,6 +106,7 @@ def run_greedy(
     rounds: list[GreedyRound] = []
     remaining = list(candidates)
     reject_streak: dict[str, int] = {}
+    candidate_evaluations: list[dict[str, object]] = []
     checkpoint_identity = _checkpoint_identity(
         base_mutations,
         [candidate.name for candidate in candidates],
@@ -110,6 +114,17 @@ def run_greedy(
     )
 
     baseline = evaluate_batch([Experiment("__baseline__", {})], current_mutations)
+    candidate_evaluations.extend(
+        {
+            "round_num": 0,
+            "name": item.name,
+            "score": item.score,
+            "rejected": item.rejected,
+            "reject_reason": item.reject_reason,
+            "metrics": dict(item.metrics),
+        }
+        for item in baseline
+    )
     base_score = baseline[0].score if baseline else 0.0
     if baseline and baseline[0].rejected:
         log.warning(
@@ -132,7 +147,7 @@ def run_greedy(
     if checkpoint_path:
         resumed = load_greedy_checkpoint(checkpoint_path)
         if resumed and resumed[-1] == checkpoint_identity:
-            current_mutations, kept_features, current_score, remaining_names, rounds, _ = resumed
+            current_mutations, kept_features, current_score, remaining_names, rounds, candidate_evaluations, _ = resumed
             remaining = [candidate for candidate in candidates if candidate.name in remaining_names]
             log.info(
                 "Resumed greedy checkpoint: kept=%d score=%.4f remaining=%d",
@@ -170,6 +185,17 @@ def run_greedy(
                 },
             )
             scored = evaluate_batch(remaining, current_mutations)
+            candidate_evaluations.extend(
+                {
+                    "round_num": round_num,
+                    "name": item.name,
+                    "score": item.score,
+                    "rejected": item.rejected,
+                    "reject_reason": item.reject_reason,
+                    "metrics": dict(item.metrics),
+                }
+                for item in scored
+            )
             rejected_count = sum(1 for item in scored if item.rejected)
             valid = [item for item in scored if not item.rejected]
 
@@ -308,6 +334,7 @@ def run_greedy(
                     rounds=rounds,
                     checkpoint_identity=checkpoint_identity,
                     path=checkpoint_path,
+                    candidate_evaluations=candidate_evaluations,
                 )
     finally:
         close_fn = getattr(evaluate_batch, "close", None)
@@ -329,6 +356,7 @@ def run_greedy(
         total_candidates=total_candidates,
         accepted_count=len(kept_features),
         elapsed_seconds=time.time() - start,
+        candidate_evaluations=candidate_evaluations,
     )
 
 

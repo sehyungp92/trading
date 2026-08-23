@@ -8,6 +8,28 @@ from .config import ET, StrategySettings
 from .models import PortfolioState, WatchlistItem
 
 
+_SECONDARY_ROUTE_FAMILIES = frozenset({
+    "DELAYED_CONFIRM",
+    "OPENING_RECLAIM",
+    "VWAP_BOUNCE",
+    "AFTERNOON_RETEST",
+})
+
+
+def route_sizing_multiplier(route_family: str, settings: StrategySettings) -> float:
+    """Return the shared live/replay risk multiplier for an entry route."""
+
+    route = str(route_family or "").upper()
+    multiplier = 1.0
+    if route in _SECONDARY_ROUTE_FAMILIES:
+        multiplier *= max(float(settings.pb_v2_secondary_route_sizing_mult), 0.0)
+    if route.startswith("APERTURE_"):
+        multiplier *= max(float(settings.pb_aperture_sizing_mult), 0.0)
+    if route == "AFTERNOON_RETEST":
+        multiplier *= max(float(settings.pb_v2_afternoon_retest_sizing_mult), 0.0)
+    return multiplier
+
+
 def timing_gate_allows_entry(now: datetime, settings: StrategySettings) -> bool:
     et = now.astimezone(ET).time()
     if et < settings.open_block_end:

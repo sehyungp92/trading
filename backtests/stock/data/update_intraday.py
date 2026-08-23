@@ -46,6 +46,10 @@ REFERENCE_SYMBOLS = [
     "SPY", "VIX", "HYG",
     "XLK", "XLV", "XLF", "XLY", "XLP", "XLE", "XLB", "XLI", "XLU", "XLRE", "XLC",
 ]
+IARIC_RESIDUAL_DAILY_REFERENCES = [
+    "SPY", "XLK", "XLV", "XLF", "XLY", "XLP", "XLE",
+    "XLB", "XLI", "XLU", "XLRE", "XLC",
+]
 
 PRIMARY_EXCHANGE_BY_SYMBOL = {symbol: exchange for symbol, _sector, exchange in SP500_CONSTITUENTS}
 
@@ -63,12 +67,29 @@ async def update_stock_data(
     latest_only: bool = False,
     repo_root: Path = Path("."),
     authority_root: Path = AUTHORITY_ROOT,
+    profile: str = "all",
+    daily_what_to_show: str = "TRADES",
 ) -> None:
     """Acquire session-qualified immutable data for the canonical stock universe."""
     if session not in {"rth", "extended", "both"}:
         raise ValueError("session must be rth, extended, or both")
-    start = start or datetime(2025, 3, 21, tzinfo=timezone.utc)
-    end = end or _last_completed_session_end()
+    if profile not in {"all", "iaric-residual"}:
+        raise ValueError("profile must be all or iaric-residual")
+    if daily_what_to_show not in {"TRADES", "ADJUSTED_LAST"}:
+        raise ValueError("daily what-to-show must be TRADES or ADJUSTED_LAST")
+    if profile == "iaric-residual" and set(timeframes) != {"1d"}:
+        raise ValueError("the IARIC residual acquisition profile is daily-only")
+    start = start or datetime(
+        2023 if profile == "iaric-residual" else 2025,
+        6 if profile == "iaric-residual" else 3,
+        1 if profile == "iaric-residual" else 21,
+        tzinfo=timezone.utc,
+    )
+    end = end or (
+        datetime(2026, 3, 1, 23, 59, 59, tzinfo=timezone.utc)
+        if profile == "iaric-residual"
+        else _last_completed_session_end()
+    )
     settings = ConnectionSettings(
         host=host,
         port=port,
@@ -85,7 +106,12 @@ async def update_stock_data(
             if tf == "1d":
                 seen = set(BACKTESTED_SYMBOLS)
                 symbols = list(BACKTESTED_SYMBOLS)
-                for ref in REFERENCE_SYMBOLS:
+                references = (
+                    IARIC_RESIDUAL_DAILY_REFERENCES
+                    if profile == "iaric-residual"
+                    else REFERENCE_SYMBOLS
+                )
+                for ref in references:
                     if ref not in seen:
                         symbols.append(ref)
                         seen.add(ref)
@@ -111,13 +137,18 @@ async def update_stock_data(
                         sec_type="IND" if is_vix else "STK",
                         exchange="CBOE" if is_vix else "SMART",
                         primary_exchange="CBOE" if is_vix else PRIMARY_EXCHANGE_BY_SYMBOL.get(sym, ""),
-                        what_to_show="TRADES",
+                        what_to_show=(daily_what_to_show if tf == "1d" else "TRADES"),
                         use_rth=use_rth,
                         duration="2 Y",
                         start=start,
                         end=end,
                         output_dir=authority_root,
                         family="stock",
+                        adjustment_policy=(
+                            "ibkr_adjusted_last_split_dividend_adjusted_v1"
+                            if tf == "1d" and daily_what_to_show == "ADJUSTED_LAST"
+                            else "ibkr_trades_split_adjusted_not_dividend_v1"
+                        ),
                     )
                     logger.info("[stock %s/%s] (%d/%d) %s", tf, requested_session, i, len(symbols), sym)
                     try:
@@ -160,7 +191,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--timeframe", action="append", choices=["1d", "30m", "5m"])
     parser.add_argument("--session", choices=["rth", "extended", "both"], default="rth")
-    parser.add_argument("--start", default="2025-03-21")
+    parser.add_argument("--start", default=None)
     parser.add_argument("--end", default=None)
     parser.add_argument("--latest", action="store_true")
     parser.add_argument("--host", default="127.0.0.1")
@@ -168,8 +199,18 @@ def main() -> None:
     parser.add_argument("--client-id", type=int, default=114)
     parser.add_argument("--timeout", type=int, default=60)
     parser.add_argument("--authority-root", default=str(AUTHORITY_ROOT))
+    parser.add_argument("--profile", choices=["all", "iaric-residual"], default="all")
+    parser.add_argument(
+        "--daily-what-to-show",
+        choices=["TRADES", "ADJUSTED_LAST"],
+        default=None,
+    )
     args = parser.parse_args()
-    start = datetime.fromisoformat(args.start).replace(tzinfo=timezone.utc)
+    start = (
+        datetime.fromisoformat(args.start).replace(tzinfo=timezone.utc)
+        if args.start
+        else None
+    )
     end = (
         datetime.fromisoformat(args.end).replace(tzinfo=timezone.utc) + timedelta(days=1) - timedelta(microseconds=1)
         if args.end
@@ -177,7 +218,8 @@ def main() -> None:
     )
     asyncio.run(
         update_stock_data(
-            args.timeframe or ["1d", "30m", "5m"],
+            args.timeframe
+            or (["1d"] if args.profile == "iaric-residual" else ["1d", "30m", "5m"]),
             host=args.host,
             port=args.port,
             client_id=args.client_id,
@@ -185,9 +227,18 @@ def main() -> None:
             session=args.session,
             start=start,
             end=end,
-            latest_only=args.latest,
+            latest_only=(args.latest or args.profile == "iaric-residual"),
             repo_root=Path("."),
             authority_root=Path(args.authority_root),
+            profile=args.profile,
+            daily_what_to_show=(
+                args.daily_what_to_show
+                or (
+                    "ADJUSTED_LAST"
+                    if args.profile == "iaric-residual"
+                    else "TRADES"
+                )
+            ),
         )
     )
 

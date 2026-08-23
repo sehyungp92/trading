@@ -1,4 +1,8 @@
-"""Certified NQ/GC context data for TPC replay and promotion.
+"""Legacy certified NQ/GC context data retained for archived research.
+
+The active TPC system is ETF-only and does not import, validate, or consume
+this authority. These helpers remain available solely to reproduce historical
+experiments and audit the former futures-context implementation.
 
 The physical 5-minute Panama series is the sole price parent.  Swing 1h and
 RTH-daily context bars are deterministic children of that parent; independent

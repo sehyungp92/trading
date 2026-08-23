@@ -245,7 +245,15 @@ def relative_strength_ratio(
     b_prev = benchmark_closes[:n - period]
     c_curr = closes[period:n]
     b_curr = benchmark_closes[period:n]
-    valid = (c_prev > 0) & (b_prev > 0) & (b_curr > 0)
+    valid = (
+        np.isfinite(c_prev)
+        & np.isfinite(c_curr)
+        & np.isfinite(b_prev)
+        & np.isfinite(b_curr)
+        & (c_prev > 0)
+        & (b_prev > 0)
+        & (b_curr > 0)
+    )
     stock_ret = np.where(valid, c_curr / np.where(c_prev > 0, c_prev, 1.0), np.nan)
     bench_ret = np.where(valid, b_curr / np.where(b_prev > 0, b_prev, 1.0), np.nan)
     safe_bench = np.where(bench_ret > 0, bench_ret, np.nan)

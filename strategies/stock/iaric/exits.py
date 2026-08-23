@@ -16,8 +16,10 @@ stale tighten (tightens stop, does NOT exit), overnight carry.
 from __future__ import annotations
 
 from datetime import datetime
+from math import floor
 
 from .config import ET, StrategySettings
+from .core.lanes import management_override
 from .models import Bar, PBSymbolState
 
 
@@ -71,12 +73,18 @@ def check_rsi_exit(
         return False, ""
     thresholds = {
         "OPEN_SCORED_ENTRY": config.pb_v2_rsi_exit_open_scored,
+        "OPEN_SCORED_RETEST": config.pb_v2_rsi_exit_open_scored,
+        "OPEN_SCORED_RETRACE_LIMIT": config.pb_v2_rsi_exit_open_scored,
         "DELAYED_CONFIRM": config.pb_v2_rsi_exit_delayed,
         "VWAP_BOUNCE": config.pb_v2_rsi_exit_vwap_bounce,
         "AFTERNOON_RETEST": config.pb_v2_rsi_exit_afternoon,
         "OPENING_RECLAIM": 58.0,
     }
-    threshold = thresholds.get(route_family, 60.0)
+    threshold = (
+        _route_param(route_family, "rsi_exit", config, default=60.0)
+        if str(route_family).upper().startswith("APERTURE_")
+        else thresholds.get(route_family, 60.0)
+    )
     if rsi_value > threshold:
         return True, "RSI_EXIT"
     return False, ""
@@ -120,7 +128,7 @@ def check_vwap_fail(
 def check_eod_flatten(now: datetime, config: StrategySettings) -> tuple[bool, str]:
     """Forced flatten at EOD (15:55 ET)."""
     et_time = now.astimezone(ET).time()
-    if et_time >= config.pb_intraday_force_exit:
+    if not config.pb_carry_enabled and et_time >= config.pb_intraday_force_exit:
         return True, "EOD_FLATTEN"
     return False, ""
 
@@ -133,10 +141,16 @@ def _route_param(route_family: str, suffix: str, config: StrategySettings, defau
     """Look up per-route parameter, fall back to global pb_ prefix."""
     prefix_map = {
         "OPEN_SCORED_ENTRY": "pb_open_scored",
+        "OPEN_SCORED_RESCUE_ENTRY": "pb_open_scored",
+        "OPEN_SCORED_RETEST": "pb_open_scored",
+        "OPEN_SCORED_RETRACE_LIMIT": "pb_open_scored",
         "DELAYED_CONFIRM": "pb_delayed_confirm",
         "OPENING_RECLAIM": "pb_opening_reclaim",
     }
-    prefix = prefix_map.get(route_family, "pb")
+    override = management_override(config, route_family, suffix)
+    if override is not None:
+        return float(override)
+    prefix = "pb_aperture" if str(route_family).upper().startswith("APERTURE_") else prefix_map.get(route_family, "pb")
     val = getattr(config, f"{prefix}_{suffix}", None)
     if val is not None:
         return float(val)
@@ -204,6 +218,44 @@ def check_v2_partial(
     if trigger_r <= 0:
         return False
     return mfe_r >= trigger_r
+
+
+def partial_exit_quantity(
+    *,
+    current_qty: int,
+    original_qty: int,
+    fraction: float,
+    minimum_remaining_size_pct: float,
+) -> int:
+    """Return one causal partial quantity for both live and replay adapters."""
+
+    current = max(int(current_qty), 0)
+    original = max(int(original_qty), current)
+    if current <= 1 or original <= 1 or float(fraction) <= 0:
+        return 0
+    min_remaining = max(1, int(floor(original * max(float(minimum_remaining_size_pct), 0.0))))
+    requested = max(1, int(floor(original * min(float(fraction), 1.0))))
+    return min(requested, max(current - min_remaining, 0))
+
+
+def partial_remainder_stop_after_fill(
+    *,
+    current_stop: float,
+    requested_stop: float,
+    fill_price: float,
+    execution_buffer: float,
+) -> float:
+    """Return an executable stop for the remainder after a partial fill.
+
+    The completed bar may justify a higher stop, but that stop cannot be made
+    active before the partial order fills and cannot sit at/above the observed
+    sell fill.  A gap can therefore cap (and, only when necessary, lower) the
+    requested stop to an executable level.
+    """
+    buffer = max(float(execution_buffer), 0.0)
+    executable_ceiling = max(0.01, float(fill_price) - buffer)
+    desired = max(float(current_stop), float(requested_stop))
+    return max(0.01, min(desired, executable_ceiling))
 
 
 # ---------------------------------------------------------------------------
@@ -280,6 +332,9 @@ def should_carry_overnight(
 
     Returns (should_carry, decision_path).
     """
+    if not config.pb_carry_enabled:
+        return False, "carry_disabled"
+
     # Hard flatten: deep loss
     if unrealized_r < config.pb_v2_flatten_loss_r:
         return False, "flatten_loss"
@@ -295,7 +350,8 @@ def should_carry_overnight(
                 return False, "flatten_flow_reversal"
 
     # Time stop (research parity: backtest _should_flatten_v2 checks this)
-    if hold_days >= config.pb_max_hold_days:
+    max_hold_days = int(_route_param(state.route_family, "max_hold_days", config))
+    if hold_days >= max_hold_days:
         return False, "flatten_time_stop"
 
     return True, "carry"
@@ -325,13 +381,16 @@ def compute_overnight_stop(
     unrealized_r: float,
     config: StrategySettings,
 ) -> float:
-    """Compute profit-lock overnight stop (research parity).
+    """Compute a profit-lock overnight stop without forcing breakeven.
 
-    Locks in profit above close_r - profit_lock_r threshold, ratcheting
-    the stop up for profitable positions.
+    ``pb_v2_carry_profit_lock_r`` is the amount of open profit allowed to
+    retrace.  Until unrealized profit exceeds that allowance, the structural
+    stop remains unchanged.  Live and replay both call this function.
     """
     profit_lock_r = config.pb_v2_carry_profit_lock_r
-    overnight_stop = entry_price + max(0.0, unrealized_r - profit_lock_r) * risk_per_share
+    if unrealized_r <= profit_lock_r:
+        return current_stop
+    overnight_stop = entry_price + (unrealized_r - profit_lock_r) * risk_per_share
     return max(current_stop, overnight_stop)
 
 
@@ -355,13 +414,18 @@ def run_exit_chain(
     config: StrategySettings,
     stale_exit_bars: int = 0,
     stale_exit_min_r: float = 0.0,
+    active_stop_level: float | None = None,
 ) -> tuple[bool, str]:
     """Run the complete exit priority chain (research engine order).
 
     Returns (should_exit, reason).
     """
     # 1. Stop hit
-    hit, reason = check_stop_hit(bar.low, state.stop_level)
+    # A stop raised after this completed bar cannot be tested against an
+    # earlier low from the same bar.  Live passes the stop that was active at
+    # bar open; callers that do not adjust a stop first retain the default.
+    stop_for_bar = state.stop_level if active_stop_level is None else active_stop_level
+    hit, reason = check_stop_hit(bar.low, stop_for_bar)
     if hit:
         return True, reason
 

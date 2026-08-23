@@ -1,173 +1,235 @@
 {
+  "baseline_mutation_count": 0,
+  "baseline_mutations": {},
+  "data_authority": "derived_legacy_extended_cache_filtered_to_versioned_rth_diagnostic_only",
+  "description": "Recovered RTH baseline promoted as the clean starting point for phased auto optimization",
+  "execution_context": {
+    "data_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\stock\\data\\raw",
+    "end_date": "2026-03-01",
+    "excluded_period_accessed": false,
+    "excluded_period_start": "2026-03-02",
+    "initial_equity": 10000.0,
+    "session_policy": "us_equity_rth_0930_exchange_close_v1",
+    "start_date": "2024-03-25"
+  },
   "family": "stock",
-  "strategy": "alcb",
-  "strategy_name": "alcb",
-  "round": 1,
-  "description": "alcb",
-  "generated_at_utc": "2026-05-23T21:34:06.923453+00:00",
-  "baseline_source": null,
-  "baseline_mutation_count": 29,
-  "baseline_mutations": {
+  "generated_at_utc": "2026-08-16T09:44:04+00:00",
+  "immutable_score": {
+    "avg_r": {
+      "transform": "tanh(x / 0.10R)",
+      "weight": 0.13
+    },
+    "expected_total_r": {
+      "transform": "tanh(x / 80R)",
+      "weight": 0.22
+    },
+    "inverse_drawdown": {
+      "transform": "tanh((0.08 - x) / 0.06)",
+      "weight": 0.12
+    },
+    "net_profit": {
+      "transform": "tanh(x / $3000)",
+      "weight": 0.16
+    },
+    "profit_factor": {
+      "transform": "tanh((x - 1) / 0.50)",
+      "weight": 0.12
+    },
+    "sharpe": {
+      "transform": "tanh(x / 2.5)",
+      "weight": 0.1
+    },
+    "trades_per_month": {
+      "transform": "tanh(x / 35)",
+      "weight": 0.15
+    }
+  },
+  "promoted_mutation_count": 50,
+  "promoted_mutations": {
     "ablation.use_adaptive_trail": true,
     "ablation.use_combined_quality_gate": true,
+    "ablation.use_daily_stop": true,
     "ablation.use_mfe_conviction_exit": true,
     "ablation.use_or_width_min": true,
+    "ablation.use_orb_entry_range_gate": true,
     "ablation.use_partial_takes": false,
-    "param_overrides.adaptive_trail_late_activate_r": 0.25,
-    "param_overrides.adaptive_trail_late_distance_r": 0.2,
+    "intraday_session_policy": "us_equity_rth_0930_exchange_close_v1",
+    "param_overrides.adaptive_trail_late_activate_r": 0.22,
+    "param_overrides.adaptive_trail_late_distance_r": 0.04,
     "param_overrides.adaptive_trail_start_bars": 25,
     "param_overrides.adaptive_trail_tighten_bars": 25,
+    "param_overrides.base_risk_fraction": 0.00702,
     "param_overrides.block_combined_regime_b": true,
+    "param_overrides.breakout_distance_cap_r": 1.0,
     "param_overrides.carry_min_cpr": 0.6,
     "param_overrides.carry_min_r": 0.5,
-    "param_overrides.combined_avwap_cap_pct": 0.003,
+    "param_overrides.combined_avwap_cap_pct": 0.0,
     "param_overrides.combined_breakout_min_rvol": 2.5,
     "param_overrides.combined_breakout_score_min": 5,
+    "param_overrides.daily_stop_r": 2.35,
+    "param_overrides.entry_detail_size_mults": {
+      "OR_BREAKOUT:5:!bar_vol_surge": 0.55
+    },
+    "param_overrides.entry_score_blocklist": [
+      "COMBINED_BREAKOUT:5"
+    ],
+    "param_overrides.entry_score_size_mults": {
+      "COMBINED_BREAKOUT:7": 1.15,
+      "OR_BREAKOUT:5": 0.75,
+      "PDH_BREAKOUT:6": 0.5
+    },
     "param_overrides.entry_window_end": "12:30:00",
-    "param_overrides.flow_reversal_min_hold_bars": 12,
+    "param_overrides.failure_stop_bars": 10,
+    "param_overrides.failure_stop_current_r_max": 0.0,
+    "param_overrides.failure_stop_mfe_max_r": 0.2,
+    "param_overrides.failure_stop_to_r": -0.25,
+    "param_overrides.flow_reversal_min_hold_bars": 8,
     "param_overrides.fr_cpr_threshold": 0.3,
     "param_overrides.fr_mfe_grace_r": 0.2,
     "param_overrides.fr_trailing_activate_r": 0.0,
+    "param_overrides.heat_cap_r": 4.0,
+    "param_overrides.max_positions": 6,
     "param_overrides.mfe_conviction_check_bars": 16,
     "param_overrides.mfe_conviction_floor_r": -0.15,
     "param_overrides.mfe_conviction_min_r": 0.2,
-    "param_overrides.opening_range_bars": 6,
+    "param_overrides.opening_range_bars": 9,
     "param_overrides.or_width_min_pct": 0.0015,
-    "param_overrides.pdh_avwap_cap_pct": 0.005,
+    "param_overrides.orb_entry_range_cap_r": 1.25,
+    "param_overrides.pdh_avwap_cap_pct": 0.0,
     "param_overrides.pdh_size_mult": 0.75,
+    "param_overrides.portfolio_daily_stop_r": 3.5,
+    "param_overrides.qe_stage1_bars": 10,
     "param_overrides.regime_mult_b": 0.7,
-    "param_overrides.rvol_threshold": 2.0
-  },
-  "scoring_weights": {},
-  "execution_context": {
-    "data_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\stock\\data\\raw",
-    "initial_equity": 10000.0,
-    "start_date": "2024-01-01",
-    "end_date": "2026-03-01",
-    "max_workers": 1
+    "param_overrides.rvol_threshold": 1.5,
+    "param_overrides.sector_mult_financials": 0.65,
+    "param_overrides.selection_long_count": 30,
+    "param_overrides.stop_atr_multiple": 0.8
   },
   "provenance": {
-    "schema_version": 1,
-    "selection_fingerprint": "9f0ddf70ed92e13ca3db8f9484e6cb273e3675e69548494a9852d4cf8345b106",
-    "diagnostics_fingerprint": "9f0ddf70ed92e13ca3db8f9484e6cb273e3675e69548494a9852d4cf8345b106",
+    "diagnostics_fingerprint": "5a9ff0604335f56207a98efb206ef77b742261699879ddb2d16d1ce49d30e3da",
     "items": [
       {
-        "name": "data_dir",
+        "fingerprint": "a21bdf0a056398a873e4f921bb8ed6c6fa43ab66a5435969622aa8e2d2b0d97b",
         "kind": "tree_contents",
-        "fingerprint": "3e7834170767b1c4a57550d5241863253af0fde2317d2a6893e3735dda63779c",
+        "name": "data_dir",
+        "notes": "Content fingerprint for selection-relevant replay data files.",
         "paths": [
           "backtests/stock/data/raw"
         ],
-        "scope": "data",
-        "notes": "Content fingerprint for selection-relevant replay data files."
+        "scope": "data"
       },
       {
-        "name": "code:backtests/stock/auto/config_mutator.py",
-        "kind": "file_contents",
         "fingerprint": "aeda4efdc185062e2a1531df4254fbc58d5564cb798e12e57fd8465118da39c2",
+        "kind": "file_contents",
+        "name": "code:backtests/stock/auto/config_mutator.py",
+        "notes": "",
         "paths": [
           "backtests/stock/auto/config_mutator.py"
         ],
-        "scope": "selection",
-        "notes": ""
+        "scope": "selection"
       },
       {
-        "name": "code:backtests/stock/config_alcb.py",
+        "fingerprint": "1ab3cc187ee18488909bec59a60085ab50efbc5592dfe0b157f43470d75b20b1",
         "kind": "file_contents",
-        "fingerprint": "7c183316397cc568f7b737832bdeff2c5426d26743cce93d410755fbf5c29a92",
+        "name": "code:backtests/stock/config_alcb.py",
+        "notes": "",
         "paths": [
           "backtests/stock/config_alcb.py"
         ],
-        "scope": "selection",
-        "notes": ""
+        "scope": "selection"
       },
       {
-        "name": "code:backtests/stock/data/replay_cache.py",
+        "fingerprint": "77976ba9326e27ad3dba03309865cacaed1f64179e03cc7e2e158b3d4e726f36",
         "kind": "file_contents",
-        "fingerprint": "a22a7f855ed5f31aa4447f2a54c1599f21dd0c35c3608a80316bc680bd304cdd",
+        "name": "code:backtests/stock/data/replay_cache.py",
+        "notes": "",
         "paths": [
           "backtests/stock/data/replay_cache.py"
         ],
-        "scope": "selection",
-        "notes": ""
+        "scope": "selection"
       },
       {
-        "name": "code:backtests/stock/engine/alcb_engine.py",
+        "fingerprint": "b5158980373b7c3fd819b7da74abc787a38fec164211a74b7f539b3c52115aec",
         "kind": "file_contents",
-        "fingerprint": "0027f3f47ab7a2fafe0512c312fae0a7bee2932c62f19f876ffca830f7786268",
+        "name": "code:backtests/stock/engine/alcb_engine.py",
+        "notes": "",
         "paths": [
           "backtests/stock/engine/alcb_engine.py"
         ],
-        "scope": "selection",
-        "notes": ""
+        "scope": "selection"
       },
       {
-        "name": "code:strategies/stock/alcb/artifact_store.py",
-        "kind": "file_contents",
         "fingerprint": "97cbde7c3fd4a687ad517ccc85340aa5346d3fd662d03ff1773af32d6830982d",
+        "kind": "file_contents",
+        "name": "code:strategies/stock/alcb/artifact_store.py",
+        "notes": "",
         "paths": [
           "strategies/stock/alcb/artifact_store.py"
         ],
-        "scope": "selection",
-        "notes": ""
+        "scope": "selection"
       },
       {
-        "name": "code:strategies/stock/alcb/core/logic.py",
-        "kind": "file_contents",
         "fingerprint": "17ed09f67c2baf96931d2d91c6a071e9cb061612833f323d230952d07e5a5dc3",
+        "kind": "file_contents",
+        "name": "code:strategies/stock/alcb/core/logic.py",
+        "notes": "",
         "paths": [
           "strategies/stock/alcb/core/logic.py"
         ],
-        "scope": "selection",
-        "notes": ""
+        "scope": "selection"
       },
       {
-        "name": "plugin",
-        "kind": "plugin_identity",
         "fingerprint": "4f08ee9bf7412b26340bb23d9e1d74ffdeb578ae432f14f615e1a7574d201d84",
+        "kind": "plugin_identity",
+        "name": "plugin",
+        "notes": "",
         "paths": [],
-        "scope": "selection",
-        "notes": ""
+        "scope": "selection"
       },
       {
-        "name": "selection_context",
+        "fingerprint": "a56277133b5f261061ecdecd4410b28e16e74b330e9fef6e6cecf7f800a9c874",
         "kind": "stable_json",
-        "fingerprint": "f8edc86b8777c70dd7f8f857f6ea55eb7add5504847c504ccb4c23e4b56bec29",
+        "name": "selection_context",
+        "notes": "",
         "paths": [],
-        "scope": "selection",
-        "notes": ""
+        "scope": "selection"
       },
       {
-        "name": "code_tree:backtests/stock/auto/alcb",
+        "fingerprint": "40f375effc5e4b9749a03f02bbad5a6283f4138fbe5d808d1fceb6ce55b8e2a4",
         "kind": "tree_contents",
-        "fingerprint": "205bef7d54a504b931e29f9ea60a208644a06ee1d500cc25f91af4a388c0469b",
+        "name": "code_tree:backtests/stock/auto/alcb",
+        "notes": "",
         "paths": [
           "backtests/stock/auto/alcb"
         ],
-        "scope": "selection",
-        "notes": ""
+        "scope": "selection"
       },
       {
-        "name": "code_tree:strategies/stock/alcb",
+        "fingerprint": "998fe9a4b91262d7d04af241aa336eb919732104ef886906eb6c9d340c711535",
         "kind": "tree_contents",
-        "fingerprint": "d71d20ae54d843bbe48ef63086ada1df9dc7ddb34bb037a4c549daac22157889",
+        "name": "code_tree:strategies/stock/alcb",
+        "notes": "",
         "paths": [
           "strategies/stock/alcb"
         ],
-        "scope": "selection",
-        "notes": ""
+        "scope": "selection"
       },
       {
-        "name": "shared_auto_package",
+        "fingerprint": "da7af7c3ddd9e100d11693718d2d44e800a9423e0ca9f6653a2345bec60c22f1",
         "kind": "tree_contents",
-        "fingerprint": "b58cff0ef3381b09a3e6abcacca3dbbcc093afc7c8583a6e34c39a8886dd6f3c",
+        "name": "shared_auto_package",
+        "notes": "",
         "paths": [
           "backtests/shared/auto"
         ],
-        "scope": "selection",
-        "notes": ""
+        "scope": "selection"
       }
-    ]
+    ],
+    "schema_version": 1,
+    "selection_fingerprint": "5a9ff0604335f56207a98efb206ef77b742261699879ddb2d16d1ce49d30e3da"
   },
-  "provenance_status": "complete"
+  "provenance_status": "provisional_direct_rth_revalidation_required",
+  "round": 1,
+  "selected_candidate": "targeted__avwap_caps_pair_plus_rvol_1p5",
+  "strategy": "alcb"
 }

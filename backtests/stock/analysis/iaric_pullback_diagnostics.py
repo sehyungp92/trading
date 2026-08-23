@@ -4,10 +4,15 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import numpy as np
 
+from backtests.stock.data.calendar import RTH_SESSION_POLICY, bar_open_in_session
 from backtests.stock.models import TradeRecord
+
+
+ET = ZoneInfo("America/New_York")
 
 
 def _meta(trade: TradeRecord, key: str, default=None):
@@ -63,7 +68,17 @@ def _bootstrap_mean_ci(values: list[float], *, iterations: int = 200, seed: int 
 
 def _trade_stats(trades: list[TradeRecord]) -> dict[str, float]:
     if not trades:
-        return {"n": 0.0, "wr": 0.0, "avg_r": 0.0, "median_r": 0.0, "total_r": 0.0, "pf": 0.0, "pnl": 0.0}
+        return {
+            "n": 0.0,
+            "wr": 0.0,
+            "avg_r": 0.0,
+            "median_r": 0.0,
+            "total_r": 0.0,
+            "gross_positive_r": 0.0,
+            "gross_negative_r": 0.0,
+            "pf": 0.0,
+            "pnl": 0.0,
+        }
     rs = [float(t.r_multiple) for t in trades]
     return {
         "n": float(len(trades)),
@@ -71,6 +86,8 @@ def _trade_stats(trades: list[TradeRecord]) -> dict[str, float]:
         "avg_r": float(np.mean(rs)),
         "median_r": float(np.median(rs)),
         "total_r": float(sum(rs)),
+        "gross_positive_r": float(sum(value for value in rs if value > 0.0)),
+        "gross_negative_r": float(sum(value for value in rs if value < 0.0)),
         "pf": float(_pf(rs)),
         "pnl": float(sum(t.pnl_net for t in trades)),
     }
@@ -78,13 +95,24 @@ def _trade_stats(trades: list[TradeRecord]) -> dict[str, float]:
 
 def _stats_from_values(values: list[float]) -> dict[str, float]:
     if not values:
-        return {"n": 0.0, "wr": 0.0, "avg_r": 0.0, "median_r": 0.0, "total_r": 0.0, "pf": 0.0}
+        return {
+            "n": 0.0,
+            "wr": 0.0,
+            "avg_r": 0.0,
+            "median_r": 0.0,
+            "total_r": 0.0,
+            "gross_positive_r": 0.0,
+            "gross_negative_r": 0.0,
+            "pf": 0.0,
+        }
     return {
         "n": float(len(values)),
         "wr": _share(sum(1 for v in values if v > 0), len(values)),
         "avg_r": float(np.mean(values)),
         "median_r": float(np.median(values)),
         "total_r": float(sum(values)),
+        "gross_positive_r": float(sum(value for value in values if value > 0.0)),
+        "gross_negative_r": float(sum(value for value in values if value < 0.0)),
         "pf": float(_pf(values)),
     }
 
@@ -109,6 +137,33 @@ def _quantile_indices(values: list[float], bins: int = 5) -> list[tuple[float, f
             hi = lo + 1e-9
         ranges.append((lo, hi))
     return ranges
+
+
+def _average_ranks(values: list[float]) -> np.ndarray:
+    arr = np.asarray(values, dtype=float)
+    order = np.argsort(arr, kind="mergesort")
+    ranks = np.empty(len(arr), dtype=float)
+    start = 0
+    while start < len(arr):
+        end = start + 1
+        while end < len(arr) and arr[order[end]] == arr[order[start]]:
+            end += 1
+        ranks[order[start:end]] = (start + end - 1) / 2.0 + 1.0
+        start = end
+    return ranks
+
+
+def _spearman(values: list[float], outcomes: list[float]) -> float | None:
+    if len(values) < 3 or len(values) != len(outcomes):
+        return None
+    left = np.asarray(values, dtype=float)
+    right = np.asarray(outcomes, dtype=float)
+    if not np.all(np.isfinite(left)) or not np.all(np.isfinite(right)):
+        return None
+    if np.ptp(left) <= 1e-12 or np.ptp(right) <= 1e-12:
+        return None
+    value = float(np.corrcoef(_average_ranks(values), _average_ranks(outcomes))[0, 1])
+    return value if np.isfinite(value) else None
 
 
 def _group_by_quantiles(items: list[Any], value_getter, target_getter, *, bins: int = 5) -> list[dict[str, Any]]:
@@ -235,13 +290,44 @@ def _simulate_daily_policy(
     return {"r": float(r_mult), "exit_reason": exit_reason, "hold_days": int(days_held), "close_pct": float(close_pct), "close_r": float(close_r)}
 
 
+def _rth_5m_arrays(replay, symbol: str, trade_date: date) -> dict[str, np.ndarray] | None:
+    """Return timestamped regular-session arrays or decline the counterfactual.
+
+    Legacy 5-minute files can contain premarket and postmarket bars.  Treating raw
+    array offsets as 09:30-based offsets silently turns an "open" diagnostic into
+    a premarket-price oracle.  Timing diagnostics therefore require timestamps
+    and explicitly apply the shared RTH session policy.
+    """
+    getter = getattr(replay, "get_5m_arrays_for_date", None)
+    if getter is None:
+        return None
+    arrs = getter(symbol, trade_date)
+    if arrs is None or "time" not in arrs:
+        return None
+    timestamps = np.asarray(arrs["time"], dtype=object)
+    indices = np.asarray(
+        [
+            idx
+            for idx, timestamp in enumerate(timestamps)
+            if bar_open_in_session(timestamp, RTH_SESSION_POLICY)
+        ],
+        dtype=int,
+    )
+    if indices.size == 0:
+        return None
+    required = ("open", "high", "low", "close")
+    if any(key not in arrs or len(arrs[key]) != len(timestamps) for key in required):
+        return None
+    return {
+        **{key: np.asarray(arrs[key])[indices] for key in required},
+        "time": timestamps[indices],
+    }
+
+
 def _entry_variant_result(trade: TradeRecord, replay, variant: str) -> dict[str, Any] | None:
     if replay is None or trade.risk_per_share <= 0:
         return None
-    arrs = getattr(replay, "get_5m_arrays_for_date", None)
-    if arrs is None:
-        return None
-    arrs = replay.get_5m_arrays_for_date(trade.symbol, trade.entry_time.date())
+    arrs = _rth_5m_arrays(replay, trade.symbol, trade.entry_time.date())
     if arrs is None:
         return None
     opens = arrs["open"]
@@ -253,15 +339,15 @@ def _entry_variant_result(trade: TradeRecord, replay, variant: str) -> dict[str,
         return None
     index = 0
     entry_price = float(opens[0])
-    label = "Open"
+    label = "RTH open (non-causal)"
     if variant == "delay_30m":
         index = min(6, n - 1)
         entry_price = float(opens[index])
-        label = "Delay 30m"
+        label = "RTH +30m"
     elif variant == "delay_60m":
         index = min(12, n - 1)
         entry_price = float(opens[index])
-        label = "Delay 60m"
+        label = "RTH +60m"
     elif variant == "first_reversal_close":
         chosen = None
         for idx in range(1, n):
@@ -272,7 +358,7 @@ def _entry_variant_result(trade: TradeRecord, replay, variant: str) -> dict[str,
             return None
         index = chosen
         entry_price = float(closes[index])
-        label = "First reversal close"
+        label = "First RTH reversal close"
     risk_per_share = float(trade.risk_per_share)
     stop_price = entry_price - risk_per_share
     exit_price = float(closes[-1])
@@ -293,17 +379,14 @@ def _entry_variant_result(trade: TradeRecord, replay, variant: str) -> dict[str,
         "entry_location": float(entry_location),
         "entry_price": float(entry_price),
         "entry_index": int(index),
-        "entry_time": None,
+        "entry_time": arrs["time"][index],
     }
 
 
 def _best_feasible_entry_result(trade: TradeRecord, replay) -> dict[str, Any] | None:
     if replay is None or trade.risk_per_share <= 0:
         return None
-    arrs = getattr(replay, "get_5m_arrays_for_date", None)
-    if arrs is None:
-        return None
-    arrs = replay.get_5m_arrays_for_date(trade.symbol, trade.entry_time.date())
+    arrs = _rth_5m_arrays(replay, trade.symbol, trade.entry_time.date())
     if arrs is None:
         return None
     opens = arrs["open"]
@@ -331,13 +414,13 @@ def _best_feasible_entry_result(trade: TradeRecord, replay) -> dict[str, Any] | 
         r_val = float((exit_price - entry_price) / risk_per_share)
         if best is None or r_val > float(best["r"]):
             best = {
-                "label": "Best feasible close",
+                "label": "Best RTH close (oracle)",
                 "r": r_val,
                 "exit_reason": exit_reason,
                 "entry_location": float(_share(entry_price - day_low, max(day_high - day_low, 1e-9))),
                 "entry_price": float(entry_price),
                 "entry_index": int(idx),
-                "entry_time": None,
+                "entry_time": arrs["time"][idx],
             }
     return best
 
@@ -512,7 +595,12 @@ def _compute_entry_timing(trades: list[TradeRecord], replay) -> list[dict[str, A
             if result is not None:
                 by_label[result["label"]].append(result)
     rows = []
-    for label in ["Open", "Delay 30m", "Delay 60m", "First reversal close"]:
+    for label in [
+        "RTH open (non-causal)",
+        "RTH +30m",
+        "RTH +60m",
+        "First RTH reversal close",
+    ]:
         results = by_label.get(label, [])
         if not results:
             continue
@@ -725,8 +813,13 @@ def _ordered_route_labels(labels: list[str]) -> list[str]:
 def _half_hour_bucket(ts) -> str:
     if ts is None:
         return "N/A"
+    if getattr(ts, "tzinfo", None) is not None:
+        ts = ts.astimezone(ET)
+        suffix = " ET"
+    else:
+        suffix = " (naive)"
     minute = 30 if getattr(ts, "minute", 0) >= 30 else 0
-    return f"{getattr(ts, 'hour', 0):02d}:{minute:02d}"
+    return f"{getattr(ts, 'hour', 0):02d}:{minute:02d}{suffix}"
 
 
 def _bars_to_exit(trade: TradeRecord) -> int:
@@ -1544,6 +1637,197 @@ def _compute_alpha_sources(
         },
     }
 
+
+def _compute_alpha_capture_audit(
+    trades: list[TradeRecord],
+    *,
+    funnel: dict[str, Any],
+    shadow: dict[str, Any],
+    intraday: dict[str, Any],
+) -> dict[str, Any]:
+    actual = _trade_stats(trades)
+    mfe_values = [max(_safe_float(_meta(trade, "mfe_r", 0.0)), 0.0) for trade in trades]
+    mae_values = [max(_safe_float(_meta(trade, "mae_r", 0.0)), 0.0) for trade in trades]
+    mfe_total = float(sum(mfe_values))
+    total_r = float(actual["total_r"])
+    route_groups: dict[str, list[TradeRecord]] = defaultdict(list)
+    symbol_groups: dict[str, list[TradeRecord]] = defaultdict(list)
+    exit_groups: dict[str, list[TradeRecord]] = defaultdict(list)
+    for trade in trades:
+        route_groups[_route_label(trade)].append(trade)
+        symbol_groups[trade.symbol].append(trade)
+        exit_groups[trade.exit_reason or "UNKNOWN"].append(trade)
+
+    fallback_count = len(route_groups.get("OPEN_SCORED_ENTRY", []))
+    thesis_routes = {
+        "DELAYED_CONFIRM",
+        "OPENING_RECLAIM",
+        "OPEN_SCORED_RETEST",
+        "VWAP_BOUNCE",
+        "AFTERNOON_RETEST",
+        "PM_REENTRY",
+    }
+    thesis_route_count = sum(len(group) for route, group in route_groups.items() if route in thesis_routes)
+    stage_counts = intraday.get("stage_counts", {})
+
+    excursion_rows: list[dict[str, Any]] = []
+    for threshold in (0.10, 0.25, 0.50, 0.75, 1.00):
+        group = [
+            trade
+            for trade, mfe in zip(trades, mfe_values)
+            if mfe >= threshold
+        ]
+        nonpositive = [trade for trade in group if float(trade.r_multiple) <= 0.0]
+        excursion_rows.append(
+            {
+                "threshold": threshold,
+                "count": len(group),
+                "share": _share(len(group), len(trades)),
+                "avg_r": _mean_or_zero([float(trade.r_multiple) for trade in group]),
+                "total_r": float(sum(float(trade.r_multiple) for trade in group)),
+                "nonpositive_count": len(nonpositive),
+                "nonpositive_share": _share(len(nonpositive), len(group)),
+            }
+        )
+
+    exit_rows = []
+    for reason, group in sorted(exit_groups.items(), key=lambda item: -len(item[1])):
+        stats = _trade_stats(group)
+        group_mfe = float(sum(max(_safe_float(_meta(trade, "mfe_r", 0.0)), 0.0) for trade in group))
+        exit_rows.append(
+            {
+                "reason": reason,
+                "count": len(group),
+                "total_r": stats["total_r"],
+                "gross_positive_r": stats["gross_positive_r"],
+                "gross_negative_r": stats["gross_negative_r"],
+                "mfe_total_r": group_mfe,
+                "net_mfe_capture": _share(stats["total_r"], group_mfe),
+            }
+        )
+
+    symbol_rows = []
+    for symbol, group in symbol_groups.items():
+        stats = _trade_stats(group)
+        symbol_rows.append(
+            {
+                "symbol": symbol,
+                "count": len(group),
+                "total_r": stats["total_r"],
+                "avg_r": stats["avg_r"],
+            }
+        )
+    symbol_rows.sort(key=lambda row: (-row["total_r"], row["symbol"]))
+    top_symbols = [row["symbol"] for row in symbol_rows[:3]]
+    leader = top_symbols[:1]
+    ex_leader = _trade_stats([trade for trade in trades if trade.symbol not in leader])
+    ex_top_three = _trade_stats([trade for trade in trades if trade.symbol not in top_symbols])
+
+    fold_groups: dict[str, list[TradeRecord]] = defaultdict(list)
+    for trade in trades:
+        half = 1 if trade.entry_time.month <= 6 else 2
+        fold_groups[f"{trade.entry_time.year} H{half}"].append(trade)
+    fold_rows = []
+    for label in sorted(fold_groups):
+        stats = _trade_stats(fold_groups[label])
+        fold_rows.append(
+            {
+                "label": label,
+                "count": int(stats["n"]),
+                "avg_r": stats["avg_r"],
+                "total_r": stats["total_r"],
+                "pf": stats["pf"],
+            }
+        )
+
+    r_values = [float(trade.r_multiple) for trade in trades]
+    component_names = (
+        "daily_signal",
+        "reclaim",
+        "volume",
+        "vwap_hold",
+        "cpr",
+        "speed",
+        "quality_adjustment",
+    )
+    score_information_rows = []
+    route_scores = [_trade_route_score(trade) for trade in trades]
+    if route_scores:
+        score_information_rows.append(
+            {
+                "component": "route_score",
+                "rho_realized_r": _spearman(route_scores, r_values),
+                "rho_mfe_r": _spearman(route_scores, mfe_values),
+                "rho_mae_r": _spearman(route_scores, mae_values),
+                "constant": bool(np.ptp(np.asarray(route_scores, dtype=float)) <= 1e-12),
+            }
+        )
+    for name in component_names:
+        values = [_meta(trade, f"entry_score_component_{name}") for trade in trades]
+        if not any(value is not None for value in values):
+            continue
+        numeric = [_safe_float(value, 0.0) for value in values]
+        score_information_rows.append(
+            {
+                "component": name,
+                "rho_realized_r": _spearman(numeric, r_values),
+                "rho_mfe_r": _spearman(numeric, mfe_values),
+                "rho_mae_r": _spearman(numeric, mae_values),
+                "constant": bool(np.ptp(np.asarray(numeric, dtype=float)) <= 1e-12),
+            }
+        )
+
+    counters = funnel.get("counters", {})
+    triggered = _safe_int(counters.get("triggered"))
+    candidate_pool = _safe_int(counters.get("candidate_pool"))
+    return {
+        "verdict": (
+            "NOT_CAPTURING_THESIS_ALPHA"
+            if thesis_route_count == 0 or _safe_int(stage_counts.get("ready")) == 0
+            else "THESIS_ROUTE_ACTIVE"
+        ),
+        "route_coverage": {
+            "fallback_open_scored_count": fallback_count,
+            "fallback_open_scored_share": _share(fallback_count, len(trades)),
+            "thesis_route_count": thesis_route_count,
+            "thesis_route_share": _share(thesis_route_count, len(trades)),
+            "flush_states": _safe_int(stage_counts.get("flush_locked")),
+            "reclaim_states": _safe_int(stage_counts.get("reclaiming")),
+            "ready_states": _safe_int(stage_counts.get("ready")),
+        },
+        "aperture": {
+            "triggered": triggered,
+            "candidate_pool": candidate_pool,
+            "entered": len(trades),
+            "entered_per_trigger": _share(len(trades), triggered),
+            "entered_per_candidate": _share(len(trades), candidate_pool),
+        },
+        "selection_economics": {
+            "accepted": actual,
+            "rejected_shadow": shadow.get("shadow", _stats_from_values([])),
+            "delta_avg_r": _safe_float(shadow.get("delta_avg_r")),
+        },
+        "excursion_capture": {
+            "mfe_total_r": mfe_total,
+            "realized_total_r": total_r,
+            "net_capture_ratio": _share(total_r, mfe_total),
+            "total_giveback_r": float(mfe_total - total_r),
+            "mean_mfe_r": _mean_or_zero(mfe_values),
+            "median_mfe_r": float(np.median(mfe_values)) if mfe_values else 0.0,
+            "mean_mae_r": _mean_or_zero(mae_values),
+            "median_mae_r": float(np.median(mae_values)) if mae_values else 0.0,
+            "threshold_rows": excursion_rows,
+        },
+        "exit_waterfall": exit_rows,
+        "symbol_concentration": {
+            "top_rows": symbol_rows[:5],
+            "ex_leader": ex_leader,
+            "ex_top_three": ex_top_three,
+        },
+        "temporal_folds": fold_rows,
+        "score_information": score_information_rows,
+    }
+
 def compute_pullback_diagnostic_snapshot(
     trades: list[TradeRecord],
     *,
@@ -1589,6 +1873,12 @@ def compute_pullback_diagnostic_snapshot(
     management_forensics = _compute_management_forensics(trades, replay)
     exit_replacement = _compute_exit_replacement(trades, replay)
     alpha_sources = _compute_alpha_sources(trades, selector_frontier)
+    alpha_capture = _compute_alpha_capture_audit(
+        trades,
+        funnel=funnel,
+        shadow=shadow,
+        intraday=intraday,
+    )
     best_timing = max(entry_timing, key=lambda item: item["avg_r"], default=None)
     best_exit = max(exit_frontier, key=lambda item: item["avg_r"], default=None)
     daily_score_rows = selector_frontier.get("daily_score_rows", [])
@@ -1630,6 +1920,7 @@ def compute_pullback_diagnostic_snapshot(
         "management_forensics": management_forensics,
         "exit_replacement": exit_replacement,
         "alpha_sources": alpha_sources,
+        "alpha_capture": alpha_capture,
     }
 
 
@@ -1665,6 +1956,132 @@ def _render_verdicts(snapshot: dict[str, Any]) -> str:
         lines.append("  Exit mechanism: REVIEW (no replay available for economic frontier).")
     lines.append(f"  Trade management: {verdicts['trade_management']}.")
     lines.append(f"  Primary bottleneck: {verdicts['primary_bottleneck']}.")
+    return "\n".join(lines)
+
+
+def _format_rho(value: float | None) -> str:
+    return "   N/A" if value is None else f"{value:+6.3f}"
+
+
+def _render_alpha_capture(snapshot: dict[str, Any]) -> str:
+    audit = snapshot["alpha_capture"]
+    routes = audit["route_coverage"]
+    aperture = audit["aperture"]
+    selection = audit["selection_economics"]
+    excursion = audit["excursion_capture"]
+    accepted = selection["accepted"]
+    rejected = selection["rejected_shadow"]
+    lines = [_hdr("0. Alpha Capture & Thesis Alignment")]
+    lines.append(f"  Governing verdict: {audit['verdict']}")
+    lines.append(
+        "  Alpha here means strategy-R expectancy; benchmark/factor residual alpha "
+        "requires a separate return series."
+    )
+    lines.append(
+        "  Thesis route: opening flush -> reclaim/confirmation -> mean-reversion recovery."
+    )
+    lines.append(
+        "  Route coverage: "
+        f"thesis routes={routes['thesis_route_count']} ({routes['thesis_route_share']:.1%}), "
+        f"OPEN_SCORED fallback={routes['fallback_open_scored_count']} "
+        f"({routes['fallback_open_scored_share']:.1%}); "
+        f"flush/reclaim/ready={routes['flush_states']}/{routes['reclaim_states']}/{routes['ready_states']}."
+    )
+    lines.append(
+        "  Aperture: "
+        f"entered={aperture['entered']}/{aperture['triggered']} triggers "
+        f"({aperture['entered_per_trigger']:.1%}) and "
+        f"{aperture['entered']}/{aperture['candidate_pool']} candidate-pool names "
+        f"({aperture['entered_per_candidate']:.1%})."
+    )
+    lines.append("")
+    lines.append("  Selection precision versus alpha recall:")
+    lines.append(
+        f"    Accepted: n={int(accepted['n'])}, avg={accepted['avg_r']:+.3f}R, "
+        f"gross positive={accepted['gross_positive_r']:+.2f}R, "
+        f"gross negative={accepted['gross_negative_r']:+.2f}R."
+    )
+    lines.append(
+        f"    Rejected shadows: n={int(rejected['n'])}, avg={rejected['avg_r']:+.3f}R, "
+        f"gross positive={rejected['gross_positive_r']:+.2f}R, "
+        f"gross negative={rejected['gross_negative_r']:+.2f}R."
+    )
+    lines.append(
+        f"    Precision delta={selection['delta_avg_r']:+.3f}R/trade. Positive rejected "
+        "shadow R is opportunity recall, not executable portfolio PnL."
+    )
+    lines.append("")
+    lines.append("  Favorable-excursion conversion (pathwise ceiling, not tradable oracle):")
+    lines.append(
+        f"    MFE={excursion['mfe_total_r']:+.2f}R; realized={excursion['realized_total_r']:+.2f}R; "
+        f"net capture={excursion['net_capture_ratio']:.1%}; giveback={excursion['total_giveback_r']:+.2f}R."
+    )
+    lines.append(
+        f"    Median MFE={excursion['median_mfe_r']:.3f}R; median MAE={excursion['median_mae_r']:.3f}R; "
+        f"mean MFE={excursion['mean_mfe_r']:.3f}R; mean MAE={excursion['mean_mae_r']:.3f}R."
+    )
+    lines.append(
+        f"    {'MFE reached':<12s} {'n':>5s} {'Share':>7s} {'AvgR':>8s} {'TotR':>8s} {'Non-pos':>9s}"
+    )
+    lines.append("    " + "-" * 57)
+    for row in excursion["threshold_rows"]:
+        lines.append(
+            f"    >={row['threshold']:.2f}R     {row['count']:>5d} {row['share']:>6.1%} "
+            f"{row['avg_r']:>+7.3f} {row['total_r']:>+7.2f} "
+            f"{row['nonpositive_count']:>3d} ({row['nonpositive_share']:.1%})"
+        )
+    if audit["score_information"]:
+        lines.append("")
+        lines.append("  Does the score predict opportunity, risk, or realized return?")
+        lines.append(f"  {'Component':<20s} {'rho(R)':>8s} {'rho(MFE)':>9s} {'rho(MAE)':>9s} {'State':>9s}")
+        lines.append("  " + "-" * 61)
+        for row in audit["score_information"]:
+            state = "CONSTANT" if row["constant"] else "VARIABLE"
+            lines.append(
+                f"  {row['component']:<20s} {_format_rho(row['rho_realized_r']):>8s} "
+                f"{_format_rho(row['rho_mfe_r']):>9s} {_format_rho(row['rho_mae_r']):>9s} {state:>9s}"
+            )
+    lines.append("")
+    lines.append("  Exit-path economic waterfall:")
+    for row in audit["exit_waterfall"]:
+        lines.append(
+            f"    {row['reason']}: n={row['count']}, total={row['total_r']:+.2f}R, "
+            f"MFE={row['mfe_total_r']:+.2f}R, net/MFE={row['net_mfe_capture']:.1%}."
+        )
+    concentration = audit["symbol_concentration"]
+    if concentration["top_rows"]:
+        lines.append("")
+        lines.append("  Symbol concentration / leave-leaders-out stress:")
+        for row in concentration["top_rows"]:
+            lines.append(
+                f"    {row['symbol']}: n={row['count']}, avg={row['avg_r']:+.3f}R, total={row['total_r']:+.2f}R."
+            )
+        lines.append(
+            f"    Ex top symbol: n={int(concentration['ex_leader']['n'])}, "
+            f"avg={concentration['ex_leader']['avg_r']:+.3f}R, "
+            f"total={concentration['ex_leader']['total_r']:+.2f}R, "
+            f"PF={concentration['ex_leader']['pf']:.2f}."
+        )
+        lines.append(
+            f"    Ex top three: n={int(concentration['ex_top_three']['n'])}, "
+            f"avg={concentration['ex_top_three']['avg_r']:+.3f}R, "
+            f"total={concentration['ex_top_three']['total_r']:+.2f}R, "
+            f"PF={concentration['ex_top_three']['pf']:.2f}."
+        )
+    if audit["temporal_folds"]:
+        lines.append("")
+        lines.append("  Selected-control half-year stability:")
+        for row in audit["temporal_folds"]:
+            lines.append(
+                f"    {row['label']}: n={row['count']}, avg={row['avg_r']:+.3f}R, "
+                f"total={row['total_r']:+.2f}R, PF={row['pf']:.2f}."
+            )
+    lines.append("")
+    lines.append(
+        "  Interpretation: good aggregate rejection precision does not establish "
+        "capture of the intended alpha when thesis-route coverage is zero, score "
+        "information is weak, and net opportunity conversion is low."
+    )
     return "\n".join(lines)
 
 
@@ -1841,7 +2258,7 @@ def _render_entry_quality(snapshot: dict[str, Any]) -> str:
     else:
         lines.append("  (no route-level entry frontier data)")
     if entry["entry_tax_rows"]:
-        lines.append("\n  Entry tax vs best feasible close:")
+        lines.append("\n  Entry tax vs best RTH close (oracle upper bound):")
         for row in entry["entry_tax_rows"]:
             lines.append(f"    {row['route']}: n={row['count']}, avg_price_tax={row['avg_price_tax']:+.3f}, avg_r_tax={row['avg_r_tax']:+.3f}")
     if entry["route_bucket_rows"]:
@@ -1900,7 +2317,11 @@ def _render_management_forensics(snapshot: dict[str, Any]) -> str:
         lines.append("")
         lines.append(f"  Stale-exit counterfactuals: n={stale['count']}, hold_to_eod={stale['hold_to_eod_avg_r']:+.3f}, tight_first_hour={stale['tight_first_hour_avg_r']:+.3f}")
     protect = mgmt["protection_summary"]
-    lines.append(f"  Could-be-saved with protection: n={protect['count']} ({protect['share']:.1%}), avg_loser_r={protect['avg_loser_r']:+.3f}")
+    lines.append(
+        "  Pathwise protection candidates (MFE/MAE ordering not proven): "
+        f"n={protect['count']} ({protect['share']:.1%}), "
+        f"avg_loser_r={protect['avg_loser_r']:+.3f}"
+    )
     return "\n".join(lines)
 
 
@@ -1934,6 +2355,10 @@ def _render_exit_replacement(snapshot: dict[str, Any]) -> str:
 def _render_alpha_sources(snapshot: dict[str, Any]) -> str:
     alpha = snapshot["alpha_sources"]
     lines = [_hdr("13B. Positive Contribution / Alpha Source")]
+    lines.append(
+        "  Alpha here means positive strategy-R contribution, not benchmark- or "
+        "factor-residual alpha."
+    )
     for title, rows in [
         ("Entry routes", alpha["route_rows"]),
         ("Sectors", alpha["sector_rows"]),
@@ -2010,7 +2435,7 @@ def _render_mfe_capture(snapshot: dict[str, Any]) -> str:
     for row in snapshot["mfe_capture"]["rows"]:
         lines.append(f"  {row['reason']:<22s} {row['count']:>6d} {row['avg_r']:>+7.3f} {row['capture']:>8.1%} {row['giveback']:>+9.3f}")
     if snapshot["mfe_capture"]["lost_alpha"]:
-        lines.append("\n  Top lost-alpha EOD flatten trades:")
+        lines.append("\n  Top pathwise-giveback EOD flatten trades:")
         for item in snapshot["mfe_capture"]["lost_alpha"][:5]:
             lines.append(f"    {item['trade_date']} {item['symbol']}: actual {item['actual_r']:+.3f} vs MFE {item['mfe_r']:+.3f} (lost {item['lost_r']:+.3f}R)")
     return "\n".join(lines)
@@ -2046,7 +2471,7 @@ def _render_carry_funnel(snapshot: dict[str, Any]) -> str:
 
 
 def _render_entry_timing(snapshot: dict[str, Any]) -> str:
-    lines = [_hdr("11. Entry Timing Counterfactuals")]
+    lines = [_hdr("11. Entry Timing Counterfactuals (RTH, Pathwise, Non-Causal)")]
     if not snapshot["entry_timing"]:
         lines.append("  (no 5m replay data available)")
         return "\n".join(lines)
@@ -2054,7 +2479,8 @@ def _render_entry_timing(snapshot: dict[str, Any]) -> str:
     lines.append("  " + "-" * 66)
     for row in snapshot["entry_timing"]:
         lines.append(f"  {row['label']:<24s} {row['n']:>5d} {row['wr']:>5.1%} {row['avg_r']:>+7.3f} {row['pf']:>6.2f} {row['entry_location']:>9.1%}")
-    lines.append("  EntryLoc is the average entry position within the day's range; lower is better for pullback buys.")
+    lines.append("  EntryLoc is the average entry position within the RTH day's range; lower is better for pullback buys.")
+    lines.append("  These substitutions reuse selected names and the actual fixed risk distance. They diagnose price-location headroom only; they do not prove signal availability or executable portfolio results.")
     return "\n".join(lines)
 
 
@@ -2158,23 +2584,27 @@ def pullback_full_diagnostic(
     shadow_outcomes: list[dict[str, Any]] | None = None,
     selection_attribution: dict[date, dict[str, Any]] | None = None,
     fsm_log: list[dict[str, Any]] | None = None,
+    diagnostic_snapshot: dict[str, Any] | None = None,
 ) -> str:
     if not trades:
         return "No trades to diagnose."
-    snapshot = compute_pullback_diagnostic_snapshot(
-        trades,
-        metrics=metrics,
-        replay=replay,
-        daily_selections=daily_selections,
-        candidate_ledger=candidate_ledger,
-        funnel_counters=funnel_counters,
-        rejection_log=rejection_log,
-        shadow_outcomes=shadow_outcomes,
-        selection_attribution=selection_attribution,
-        fsm_log=fsm_log,
-    )
+    snapshot = diagnostic_snapshot
+    if snapshot is None:
+        snapshot = compute_pullback_diagnostic_snapshot(
+            trades,
+            metrics=metrics,
+            replay=replay,
+            daily_selections=daily_selections,
+            candidate_ledger=candidate_ledger,
+            funnel_counters=funnel_counters,
+            rejection_log=rejection_log,
+            shadow_outcomes=shadow_outcomes,
+            selection_attribution=selection_attribution,
+            fsm_log=fsm_log,
+        )
     sections = [
         _render_verdicts(snapshot),
+        _render_alpha_capture(snapshot),
         _render_overview(snapshot),
         _render_exit_mix(trades),
         _render_funnel(snapshot),

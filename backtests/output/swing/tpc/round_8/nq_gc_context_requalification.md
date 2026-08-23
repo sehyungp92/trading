@@ -1,5 +1,9 @@
 # Swing NQ/GC context requalification
 
+> Archived pre-migration research. TPC is now ETF-only; the current decision
+> and verified in-sample result are documented in `etf_only_migration.md` and
+> `etf_only_train_summary.json`.
+
 ## Scope and comparability
 
 This audit compares the latest Swing configurations while holding ETF execution data and code constant and changing only the NQ/GC context lane.

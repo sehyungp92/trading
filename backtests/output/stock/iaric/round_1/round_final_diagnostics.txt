@@ -1,14 +1,109 @@
-Restored IARIC live-aligned archived round_3 replay before perturbation.
+========================================================================================
+IARIC RESIDUAL REVERSION — EXACT-98 FULL IN-SAMPLE STARTING BASELINE
+========================================================================================
+Contract: iaric_residual_continuous_reconciled_exact98_v1
+Window: 2024-03-25 through 2025-07-31
+Universe: exactly 98 traded stocks; SPY and 11 sector ETFs explanatory only
+Execution: shared live/replay core, next-session open, shared capital
+Costs: 20 bps round trip
+Locked validation accessed: no
+Sealed holdout accessed: no
 
-This active round intentionally excludes the faulty perturbation that set param_overrides.pb_v2_partial_profit_trigger_r to 0.0.
+FROZEN PRE-SEARCH CONFIGURATION
+Factor model: market_sector_peer
+Formation / maximum hold: 1 / 10 sessions
+Score components: volume_transition
+Minimum residual z: 1.00
+Capacity: 10 positions, 2 per sector, one per issuer
 
-Source: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\iaric\archived_rounds\20260523T222808Z_faulty_zero_partial_trigger_perturbation\round_1
-Restored at UTC: 2026-05-24T00:26:13.597998+00:00
+HEADLINE PERFORMANCE
+Trades: 339
+Trades/month: 20.93
+Total R: +84.04
+Average R: +0.248
+Profit factor: 1.398
+Win rate: 54.6%
+Net PnL: $27,890.69
+Final equity: $127,890.69
+Return: 27.89%
+CAGR: 20.30%
+MTM max drawdown: 15.62%
+Sharpe / Sortino / Calmar: 1.34 / 1.81 / 1.30
 
-Headline metrics:
-  total_trades: 1446
-  win_rate: 79.7372%
-  avg_r: 0.151102631822
-  expected_total_r: 218.494405615032
-  profit_factor: 2.313020005660
-  max_drawdown_pct: 1.9851%
+CONTINUOUS-STATE CHRONOLOGICAL COHORTS (NO FOLD RESET)
+discovery: 170 trades, +49.54R, avg +0.291R, PF 1.491, 20.70 trades/month, portfolio return +22.18%, carried-in positions 0, purged boundary entries 9
+calibration: 160 trades, +18.00R, avg +0.113R, PF 1.164, 20.12 trades/month, portfolio return +4.68%, carried-in positions 9, purged boundary entries 0
+Failed exact-fold gates: score_top_tail_separation_each_fold
+
+INDEPENDENT-RESTART SENSITIVITY (NON-ECONOMIC SECONDARY TEST)
+Continuous: 339 trades, +84.04R
+Two reset folds: 338 trades, +79.34R
+Reset minus continuous: -4.71R; restart stability 0.946
+Common entries: 296; continuous-only: 43; reset-only: 42
+The reset total is never used as expected return or executable frequency.
+
+SIGNAL DISCRIMINATION
+Score monotonicity passed: True
+Score/outcome rank correlation: +0.106
+Top-minus-bottom quintile: +0.654R
+Top-minus-middle quintile: +0.293R
+Combined score quintiles:
+  Q1: 68 trades, avg -0.045R, total -3.08R
+  Q2: 68 trades, avg +0.151R, total +10.24R
+  Q3: 67 trades, avg +0.316R, total +21.17R
+  Q4: 68 trades, avg +0.211R, total +14.34R
+  Q5: 68 trades, avg +0.609R, total +41.38R
+
+OPPORTUNITY AND REJECTION AUDIT
+Deferred to the factor-model-keyed phased atlas. The prior fast projection used a moving residual model and is not comparable with this frozen-model exact baseline.
+
+CONCENTRATION AND TAIL DEPENDENCE
+Top issuer share of positive R: 10.2%
+Top sector share of positive R: 24.8%
+Top 10 trades: +45.86R; remainder: +38.18R
+Top 20 trades: +79.91R; remainder: +4.14R
+
+ENTRY AND MANAGEMENT
+Average signal-close to next-open return: +0.050%
+Average open-to-final-exit return: +1.067%
+Losers that first achieved >+0.30R MFE: 99 (64.3% of losers)
+
+EXIT ATTRIBUTION
+  catastrophic_stop: 61 trades, -141.37R, avg -2.318R, PF 0.000
+  fold_end_marked_liquidation: 6 trades, -0.27R, avg -0.046R, PF 0.920
+  residual_half_life_time_stop: 272 trades, +225.69R, avg +0.830R, PF 4.390
+
+COST SENSITIVITY
+  10 bps: +94.62R, avg +0.279R, PF 1.458
+  20 bps: +84.04R, avg +0.248R, PF 1.398
+  30 bps: +73.47R, avg +0.217R, PF 1.340
+  40 bps: +62.89R, avg +0.186R, PF 1.284
+
+TEMPORAL STABILITY
+Positive months: 11/17
+  2024-03: 9 trades, -2.66R, avg -0.296R
+  2024-04: 23 trades, -1.13R, avg -0.049R
+  2024-05: 21 trades, +6.26R, avg +0.298R
+  2024-06: 18 trades, +9.57R, avg +0.532R
+  2024-07: 24 trades, -9.65R, avg -0.402R
+  2024-08: 22 trades, +17.66R, avg +0.803R
+  2024-09: 21 trades, +11.87R, avg +0.565R
+  2024-10: 23 trades, +22.97R, avg +0.999R
+  2024-11: 18 trades, +11.16R, avg +0.620R
+  2024-12: 18 trades, -8.86R, avg -0.492R
+  2025-01: 22 trades, +11.03R, avg +0.501R
+  2025-02: 20 trades, -19.25R, avg -0.963R
+  2025-03: 23 trades, -23.87R, avg -1.038R
+  2025-04: 19 trades, +17.40R, avg +0.916R
+  2025-05: 18 trades, +12.28R, avg +0.682R
+  2025-06: 21 trades, +19.19R, avg +0.914R
+  2025-07: 19 trades, +10.08R, avg +0.530R
+
+DRAWDOWN
+Peak: 2025-02-06; trough: 2025-04-08; recovery: 2025-07-03
+
+BASELINE VERDICT
+This is the representative continuous-state alpha baseline for further optimization: economic breadth, calibration value, frequency and concentration gates pass. It is not promotion-ready; score discrimination and locked chronological validation remain explicit downstream gates.
+The exit attribution separates fixed half-life or typed normalization value from catastrophic-stop and boundary cohorts. The baseline is representative only if the causal selector, entry delivery and management survive both folds after registered costs.
+
+This file is descriptive baseline evidence, not an optimized or promoted result.

@@ -34,7 +34,7 @@ from backtests.stock.engine.research_replay import ResearchReplayEngine
 PHASE_STATE_PATH = Path("backtests/stock/auto/iaric/output_multiphase/phase_state.json")
 DATA_DIR = Path("backtests/stock/data/raw")
 OUTPUT_DIR = Path("backtests/stock/auto/iaric/output_tier_b_sweep")
-START_DATE = "2024-01-01"
+START_DATE = "2024-03-25"
 END_DATE = "2026-03-01"
 INITIAL_EQUITY = 10_000.0
 

@@ -17,7 +17,9 @@ from pathlib import Path
 from statistics import fmean, median
 from zoneinfo import ZoneInfo
 
+from ..volume_units import dollar_volume
 from .config import StrategySettings
+from .core.opportunity import volume_expectations_from_profile
 
 logger = logging.getLogger(__name__)
 
@@ -178,12 +180,21 @@ async def _request_historical_bars(
 # ---------------------------------------------------------------------------
 
 
-def _cache_path(cache_dir: Path, symbol: str) -> Path:
-    return cache_dir / "daily_bars" / f"{symbol}.json"
+def _cache_path(cache_dir: Path, symbol: str, price_basis: str = "TRADES") -> Path:
+    namespace = (
+        "daily_bars_adjusted_last"
+        if price_basis == "ADJUSTED_LAST"
+        else "daily_bars"
+    )
+    return cache_dir / namespace / f"{symbol}.json"
 
 
-def _load_cached_bars(cache_dir: Path, symbol: str) -> tuple[list[dict], str | None]:
-    path = _cache_path(cache_dir, symbol)
+def _load_cached_bars(
+    cache_dir: Path,
+    symbol: str,
+    price_basis: str = "TRADES",
+) -> tuple[list[dict], str | None]:
+    path = _cache_path(cache_dir, symbol, price_basis)
     if not path.exists():
         return [], None
     with open(path) as f:
@@ -191,8 +202,14 @@ def _load_cached_bars(cache_dir: Path, symbol: str) -> tuple[list[dict], str | N
     return data.get("bars", []), data.get("last_updated")
 
 
-def _save_cached_bars(cache_dir: Path, symbol: str, bars: list[dict], last_updated: str) -> None:
-    path = _cache_path(cache_dir, symbol)
+def _save_cached_bars(
+    cache_dir: Path,
+    symbol: str,
+    bars: list[dict],
+    last_updated: str,
+    price_basis: str = "TRADES",
+) -> None:
+    path = _cache_path(cache_dir, symbol, price_basis)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
     with open(tmp, "w") as f:
@@ -346,6 +363,18 @@ async def generate_research_snapshot(
     universe: dict[str, tuple[str, str]] = {}  # symbol -> (sector, primary_exchange)
     for sym, sector, pex in LIVE_STOCK_UNIVERSE:
         universe[sym] = (sector, pex)
+    if cfg.strategy_mode == "daily_residual_reversion":
+        universe = {
+            symbol: universe[symbol]
+            for symbol in BACKTESTED_INTRADAY_STOCK_SYMBOLS
+            if symbol in universe
+        }
+        if len(universe) != len(BACKTESTED_INTRADAY_STOCK_SYMBOLS):
+            missing = sorted(set(BACKTESTED_INTRADAY_STOCK_SYMBOLS) - set(universe))
+            raise RuntimeError(
+                "daily residual live research requires the frozen 98-name universe; "
+                f"missing={missing}"
+            )
 
     logger.info(
         "IARIC focused live universe: %d symbols (%d backtested, %d Nasdaq/Dow additions)",
@@ -393,18 +422,46 @@ async def generate_research_snapshot(
     logger.info("Resolved %d / %d contracts", len(resolved_symbols), len(all_symbols))
 
     # -- Fetch reference data (SPY, VIX, HYG, sector ETFs) -------------------
-    ref_data = await _fetch_reference_data(ib, rate, sem)
+    # The frozen research panel was acquired through the stock pipeline's
+    # TRADES daily contract.  Keep live construction on that same price-return
+    # basis; forcing ADJUSTED_LAST here would create an economic-input mismatch
+    # and an unnecessary Gateway dependency for research parity.
+    daily_price_basis = "TRADES"
+    ref_data = await _fetch_reference_data(
+        ib,
+        rate,
+        sem,
+        daily_price_basis=daily_price_basis,
+        include_legacy_references=(
+            cfg.strategy_mode != "daily_residual_reversion"
+        ),
+    )
 
     # -- Fetch daily bars for universe (incremental cache) --------------------
     today_str = trade_date.isoformat()
     bar_tasks = [
-        _fetch_daily_bars_cached(ib, sym, contract_details[sym], cache_dir, today_str, rate, sem)
+        _fetch_daily_bars_cached(
+            ib,
+            sym,
+            contract_details[sym],
+            cache_dir,
+            today_str,
+            rate,
+            sem,
+            price_basis=daily_price_basis,
+        )
         for sym in resolved_symbols
     ]
     bar_results = await asyncio.gather(*bar_tasks, return_exceptions=True)
     daily_bars_by_symbol: dict[str, list[dict]] = {}
     for sym, result in zip(resolved_symbols, bar_results):
         if isinstance(result, list) and len(result) >= 5:
+            if cfg.strategy_mode == "daily_residual_reversion":
+                result = [
+                    bar
+                    for bar in result
+                    if date.fromisoformat(str(bar["trade_date"])[:10]) < trade_date
+                ]
             daily_bars_by_symbol[sym] = result
         else:
             logger.debug("Skipping %s: insufficient bars (%s)", sym, type(result).__name__ if isinstance(result, Exception) else len(result) if isinstance(result, list) else "?")
@@ -423,22 +480,22 @@ async def generate_research_snapshot(
         if len(bars) < 20:
             continue
         last_close = bars[-1]["close"]
-        adv20 = fmean(b["close"] * b["volume"] for b in bars[-20:])
+        adv20 = fmean(dollar_volume(b["close"], b["volume"]) for b in bars[-20:])
         if last_close >= cfg.min_price and adv20 >= cfg.min_adv_usd:
             liquid_symbols.append(sym)
 
     # -- Fetch intraday 30m bars for liquid symbols ---------------------------
-    avg_30m_volume: dict[str, float] = {}
+    intraday_volume_expectations: dict[str, tuple[float, float, tuple[float, ...]]] = {}
     if liquid_symbols:
-        logger.info("Fetching 30m intraday bars for %d liquid symbols", len(liquid_symbols))
+        logger.info("Fetching prior-session 5m volume profiles for %d liquid symbols", len(liquid_symbols))
         intraday_tasks = [
-            _fetch_intraday_30m(ib, sym, contract_details[sym], rate, sem)
+            _fetch_intraday_volume_expectations(ib, sym, contract_details[sym], rate, sem)
             for sym in liquid_symbols
         ]
         intraday_results = await asyncio.gather(*intraday_tasks, return_exceptions=True)
         for sym, result in zip(liquid_symbols, intraday_results):
-            if isinstance(result, (float, int)) and result > 0:
-                avg_30m_volume[sym] = float(result)
+            if isinstance(result, tuple) and len(result) == 3:
+                intraday_volume_expectations[sym] = result
 
     # -- Build per-symbol research entries ------------------------------------
     symbols_payload: dict[str, dict] = {}
@@ -448,7 +505,7 @@ async def generate_research_snapshot(
         cd = contract_details.get(sym, {})
 
         last_close = bars[-1]["close"]
-        adv20 = fmean(b["close"] * b["volume"] for b in bars[-20:]) if len(bars) >= 20 else 0.0
+        adv20 = fmean(dollar_volume(b["close"], b["volume"]) for b in bars[-20:]) if len(bars) >= 20 else 0.0
         spread_pct = _spread_heuristic(adv20)
 
         # Flow proxy from last 40 bars
@@ -477,7 +534,10 @@ async def generate_research_snapshot(
         # Earnings proximity
         earnings_within = _earnings_within_sessions(cd.get("next_earnings_date"), trade_date)
 
-        avg_30m = avg_30m_volume.get(sym, 0.0)
+        avg_30m, expected_5m, expected_profile = intraday_volume_expectations.get(
+            sym,
+            (0.0, 0.0, ()),
+        )
 
         # Build bar dicts for JSON (with event_tag already applied)
         bar_dicts = [
@@ -518,7 +578,11 @@ async def generate_research_snapshot(
             "sector_return_60d": round(sector_ret_60d, 6),
             "intraday_atr_seed": round(intraday_atr_seed, 6),
             "average_30m_volume": round(avg_30m, 2),
-            "expected_5m_volume": round(avg_30m / 6.0, 2) if avg_30m > 0 else 0.0,
+            "expected_5m_volume": round(expected_5m, 2),
+            "expected_5m_profile": [round(value, 2) for value in expected_profile],
+            # IB contract notes are not an authoritative point-in-time event
+            # feed. Unknown must not be serialized as a verified no-news day.
+            "information_state_available": False,
         }
 
     # -- Held positions from previous day's state ----------------------------
@@ -531,6 +595,28 @@ async def generate_research_snapshot(
         "sectors": sector_metrics,
         "symbols": symbols_payload,
         "held_positions": held_positions,
+        "benchmark_dates": [
+            str(bar.get("trade_date", ""))[:10]
+            for bar in ref_data.get("spy_bars", [])
+        ],
+        "benchmark_closes": [
+            float(bar.get("close", 0.0))
+            for bar in ref_data.get("spy_bars", [])
+        ],
+        "reference_daily_bars": {
+            symbol: [
+                bar
+                for bar in bars
+                if (
+                    cfg.strategy_mode != "daily_residual_reversion"
+                    or date.fromisoformat(str(bar["trade_date"])[:10]) < trade_date
+                )
+            ]
+            for symbol, bars in {
+                "SPY": ref_data.get("spy_bars", []),
+                **ref_data.get("sector_etf_bars", {}),
+            }.items()
+        },
     }
 
     output_dir = cfg.research_dir
@@ -608,7 +694,14 @@ async def _fetch_scanner_symbols(ib, rate: _RateBudget) -> list[str]:
     return symbols
 
 
-async def _fetch_reference_data(ib, rate: _RateBudget, sem: asyncio.Semaphore) -> dict:
+async def _fetch_reference_data(
+    ib,
+    rate: _RateBudget,
+    sem: asyncio.Semaphore,
+    *,
+    daily_price_basis: str = "TRADES",
+    include_legacy_references: bool = True,
+) -> dict:
     """Fetch SPY, VIX, HYG, and sector ETF bars."""
     result: dict = {}
 
@@ -632,11 +725,43 @@ async def _fetch_reference_data(ib, rate: _RateBudget, sem: asyncio.Semaphore) -
                 for b in (bars or [])
             ]
 
-    tasks = [
-        _fetch_bars(_stock_contract("SPY", primary_exchange="ARCA"), "1 Y", "1 day", "TRADES", "spy_bars"),
-        _fetch_bars(_index_contract("VIX", "CBOE"), "1 Y", "1 day", "MIDPOINT", "vix_bars"),
-        _fetch_bars(_stock_contract("HYG", primary_exchange="ARCA"), "10 D", "1 day", "TRADES", "hyg_bars"),
+    reference_tasks = [
+        (
+            "SPY",
+            _fetch_bars(
+                _stock_contract("SPY", primary_exchange="ARCA"),
+                "1 Y",
+                "1 day",
+                daily_price_basis,
+                "spy_bars",
+            ),
+        )
     ]
+    if include_legacy_references:
+        reference_tasks.extend(
+            [
+                (
+                    "VIX",
+                    _fetch_bars(
+                        _index_contract("VIX", "CBOE"),
+                        "1 Y",
+                        "1 day",
+                        "MIDPOINT",
+                        "vix_bars",
+                    ),
+                ),
+                (
+                    "HYG",
+                    _fetch_bars(
+                        _stock_contract("HYG", primary_exchange="ARCA"),
+                        "10 D",
+                        "1 day",
+                        "TRADES",
+                        "hyg_bars",
+                    ),
+                ),
+            ]
+        )
     # Sector ETF bars — run concurrently with reference bars
     sector_etf_tasks = []
     for sector_name, etf_sym in SECTOR_ETFS.items():
@@ -647,9 +772,9 @@ async def _fetch_reference_data(ib, rate: _RateBudget, sem: asyncio.Semaphore) -
                 bars = await _request_historical_bars(
                     ib,
                     contract,
-                    duration="120 D",
+                    duration="1 Y",
                     bar_size="1 day",
-                    what="TRADES",
+                    what=daily_price_basis,
                 )
                 return sym, [
                     {
@@ -661,10 +786,11 @@ async def _fetch_reference_data(ib, rate: _RateBudget, sem: asyncio.Semaphore) -
         sector_etf_tasks.append(_sector_fetch())
 
     # Run all reference + sector ETF fetches concurrently
+    tasks = [task for _label, task in reference_tasks]
+    ref_labels = [label for label, _task in reference_tasks]
     all_ref = tasks + sector_etf_tasks
     all_results = await asyncio.gather(*all_ref, return_exceptions=True)
     # Log failures for reference data (SPY/VIX/HYG)
-    ref_labels = ["SPY", "VIX", "HYG"]
     for i, res in enumerate(all_results[:len(tasks)]):
         if isinstance(res, Exception):
             logger.warning("Reference data fetch failed for %s: %s", ref_labels[i], res)
@@ -682,9 +808,13 @@ async def _fetch_reference_data(ib, rate: _RateBudget, sem: asyncio.Semaphore) -
 async def _fetch_daily_bars_cached(
     ib, symbol: str, cd: dict, cache_dir: Path,
     today_str: str, rate: _RateBudget, sem: asyncio.Semaphore,
+    *,
+    price_basis: str = "TRADES",
 ) -> list[dict]:
     """Fetch daily bars with incremental caching."""
-    cached_bars, last_updated = _load_cached_bars(cache_dir, symbol)
+    cached_bars, last_updated = _load_cached_bars(
+        cache_dir, symbol, price_basis
+    )
 
     if last_updated == today_str and len(cached_bars) >= 200:
         return cached_bars
@@ -697,7 +827,10 @@ async def _fetch_daily_bars_cached(
         if con_id:
             contract.conId = con_id
 
-        if cached_bars and last_updated:
+        # ADJUSTED_LAST may restate the full historical level series after a
+        # dividend.  A five-day append would mix adjustment vintages and create
+        # artificial returns, so the residual sleeve refreshes its full window.
+        if cached_bars and last_updated and price_basis != "ADJUSTED_LAST":
             duration = "5 D"
         else:
             duration = "1 Y"  # 252 trading days for SMA200 + warmup
@@ -707,7 +840,7 @@ async def _fetch_daily_bars_cached(
             contract,
             duration=duration,
             bar_size="1 day",
-            what="TRADES",
+            what=price_basis,
         )
 
         new_bars = [
@@ -727,18 +860,18 @@ async def _fetch_daily_bars_cached(
             for nb in new_bars:
                 if nb["trade_date"] not in existing_dates:
                     cached_bars.append(nb)
-            merged = cached_bars[-120:]
+            merged = cached_bars[-260:]
         else:
-            merged = new_bars[-120:]
+            merged = new_bars[-260:]
 
-        _save_cached_bars(cache_dir, symbol, merged, today_str)
+        _save_cached_bars(cache_dir, symbol, merged, today_str, price_basis)
         return merged
 
 
-async def _fetch_intraday_30m(
+async def _fetch_intraday_volume_expectations(
     ib, symbol: str, cd: dict, rate: _RateBudget, sem: asyncio.Semaphore,
-) -> float:
-    """Fetch 5 days of 30-min bars, return average 30m volume."""
+) -> tuple[float, float, tuple[float, ...]]:
+    """Fetch the latest completed RTH session's time-of-day volume shape."""
     async with sem:
         await rate.wait_for()
         pex = cd.get("primary_exchange", "")
@@ -751,13 +884,33 @@ async def _fetch_intraday_30m(
             ib,
             contract,
             duration="5 D",
-            bar_size="30 mins",
+            bar_size="5 mins",
             what="TRADES",
         )
         if not bars:
-            return 0.0
-        volumes = [float(getattr(b, "volume", 0)) for b in bars]
-        return fmean(volumes) if volumes else 0.0
+            return 0.0, 0.0, ()
+        by_session: dict[date, list[float]] = {}
+        for bar in bars:
+            stamp = getattr(bar, "date", None)
+            if isinstance(stamp, datetime):
+                session = (
+                    stamp.replace(tzinfo=timezone.utc) if stamp.tzinfo is None else stamp
+                ).astimezone(ET).date()
+            else:
+                try:
+                    session = date.fromisoformat(str(stamp)[:10])
+                except (TypeError, ValueError):
+                    continue
+            by_session.setdefault(session, []).append(
+                float(getattr(bar, "volume", 0.0) or 0.0)
+            )
+        if not by_session:
+            return 0.0, 0.0, ()
+        volumes = by_session[max(by_session)]
+        expected_5m, profile = volume_expectations_from_profile(volumes)
+        blocks = [sum(profile[index:index + 6]) for index in range(0, len(profile), 6)]
+        average_30m = fmean(blocks) if blocks else expected_5m * 6.0
+        return float(average_30m), float(expected_5m), profile
 
 
 # ---------------------------------------------------------------------------
@@ -936,6 +1089,70 @@ def _extract_held_positions(trade_date: date, cfg: StrategySettings) -> list[dic
             for sym_state in snapshot.symbols:
                 pos = sym_state.position
                 if pos is not None and pos.qty_open > 0:
+                    if getattr(sym_state, "sleeve_id", "") == "daily_residual_reversion":
+                        positions.append({
+                            "symbol": sym_state.symbol,
+                            "entry_time": pos.entry_time.isoformat(),
+                            "entry_price": pos.entry_price,
+                            "size": pos.qty_open,
+                            "stop": max(
+                                pos.entry_price - pos.initial_risk_per_share,
+                                getattr(sym_state, "tick_size", 0.01),
+                            ),
+                            "initial_r": pos.initial_risk_per_share,
+                            "setup_tag": "daily_residual_reversion",
+                            "carry_eligible_flag": False,
+                            "sleeve_id": "daily_residual_reversion",
+                            "issuer": pos.issuer,
+                            "sector": pos.sector,
+                            "residual_factor_model": pos.residual_factor_model,
+                            "residual_formation_sessions": pos.residual_formation_sessions,
+                            "residual_volatility": pos.residual_volatility,
+                            "residual_lane_id": pos.residual_lane_id,
+                            "residual_model_contract_version": (
+                                pos.residual_model_contract_version
+                            ),
+                            "residual_model_intercept": pos.residual_model_intercept,
+                            "residual_factor_names": list(pos.residual_factor_names),
+                            "residual_factor_betas": list(pos.residual_factor_betas),
+                            "residual_peer_symbols": list(pos.residual_peer_symbols),
+                            "residual_model_estimation_session": (
+                                pos.residual_model_estimation_session.isoformat()
+                                if pos.residual_model_estimation_session
+                                else None
+                            ),
+                            "residual_initial_dislocation_r": (
+                                pos.management.initial_dislocation_r
+                            ),
+                            "residual_cumulative_normalization_r": (
+                                pos.management.cumulative_normalization_r
+                            ),
+                            "residual_peak_normalization_r": (
+                                pos.management.peak_normalization_r
+                            ),
+                            "residual_held_sessions": pos.management.held_sessions,
+                            "residual_partial_taken": pos.management.partial_taken,
+                            "residual_last_processed_session": (
+                                pos.last_processed_session.isoformat()
+                                if pos.last_processed_session
+                                else None
+                            ),
+                            "residual_qty_entry": pos.qty_entry,
+                            "residual_entry_commission": pos.entry_commission,
+                            "residual_exit_commission": pos.exit_commission,
+                            "residual_realized_pnl_usd": pos.realized_pnl_usd,
+                            "residual_trade_id": pos.trade_id,
+                            "residual_protective_stop_client_order_id": (
+                                sym_state.protective_stop_client_order_id
+                            ),
+                            "residual_protective_stop_price": (
+                                sym_state.protective_stop_price
+                            ),
+                            "residual_protective_stop_qty": (
+                                sym_state.protective_stop_qty
+                            ),
+                        })
+                        continue
                     positions.append({
                         "symbol": sym_state.symbol,
                         "entry_time": pos.entry_time.isoformat(),

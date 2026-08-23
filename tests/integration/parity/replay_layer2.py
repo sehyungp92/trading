@@ -13,7 +13,7 @@ from tests.integration.parity.replay_candidates import (
 )
 from tests.integration.parity.source_inputs import (
     iaric_artifact,
-    iaric_minute_bars,
+    iaric_completed_5m_bars,
     iaric_quote,
     iaric_state_snapshot,
     nq_bar_data,
@@ -1100,10 +1100,10 @@ def _replay_iaric(fixture: Mapping[str, Any], out: ReplayDecisionTimeline) -> No
     state = iaric_state_snapshot(fixture, "IARIC_v1")
     symbols = [symbol_state.symbol for symbol_state in state.symbols]
     for symbol in symbols:
-        bars = iaric_minute_bars(fixture, symbol)
+        bars = iaric_completed_5m_bars(fixture, symbol)
         if not bars:
             continue
-        bar_5m = _aggregate_5m(bars[-5:])
+        bar_5m = bars[-1]
         symbol_state = next(item for item in state.symbols if item.symbol == symbol)
         item = artifact.by_symbol[symbol]
         quote = iaric_quote(fixture, symbol)
@@ -1177,21 +1177,6 @@ def _replay_iaric(fixture: Mapping[str, Any], out: ReplayDecisionTimeline) -> No
         )
         out.record_actions("IARIC_v1", actions)
     out.strategy_state["IARIC_v1"] = _compact_iaric_state(state)
-
-
-def _aggregate_5m(bars: list[Any]) -> Any:
-    from strategies.stock.iaric.models import Bar
-
-    return Bar(
-        symbol=bars[0].symbol,
-        start_time=bars[0].start_time,
-        end_time=bars[-1].end_time,
-        open=bars[0].open,
-        high=max(bar.high for bar in bars),
-        low=min(bar.low for bar in bars),
-        close=bars[-1].close,
-        volume=sum(bar.volume for bar in bars),
-    )
 
 
 def _compact_iaric_state(state: Any) -> dict[str, Any]:

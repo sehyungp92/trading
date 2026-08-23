@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-16T13:41:39.0198048Z",
+  "purpose": "Validate that promoted live StrategySettings reproduce the selected Round 2 backtest configuration and metrics.",
+  "research_window": {
+    "start": "2024-03-25",
+    "end": "2026-03-01"
+  },
+  "excluded_period": {
+    "start": "2026-03-02",
+    "accessed": false
+  },
+  "max_workers": 2,
+  "data_authority": "derived_legacy_rth_projection_diagnostic_only",
+  "optimized_config_sha256": "5825ab55757f348946a247c4edaebd4a9292c08cb041367734790bf9a9176b19",
+  "post_promotion_selection_fingerprint": "3e3805cb81ec37890149fc32151c371feadda768d1640af8b093e17793b62a29",
+  "live_selected_override_mismatches": 0,
+  "replay_matches_promoted_run_summary": true,
+  "replay_metrics": {
+    "total_trades": 1459,
+    "win_rate": 0.5531185743660041,
+    "profit_factor": 1.6124560932796614,
+    "max_drawdown_pct": 0.0385862758965064,
+    "sharpe": 4.0923422303861186,
+    "net_profit": 16458.10999999999,
+    "expectancy": 0.11509026668100243,
+    "trades_per_month": 63.07998934659091,
+    "expected_total_r": 167.91669908758254
+  },
+  "verification": {
+    "focused_tests": "52 passed",
+    "compileall": "passed",
+    "git_diff_check": "passed"
+  }
+}

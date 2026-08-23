@@ -1,0 +1,698 @@
+[
+  {
+    "atomic_key": "",
+    "category": "control",
+    "lineage": "verified follow-up",
+    "name": "control__base",
+    "patch": {},
+    "stage": "followup",
+    "thesis": "Exact evaluator parity control."
+  },
+  {
+    "atomic_key": "",
+    "category": "incumbent",
+    "lineage": "verified follow-up",
+    "name": "control__rvol110",
+    "patch": {
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Verified aggregate recommendation."
+  },
+  {
+    "atomic_key": "",
+    "category": "incumbent",
+    "lineage": "verified follow-up",
+    "name": "control__rvol110_failure_m010",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.1,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Verified higher-OOS-quality RVOL pair."
+  },
+  {
+    "atomic_key": "",
+    "category": "incumbent",
+    "lineage": "verified follow-up",
+    "name": "control__entry1330_failure_m010",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.failure_stop_to_r": -0.1
+    },
+    "stage": "followup",
+    "thesis": "Verified OOS-centric frequency/exit pair."
+  },
+  {
+    "atomic_key": "",
+    "category": "incumbent",
+    "lineage": "verified follow-up",
+    "name": "control__rvol110_entry1330",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Verified high-frequency pair whose OOS PF needs repair."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_fine",
+    "lineage": "verified follow-up",
+    "name": "rvol_fine__0p8",
+    "patch": {
+      "param_overrides.rvol_threshold": 0.8
+    },
+    "stage": "followup",
+    "thesis": "Fine RVOL response at 0.80."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_fine",
+    "lineage": "verified follow-up",
+    "name": "rvol_fine__0p9",
+    "patch": {
+      "param_overrides.rvol_threshold": 0.9
+    },
+    "stage": "followup",
+    "thesis": "Fine RVOL response at 0.90."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_fine",
+    "lineage": "verified follow-up",
+    "name": "rvol_fine__1p0",
+    "patch": {
+      "param_overrides.rvol_threshold": 1.0
+    },
+    "stage": "followup",
+    "thesis": "Fine RVOL response at 1.00."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_fine",
+    "lineage": "verified follow-up",
+    "name": "rvol_fine__1p05",
+    "patch": {
+      "param_overrides.rvol_threshold": 1.05
+    },
+    "stage": "followup",
+    "thesis": "Fine RVOL response at 1.05."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_fine",
+    "lineage": "verified follow-up",
+    "name": "rvol_fine__1p15",
+    "patch": {
+      "param_overrides.rvol_threshold": 1.15
+    },
+    "stage": "followup",
+    "thesis": "Fine RVOL response at 1.15."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_fine",
+    "lineage": "verified follow-up",
+    "name": "rvol_fine__1p25",
+    "patch": {
+      "param_overrides.rvol_threshold": 1.25
+    },
+    "stage": "followup",
+    "thesis": "Fine RVOL response at 1.25."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_fine",
+    "lineage": "verified follow-up",
+    "name": "rvol_fine__1p35",
+    "patch": {
+      "param_overrides.rvol_threshold": 1.35
+    },
+    "stage": "followup",
+    "thesis": "Fine RVOL response at 1.35."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_route",
+    "lineage": "verified follow-up",
+    "name": "r110__or_only",
+    "patch": {
+      "param_overrides.pdh_breakout_min_rvol": 1.4,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Route-specific low-RVOL attribution/containment."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_route",
+    "lineage": "verified follow-up",
+    "name": "r110__pdh_only",
+    "patch": {
+      "ablation.use_or_quality_gate": true,
+      "param_overrides.or_breakout_min_rvol": 1.4,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Route-specific low-RVOL attribution/containment."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_route",
+    "lineage": "verified follow-up",
+    "name": "r110__or_floor120",
+    "patch": {
+      "ablation.use_or_quality_gate": true,
+      "param_overrides.or_breakout_min_rvol": 1.2,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Route-specific low-RVOL attribution/containment."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_route",
+    "lineage": "verified follow-up",
+    "name": "r110__or_floor130",
+    "patch": {
+      "ablation.use_or_quality_gate": true,
+      "param_overrides.or_breakout_min_rvol": 1.3,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Route-specific low-RVOL attribution/containment."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_route",
+    "lineage": "verified follow-up",
+    "name": "r110__pdh_floor120",
+    "patch": {
+      "param_overrides.pdh_breakout_min_rvol": 1.2,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Route-specific low-RVOL attribution/containment."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_route",
+    "lineage": "verified follow-up",
+    "name": "r110__pdh_floor130",
+    "patch": {
+      "param_overrides.pdh_breakout_min_rvol": 1.3,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Route-specific low-RVOL attribution/containment."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_route",
+    "lineage": "verified follow-up",
+    "name": "r100__or_floor120",
+    "patch": {
+      "ablation.use_or_quality_gate": true,
+      "param_overrides.or_breakout_min_rvol": 1.2,
+      "param_overrides.rvol_threshold": 1.0
+    },
+    "stage": "followup",
+    "thesis": "Route-specific low-RVOL attribution/containment."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_route",
+    "lineage": "verified follow-up",
+    "name": "r100__pdh_floor120",
+    "patch": {
+      "param_overrides.pdh_breakout_min_rvol": 1.2,
+      "param_overrides.rvol_threshold": 1.0
+    },
+    "stage": "followup",
+    "thesis": "Route-specific low-RVOL attribution/containment."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__failure_to_0p0",
+    "patch": {
+      "param_overrides.failure_stop_to_r": 0.0,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 with failure-stop target 0.000R."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__failure_to_m0p05",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.05,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 with failure-stop target -0.050R."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__failure_to_m0p075",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.075,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 with failure-stop target -0.075R."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__failure_to_m0p125",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.125,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 with failure-stop target -0.125R."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__failure_to_m0p15",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.15,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 with failure-stop target -0.150R."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__failure_to_m0p175",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.175,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 with failure-stop target -0.175R."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__failure_to_m0p2",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.2,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 with failure-stop target -0.200R."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__failure_bars6",
+    "patch": {
+      "param_overrides.failure_stop_bars": 6,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 with failure check at bar 6."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__failure_bars8",
+    "patch": {
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 with failure check at bar 8."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__failure_bars12",
+    "patch": {
+      "param_overrides.failure_stop_bars": 12,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 with failure check at bar 12."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__failure_bars6_to_m010",
+    "patch": {
+      "param_overrides.failure_stop_bars": 6,
+      "param_overrides.failure_stop_to_r": -0.1,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Earlier failure recognition plus the verified mild stop target."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_trail",
+    "lineage": "verified follow-up",
+    "name": "r110__trail_start27",
+    "patch": {
+      "param_overrides.adaptive_trail_start_bars": 27,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 plus adaptive-trail start at bar 27."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_trail",
+    "lineage": "verified follow-up",
+    "name": "r110__trail_start28",
+    "patch": {
+      "param_overrides.adaptive_trail_start_bars": 28,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 plus adaptive-trail start at bar 28."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_trail",
+    "lineage": "verified follow-up",
+    "name": "r110__trail_start30",
+    "patch": {
+      "param_overrides.adaptive_trail_start_bars": 30,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 plus adaptive-trail start at bar 30."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_trail",
+    "lineage": "verified follow-up",
+    "name": "r110__trail_start32",
+    "patch": {
+      "param_overrides.adaptive_trail_start_bars": 32,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 plus adaptive-trail start at bar 32."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_trail",
+    "lineage": "verified follow-up",
+    "name": "r110__trail30_failure_m010",
+    "patch": {
+      "param_overrides.adaptive_trail_start_bars": 30,
+      "param_overrides.failure_stop_to_r": -0.1,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Pair winner extension with mild loser containment."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_time",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1245",
+    "patch": {
+      "param_overrides.entry_window_end": "12:45:00",
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 entry-window interpolation."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_time",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1300",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 entry-window interpolation."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_time",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1315",
+    "patch": {
+      "param_overrides.entry_window_end": "13:15:00",
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "RVOL 1.10 entry-window interpolation."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_time_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_failure_m0p05",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.failure_stop_to_r": -0.05,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Repair high-frequency late entries with a mild early-failure target."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_time_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_failure_m0p1",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.failure_stop_to_r": -0.1,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Repair high-frequency late entries with a mild early-failure target."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_time_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_failure_m0p15",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.failure_stop_to_r": -0.15,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Repair high-frequency late entries with a mild early-failure target."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_time_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_trail30",
+    "patch": {
+      "param_overrides.adaptive_trail_start_bars": 30,
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Extend winners in the high-frequency configuration."
+  },
+  {
+    "atomic_key": "",
+    "category": "rvol_time_exit",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_trail30_failure_m010",
+    "patch": {
+      "param_overrides.adaptive_trail_start_bars": 30,
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.failure_stop_to_r": -0.1,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Three-way high-frequency winner/loser management."
+  },
+  {
+    "atomic_key": "",
+    "category": "late_quality",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_late_score4",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.late_entry_cutoff": "12:30:00",
+      "param_overrides.late_entry_score_min": 4,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Escalate momentum quality only after the incumbent cutoff."
+  },
+  {
+    "atomic_key": "",
+    "category": "late_quality",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_late_score5",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.late_entry_cutoff": "12:30:00",
+      "param_overrides.late_entry_score_min": 5,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Escalate momentum quality only after the incumbent cutoff."
+  },
+  {
+    "atomic_key": "",
+    "category": "late_quality",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_late_score6",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.late_entry_cutoff": "12:30:00",
+      "param_overrides.late_entry_score_min": 6,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Escalate momentum quality only after the incumbent cutoff."
+  },
+  {
+    "atomic_key": "",
+    "category": "late_quality",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_late_rvol_add0p05",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.orb_late_rvol_add_per_30m": 0.05,
+      "param_overrides.orb_time_decay_start": "10:30:00",
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Require progressively stronger RVOL later in the session."
+  },
+  {
+    "atomic_key": "",
+    "category": "late_quality",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_late_rvol_add0p1",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.orb_late_rvol_add_per_30m": 0.1,
+      "param_overrides.orb_time_decay_start": "10:30:00",
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Require progressively stronger RVOL later in the session."
+  },
+  {
+    "atomic_key": "",
+    "category": "late_quality",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_late_rvol_add0p15",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.orb_late_rvol_add_per_30m": 0.15,
+      "param_overrides.orb_time_decay_start": "10:30:00",
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Require progressively stronger RVOL later in the session."
+  },
+  {
+    "atomic_key": "",
+    "category": "late_quality",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_late_rvol_add0p10_failure_m010",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.failure_stop_to_r": -0.1,
+      "param_overrides.orb_late_rvol_add_per_30m": 0.1,
+      "param_overrides.orb_time_decay_start": "10:30:00",
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Progressive late quality plus mild loser containment."
+  },
+  {
+    "atomic_key": "",
+    "category": "late_quality",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_late_score5_failure_m010",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.failure_stop_to_r": -0.1,
+      "param_overrides.late_entry_cutoff": "12:30:00",
+      "param_overrides.late_entry_score_min": 5,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Late score escalation plus mild loser containment."
+  },
+  {
+    "atomic_key": "",
+    "category": "simplification",
+    "lineage": "verified follow-up",
+    "name": "r110__combined_quality_off",
+    "patch": {
+      "ablation.use_combined_quality_gate": false,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Composition test for the low-value combined-quality gate."
+  },
+  {
+    "atomic_key": "",
+    "category": "simplification",
+    "lineage": "verified follow-up",
+    "name": "r110__entry1330_combined_quality_off",
+    "patch": {
+      "ablation.use_combined_quality_gate": false,
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Composition test for the low-value combined-quality gate."
+  },
+  {
+    "atomic_key": "",
+    "category": "simplification",
+    "lineage": "verified follow-up",
+    "name": "entry1330__failure_m010_combined_quality_off",
+    "patch": {
+      "ablation.use_combined_quality_gate": false,
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.failure_stop_to_r": -0.1
+    },
+    "stage": "followup",
+    "thesis": "Composition test for the low-value combined-quality gate."
+  },
+  {
+    "atomic_key": "",
+    "category": "overfit_falsification",
+    "lineage": "verified follow-up",
+    "name": "r110__block_score7",
+    "patch": {
+      "param_overrides.entry_score_blocklist": [
+        "COMBINED_BREAKOUT:5",
+        "*:7"
+      ],
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "stage": "followup",
+    "thesis": "Falsify whether the negative score-7 holdout cohort generalizes."
+  }
+]

@@ -1,0 +1,93 @@
+{
+  "baseline_gates": {
+    "issuer_and_sector_entry_risk_caps": true,
+    "minimum_100_purged_entry_trades_each_fold": true,
+    "positive_continuous_calibration_equity_return": true,
+    "positive_continuous_period": true,
+    "positive_purged_entry_cohort_each_fold": true
+  },
+  "candidate": {
+    "candidate_id": "raw_volume__market_zm1__hold10__stop6",
+    "diagnostic_leg": "long_loser",
+    "factor_model": "market_sector_peer",
+    "formation_sessions": 1,
+    "holding_sessions": 10,
+    "lane_id": "fresh_residual_volume_exhaustion_1d",
+    "max_positions": 10,
+    "max_positions_per_sector": 2,
+    "minimum_failed_continuation_r": 0.0,
+    "minimum_market_trend_z_20d": -1.0,
+    "minimum_sector_return_5d": -0.15,
+    "residual_z_floor": 1.0,
+    "round_trip_cost_bps": 20.0,
+    "score_components": [
+      "volume_transition"
+    ]
+  },
+  "catastrophic_stop_residual_r": 6.0,
+  "continuous_metrics": {
+    "average_r": 0.24792015848475454,
+    "final_equity": 127890.68876701457,
+    "initial_equity": 100000.0,
+    "max_drawdown_pct": 0.15620706121905398,
+    "profit_factor": 1.397580420498738,
+    "return_pct": 0.2789068876701457,
+    "total_r": 84.04493372633179,
+    "trades": 339,
+    "win_rate": 0.5457227138643068
+  },
+  "contract_id": "iaric_residual_continuous_reconciled_exact98_v1",
+  "holdout_accessed": false,
+  "locked_validation_accessed": false,
+  "selection_score": {
+    "raw": {
+      "average_r_and_discrimination": 0.33392406305018085,
+      "cost_and_neighbourhood_robustness": 0.5,
+      "downside_risk": -2.604068190341417,
+      "executable_trades_per_month": 20.972179878048784,
+      "issuer_sector_concentration": 0.8466961027478647,
+      "net_expected_r_per_month": 5.199426159136634,
+      "worst_fold_r_per_month": 2.264126155936333
+    },
+    "scaled": {
+      "average_r_and_discrimination": 0.998743893168214,
+      "cost_and_neighbourhood_robustness": 0.5,
+      "downside_risk": 0.07397203294847428,
+      "executable_trades_per_month": 1.0,
+      "issuer_sector_concentration": 0.8466961027478647,
+      "net_expected_r_per_month": 0.9945105692217074,
+      "worst_fold_r_per_month": 0.9893158500325261
+    },
+    "score": 0.8581396765342466,
+    "spec": {
+      "average_r_and_discrimination": {
+        "scale": 0.1,
+        "weight": 0.14
+      },
+      "cost_and_neighbourhood_robustness": {
+        "scale": 1.0,
+        "weight": 0.07
+      },
+      "downside_risk": {
+        "scale": 1.0,
+        "weight": 0.1
+      },
+      "executable_trades_per_month": {
+        "scale": 20.0,
+        "weight": 0.18
+      },
+      "issuer_sector_concentration": {
+        "scale": 1.0,
+        "weight": 0.07
+      },
+      "net_expected_r_per_month": {
+        "scale": 2.0,
+        "weight": 0.26
+      },
+      "worst_fold_r_per_month": {
+        "scale": 1.0,
+        "weight": 0.18
+      }
+    }
+  }
+}

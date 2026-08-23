@@ -1,0 +1,61 @@
+{
+  "artifacts": {
+    "optimized_portfolio_config.json": {
+      "exists": true,
+      "mtime": 1779708067.3569415,
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_2\\optimized_portfolio_config.json",
+      "sha256": "5983a2298b68944b861e0cc8b234b049e83d95c1c7a92c163b3f49aebb12cd24",
+      "size": 3290
+    },
+    "portfolio_diagnostics.json": {
+      "exists": true,
+      "mtime": 1787525549.5745628,
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_2\\portfolio_diagnostics.json",
+      "sha256": "9108253a0cf4382630e9811f83e56dbf0491235cc6a9741f3b29eab6be7ed255",
+      "size": 114756
+    },
+    "portfolio_diagnostics.md": {
+      "exists": true,
+      "mtime": 1787525549.575569,
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_2\\portfolio_diagnostics.md",
+      "sha256": "fa054b3e0c40e53f4d8634a87e8865eb4fbeb2126fc51c4ecf283442ae4d44ea",
+      "size": 19674
+    },
+    "round_evaluation.txt": {
+      "exists": true,
+      "mtime": 1787525549.5765166,
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_2\\round_evaluation.txt",
+      "sha256": "5319b1b8f091c7fca50cf704535818d62448e81b983b21865dd365d737dcd8e3",
+      "size": 1104
+    },
+    "round_final_diagnostics.txt": {
+      "exists": true,
+      "mtime": 1787525549.5765166,
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_2\\round_final_diagnostics.txt",
+      "sha256": "bfae79d5c3918e1249ed1753f9d26b3d0a4d30e214ea6b59f2382914486d93cb",
+      "size": 21093
+    },
+    "run_summary.json": {
+      "exists": true,
+      "mtime": 1787525549.5649054,
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_2\\run_summary.json",
+      "sha256": "a6803bee9003f260abe566b32c34acb223e72180f285c34b39f02e43911296c6",
+      "size": 208826
+    },
+    "strategy_trades.pkl": {
+      "exists": true,
+      "mtime": 1779708053.7254715,
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_2\\strategy_trades.pkl",
+      "sha256": "9305d03943c06715573d77c37161dea8d1506a9c639b3582cd2eb117dcc8a938",
+      "size": 654076
+    }
+  },
+  "diagnostics_schema_version": "momentum_portfolio_synergy_comprehensive_diagnostics.v2",
+  "generated_at_utc": "2026-08-23T22:52:29.001591+00:00",
+  "metrics_fingerprint": "c4c3084887476dedbfc2759fa3c9483b867ad1c5ee74fe33eef1388673b604ba",
+  "round": 2,
+  "round_name": "round_2_momentum_portfolio_synergy_standardized",
+  "schema_version": "momentum_portfolio_synergy_diagnostics_manifest.v1",
+  "synergy_maximized": false,
+  "synergy_verdict": "high_opportunity_capture_but_blocker_discrimination_not_synergistic"
+}

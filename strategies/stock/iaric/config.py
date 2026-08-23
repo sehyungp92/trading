@@ -30,9 +30,13 @@ class StrategySettings:
     warm_poll_interval_s: int = 30
     cold_poll_interval_s: int = 90
     monitoring_refresh_minutes: int = 60
+    completed_5m_batch_grace_s: float = 30.0
+    completed_5m_stale_after_s: float = 390.0
 
     min_price: float = 10.0
-    min_adv_usd: float = 20_000_000.0
+    # $1bn: matches ALCB's effective floor, and independently the level at which
+    # the reversion edge appears (PF 1.62-1.71 plateau across $1bn-$3bn).
+    min_adv_usd: float = 1_000_000_000.0
     max_median_spread_pct: float = 0.0050
     avwap_band_pct: float = 0.0050
     avwap_acceptance_band_pct: float = 0.0100
@@ -252,7 +256,58 @@ class StrategySettings:
     # V2 Entry Routes
     pb_v2_open_scored_enabled: bool = True
     pb_v2_open_scored_min_score: float = 45.0
+    # Optional upper bounds are disabled by default.  They let research test
+    # whether the generic daily/route scores become momentum/chase proxies at
+    # their upper tail without changing the production baseline implicitly.
+    pb_v2_open_scored_max_score: float = 100.0
+    pb_v2_open_scored_max_entry_score: float = 100.0
     pb_v2_open_scored_max_slots: int = 4
+    pb_v2_open_scored_after_bar: int = 0          # first completed 5m bar may approve next-bar entry
+    # Coarse causal policies used by both live and replay.  These are category
+    # switches, not fitted numeric thresholds, so phased research can test the
+    # intended reversion thesis without mining a small sample.
+    pb_v2_open_scored_trigger_policy: str = "any"  # any | dislocation | oversold | multi_dislocation | oversold_or_multi
+    # any | bullish_close | bullish_vwap | vwap_reclaim | band_reclaim
+    pb_v2_open_scored_confirmation_policy: str = "any"
+    pb_v2_open_scored_allow_rescue: bool = False  # negative-flow names require a confirmed route
+    # --- Dislocation -> reclaim event -------------------------------------
+    # ``band_reclaim`` is the mean-reversion analogue of a completed-bar
+    # breakout: the session must first trade below a daily-anchored dislocation
+    # band, then a later completed bar must close back above it on real relative
+    # volume.  This gives the route a discrete event instead of using the route
+    # score itself as the trigger.
+    pb_v2_dislocation_band_atr: float = 0.35      # band = prev_close - N * daily ATR
+    pb_v2_dislocation_use_prev_low: bool = True   # also accept the prior session low
+    pb_v2_open_scored_rvol_min: float = 0.0       # min time-of-day-matched RVOL on the reclaim bar
+    pb_v2_open_scored_entry_window_bars: int = 0  # 0 = whole session; else bars after ``after_bar``
+    # Stop anchoring for event entries.  ``session_low`` preserves the legacy
+    # baseline; ``reclaim_bar`` anchors risk on the structural invalidation of
+    # the reclaim so risk-per-share matches the move actually being traded.
+    pb_v2_event_stop_anchor: str = "session_low"  # session_low | reclaim_bar
+    pb_v2_event_stop_min_atr: float = 0.25        # floor: min daily-ATR fraction below entry
+    # Resting-limit anchor.  ``impulse_retrace`` is the legacy construct (a
+    # pullback within a bounce that already happened).  ``daily_atr`` rests a bid
+    # below the session open so a continuing decline is bought -- an independent
+    # mechanism that covers the sessions where price never reclaims.
+    pb_open_scored_limit_anchor: str = "impulse_retrace"  # impulse_retrace | daily_atr
+    pb_open_scored_limit_atr_frac: float = 0.25   # bid = session_open - frac * daily ATR
+    # OPEN_SCORED signal-to-entry transition.  ``next_bar`` preserves the
+    # repaired baseline. ``confirmed_retest`` waits for a completed recovery;
+    # ``resting_retrace`` submits a buy limit only after the signal bar closes
+    # and lets later bars trade into the pullback price.
+    # next_bar | confirmed_retest | resting_retrace | reclaim_or_limit
+    pb_open_scored_transition: str = "next_bar"
+    pb_open_scored_limit_arm_bar: int = 3         # reclaim_or_limit: bar that arms the resting bid
+    pb_open_scored_retest_window_bars: int = 6
+    pb_open_scored_retest_retrace_frac: float = 0.35
+    pb_open_scored_retest_min_close_pct: float = 0.55
+    pb_open_scored_retest_min_impulse_atr: float = 0.15
+    pb_open_scored_retest_max_extension_atr: float = 0.35
+    pb_open_scored_retrace_limit_fraction: float = 0.35
+    pb_open_scored_retrace_limit_window_bars: int = 12
+    pb_open_scored_retrace_limit_penetration_ticks: int = 1
+    pb_open_scored_retrace_limit_ttl_seconds: int = 3600
+    pb_open_scored_priority: str = "high_score"  # high_score | low_score
     pb_v2_delayed_confirm_min_close_pct: float = 0.40
     pb_v2_delayed_confirm_vol_ratio: float = 0.50
     pb_v2_vwap_bounce_enabled: bool = False
@@ -262,6 +317,93 @@ class StrategySettings:
     pb_v2_afternoon_retest_after_bar: int = 48
     pb_v2_afternoon_retest_min_score: float = 50.0
     pb_v2_afternoon_retest_sizing_mult: float = 0.80
+    pb_v2_secondary_route_sizing_mult: float = 1.00  # shared live/replay risk multiplier for non-primary routes
+
+    # Route-neutral reversion aperture. Disabled by default so historical
+    # configurations remain unchanged. The nightly artifact admits a capped,
+    # high-recall sleeve; only shared completed-bar event logic may approve an
+    # entry from it.
+    pb_aperture_enabled: bool = False
+    pb_aperture_max_symbols: int = 120
+    # When enabled, an incumbent nightly candidate remains in the incumbent
+    # rank/capacity cohort but may also be approved by an independent aperture
+    # event. This removes the historical mutually-exclusive sleeve partition
+    # without changing default behaviour.
+    pb_aperture_include_incumbent: bool = False
+    pb_aperture_families: str = "PRIOR_DAY_LOW_RECLAIM,MULTIDAY_HIGHER_LOW_RECLAIM"
+    pb_aperture_event_score_min: float = 70.0
+    # Prospective economics are hard vetoes, not score weight that a strong
+    # but already-completed reclaim can offset.
+    pb_aperture_min_remaining_room_atr: float = 0.10
+    pb_aperture_min_prospective_rr: float = 0.60
+    # Fail-closed switch for mechanism-pure temporary-dislocation research.
+    # Existing price/volume diagnostics leave it off; a representative
+    # reversion baseline must enable it with an authoritative event feed.
+    pb_aperture_require_information_state: bool = False
+    # Optional family-specific admission policies. Empty mappings preserve the
+    # historical global-floor behaviour exactly. Values are encoded as
+    # ``FAMILY:value`` pairs so optimized artifacts remain JSON/CLI friendly
+    # and the same typed settings flow through live and replay adapters.
+    pb_aperture_family_score_floors: str = ""
+    # Fixed economic score profiles reuse the same seven immutable event
+    # components.  Empty preserves the historical balanced score exactly.
+    pb_aperture_family_score_profiles: str = ""  # FAMILY:balanced | shock_exhaustion | level_reclaim | relative_shock | trend_pullback
+    # Filters deliberately reuse the immutable seven event-score components;
+    # they do not create a second, optimizer-only signal.  The additional
+    # reclaim profiles are opt-in breadth-repair mechanisms for families whose
+    # lower score floor activates real supply but also admits weak events.
+    pb_aperture_family_filters: str = ""  # FAMILY:geometry | participation | deep_reclaim | residual_reclaim | room_reclaim | quiet_deep_room | relative_exhaustion
+    pb_aperture_family_daily_caps: str = ""  # FAMILY:1 | 2
+    pb_reversion_lane_daily_caps: str = ""  # APERTURE_ARCHETYPE:1 | 2 | 4, RESCUE_EVENT:1 | 2 | 4
+    # Optional causal episode re-arm.  A family remains one-shot unless it is
+    # explicitly assigned two events; the second signal must be separated by
+    # the shared completed-bar cooldown and receives its own event ID.
+    pb_aperture_family_max_events: str = ""  # FAMILY:1 | 2
+    pb_aperture_rearm_cooldown_bars: int = 12  # registered values: 6 | 12 | 24
+    # Optional completed-bar cutoff per family.  Empty preserves the two
+    # historical special cases and the shared default below.
+    pb_aperture_family_max_bars: str = ""  # FAMILY:6 | 12 | 24 | 48
+    pb_aperture_prior_low_max_bar: int = 48
+    pb_aperture_multiday_max_bar: int = 6
+    pb_aperture_default_max_bar: int = 48
+    pb_aperture_limit_retrace_fraction: float = 0.25
+    pb_aperture_limit_window_bars: int = 3
+    pb_aperture_limit_penetration_ticks: int = 1
+    pb_aperture_prior_low_transition: str = "retrace"  # retrace | next_bar
+    pb_aperture_multiday_transition: str = "confirm"   # confirm | next_bar
+    # Optional route-specific overrides encoded as
+    # ``FAMILY:next_bar,FAMILY:confirm``.  An empty mapping preserves every
+    # historical/default route. ``quality_hybrid`` makes a completed-signal-bar
+    # decision between next-bar and confirmation using one registered policy
+    # below; it never observes the confirmation bar before choosing.
+    pb_aperture_family_transitions: str = ""  # next_bar | confirm | retrace | quality_hybrid
+    pb_aperture_family_hybrid_next_policies: str = ""  # FAMILY:deep_reclaim | residual_reclaim | room_reclaim
+    pb_aperture_sizing_mult: float = 0.55
+    pb_aperture_max_slots: int = 4
+    pb_aperture_carry_min_r: float = 0.20
+    pb_aperture_carry_close_pct_min: float = 0.55
+    pb_aperture_carry_mfe_gate_r: float = 0.10
+    pb_aperture_carry_min_daily_signal_score: float = 70.0
+    pb_aperture_flow_reversal_lookback: int = 2
+    pb_aperture_max_hold_days: int = 3
+    pb_aperture_rsi_exit: float = 58.0
+    pb_aperture_quick_exit_loss_r: float = 0.35
+    pb_aperture_stale_exit_bars: int = 6
+    pb_aperture_stale_exit_min_r: float = 0.05
+    # Coherent family-specific management profiles.  Empty retains every
+    # route's existing exit and carry settings.
+    pb_aperture_family_management_profiles: str = ""  # FAMILY:baseline | tail_capture | fast_snapback
+    # Master switch for family-typed normalization exits.  Historical
+    # pullback/tail routes must remain unchanged unless an explicit management
+    # profile opts into an anchor exit.
+    pb_aperture_anchor_exit_enabled: bool = False
+
+    # Portfolio identity controls. Explicit zeroes remain available only as a
+    # research ablation; production defaults treat one issuer as one risk unit.
+    pb_issuer_aliases: str = ""  # SYMBOL:ISSUER overrides for non-standard share classes
+    pb_issuer_event_dedupe_enabled: bool = True
+    pb_issuer_position_cap: int = 1
+    pb_issuer_daily_entry_cap: int = 2
 
     # V2 Route access control (allow rescue candidates into intraday routes)
     pb_v2_open_scored_rank_pct_max: float = 100.0       # max rank percentile for OPEN_SCORED in V2 mode (100 = no filter)
@@ -276,6 +418,7 @@ class StrategySettings:
     pb_v2_mfe_stage3_trigger: float = 1.25
     pb_v2_mfe_stage3_trail_atr: float = 0.75
     pb_v2_partial_profit_trigger_r: float = 0.1
+    pb_v2_partial_profit_fraction: float = 0.50
     pb_v2_partial_profit_remainder_stop_r: float = 0.7
     pb_v2_ema_reversion_exit: bool = True
     pb_v2_ema_reversion_min_r: float = 0.03
@@ -351,6 +494,8 @@ class StrategySettings:
     pb_entry_score_min: float = 50.0             # core entry threshold (0-100)
     pb_entry_score_family: str = "meanrev_sweetspot_v1"  # route_momentum_v1 | meanrev_sweetspot_v1
     pb_entry_strength_sizing: bool = True        # scale size modestly by intraday score
+    pb_entry_micropressure_policy: str = "score_penalty"  # score_penalty | block_distribute
+    pb_entry_min_reversion_room_atr: float = 0.0  # hard floor to prior-close target; 0 disables
     pb_improvement_window_bars: int = 2          # better-price wait after READY
     pb_improvement_discount_pct: float = 0.0015  # discount target for READY entry
     pb_delayed_confirm_after_bar: int = 5
@@ -362,6 +507,12 @@ class StrategySettings:
     pb_rescue_flow_enabled: bool = False         # allow narrow rescue lane for flow rejects
     pb_rescue_max_per_day: int = 1
     pb_rescue_min_score: float = 72.0            # stricter than core threshold
+    # Explicit causal rescue-event route.  It is opt-in and requires a
+    # completed 5m confirmation followed by a next-bar fill.
+    pb_rescue_event_lane_enabled: bool = False
+    pb_rescue_event_daily_score_min: float = 60.0
+    pb_rescue_event_entry_score_min: float = 65.0
+    pb_rescue_event_trigger_policy: str = "oversold_or_multi"  # oversold | multi_dislocation | oversold_or_multi
     pb_stop_session_atr_mult: float = 0.60       # structural stop padding in session ATR
     pb_stop_daily_atr_cap: float = 1.00          # cap structural stop width in daily ATR
     pb_stale_exit_bars: int = 0                  # <=0 disables stale exit
@@ -483,6 +634,70 @@ class StrategySettings:
     v3_staleness_hours: float = 5.0
     v3_staleness_tighten_atr: float = 0.5
 
+    # Price/volume residual redesign.  Disabled until the phased programme has
+    # frozen and validated a candidate; when enabled, both live and replay use
+    # the same nightly selector and typed daily transition core.
+    strategy_mode: str = "legacy_pullback"  # legacy_pullback | daily_residual_reversion
+    daily_residual_factor_model: str = "peer_demeaned"
+    daily_residual_formation_sessions: int = 5
+    daily_residual_minimum_z: float = 1.0
+    # Optional absolute quality gate on the frozen 0-100 component score.
+    # Zero preserves the rank-only baseline; positive values let research test
+    # whether explicitly rejecting weak events improves breadth and downside.
+    daily_residual_minimum_score: float = 0.0
+    daily_residual_score_components: tuple[str, ...] = (
+        "failed_continuation",
+    )
+    # Empty means rank with the admission score.  A non-empty tuple enables a
+    # frozen two-stage selector while the union remains capped at seven.
+    daily_residual_ranking_score_components: tuple[str, ...] = ()
+    daily_residual_lane_id: str = "peer_residual_normalization_5d"
+    # A residual loser is not admitted until the latest completed residual is
+    # at least this many entry-time residual-volatility units above the prior
+    # two-session residual low.  This is a causal failed-continuation contract,
+    # not a generic bullish-candle confirmation.
+    daily_residual_minimum_failed_continuation_r: float = 0.20
+    # Peer normalization is unreliable while the whole industry sleeve is in
+    # a sustained liquidation. This causal completed-session veto is expressed
+    # in raw five-session sector-ETF log-return units.
+    daily_residual_minimum_sector_return_5d: float = -0.15
+    # Disabled at -8 by default.  The sole structural challenger uses -1.0:
+    # reject completed-session market declines worse than one volatility unit.
+    daily_residual_minimum_market_trend_z_20d: float = -8.0
+    daily_residual_max_positions: int = 10
+    daily_residual_max_positions_per_sector: int = 2
+    # Optional selective sector overflow.  The ordinary cap remains binding;
+    # one additional slot is available only to an exceptional ranked event.
+    # Zero slots preserves the historical selector exactly.
+    daily_residual_sector_overflow_slots: int = 0
+    daily_residual_sector_overflow_minimum_score: float = 50.0
+    daily_residual_sector_overflow_minimum_z: float = 1.0
+    daily_residual_sector_overflow_risk_multiplier: float = 1.0
+    daily_residual_risk_fraction: float = 0.0035
+    daily_residual_maximum_notional_fraction: float = 0.10
+    daily_residual_catastrophic_stop_atr: float = 2.50
+    daily_residual_catastrophic_stop_residual_r: float = 4.0
+    daily_residual_partial_normalization_fraction: float = 0.50
+    daily_residual_full_normalization_fraction: float = 1.00
+    daily_residual_structural_failure_extension_fraction: float = 0.50
+    # Disabled at 99 by default.  When enabled, a completed-session residual
+    # path must first normalize by the activation fraction; a later giveback
+    # of the configured fraction exits at the following open.
+    daily_residual_profit_retention_activation_fraction: float = 99.0
+    daily_residual_profit_retention_giveback_fraction: float = 99.0
+    # Capacity-neutral alpha recycling.  Disabled is the production/control
+    # contract.  Challengers may release one stale incumbent at the following
+    # open only when a materially stronger, already-eligible residual event is
+    # blocked by the unchanged portfolio or sector cap.
+    daily_residual_replacement_mode: str = "disabled"
+    daily_residual_replacement_loss_only: bool = False
+    daily_residual_replacement_minimum_held_sessions: int = 5
+    daily_residual_replacement_maximum_normalization_fraction: float = 0.25
+    daily_residual_replacement_minimum_score_margin: float = 25.0
+    daily_residual_replacement_max_per_session: int = 1
+    daily_residual_maximum_holding_sessions: int = 10
+    daily_residual_partial_exit_fraction: float = 0.50
+
     cache_dir: Path = field(
         default_factory=lambda: Path(__file__).resolve().parents[1] / "data" / "strategy_iaric" / "cache"
     )
@@ -501,6 +716,117 @@ class StrategySettings:
     state_dir: Path = field(
         default_factory=lambda: Path(__file__).resolve().parents[1] / "data" / "strategy_iaric" / "state"
     )
+
+    def __post_init__(self) -> None:
+        if self.strategy_mode not in {"legacy_pullback", "daily_residual_reversion"}:
+            raise ValueError(f"unsupported IARIC strategy_mode: {self.strategy_mode}")
+        if self.daily_residual_factor_model not in {
+            "market_only",
+            "market_sector",
+            "market_sector_peer",
+            "peer_demeaned",
+        }:
+            raise ValueError("unsupported daily residual factor model")
+        if self.daily_residual_formation_sessions not in {1, 3, 5}:
+            raise ValueError("daily residual formation must be 1, 3 or 5 sessions")
+        components = tuple(self.daily_residual_score_components)
+        registered = {
+            "residual_extremeness",
+            "shock_freshness",
+            "price_rejection_recovery",
+            "volume_transition",
+            "volume_exhaustion_quality",
+            "regime_execution_quality",
+            "failed_continuation",
+        }
+        if not 1 <= len(components) <= 7 or not set(components) <= registered:
+            raise ValueError(
+                "daily residual score must use one to seven registered components"
+            )
+        if len(set(components)) != len(components):
+            raise ValueError("daily residual score components must be unique")
+        ranking_components = tuple(self.daily_residual_ranking_score_components)
+        if ranking_components:
+            if not set(ranking_components) <= registered:
+                raise ValueError(
+                    "daily residual ranking score contains an unregistered component"
+                )
+            if len(set(ranking_components)) != len(ranking_components):
+                raise ValueError(
+                    "daily residual ranking score components must be unique"
+                )
+        if len(set(components) | set(ranking_components)) > 7:
+            raise ValueError(
+                "daily residual admission/ranking score union exceeds seven components"
+            )
+        if not 0.0 <= self.daily_residual_minimum_score <= 100.0:
+            raise ValueError("daily residual minimum score must be in [0, 100]")
+        if self.daily_residual_max_positions < 1:
+            raise ValueError("daily residual maximum positions must be positive")
+        if not 1 <= self.daily_residual_max_positions_per_sector <= self.daily_residual_max_positions:
+            raise ValueError("daily residual sector cap is inconsistent")
+        if not 0 <= self.daily_residual_sector_overflow_slots <= 2:
+            raise ValueError("daily residual sector overflow slots must be in [0, 2]")
+        if not 0.0 <= self.daily_residual_sector_overflow_minimum_score <= 100.0:
+            raise ValueError("daily residual sector overflow score must be in [0, 100]")
+        if not 0.0 <= self.daily_residual_sector_overflow_minimum_z <= 3.0:
+            raise ValueError("daily residual sector overflow z must be in [0, 3]")
+        if not 0.0 < self.daily_residual_sector_overflow_risk_multiplier <= 1.0:
+            raise ValueError(
+                "daily residual sector overflow risk multiplier must be in (0, 1]"
+            )
+        if not 0.0 < self.daily_residual_risk_fraction <= 0.005:
+            raise ValueError("daily residual risk must be in (0, 0.5%]")
+        if not 0.0 < self.daily_residual_maximum_notional_fraction <= 0.20:
+            raise ValueError("daily residual notional cap must be in (0, 20%]")
+        if self.daily_residual_catastrophic_stop_atr <= 0.0:
+            raise ValueError("daily residual catastrophic stop ATR must be positive")
+        if not (
+            self.daily_residual_catastrophic_stop_residual_r == 0.0
+            or 2.0 <= self.daily_residual_catastrophic_stop_residual_r <= 8.0
+        ):
+            raise ValueError(
+                "daily residual catastrophic residual stop must be 0 or in [2, 8]"
+            )
+        if not 0.0 <= self.daily_residual_minimum_failed_continuation_r <= 2.0:
+            raise ValueError(
+                "daily residual failed-continuation threshold must be in [0, 2]"
+            )
+        if not -0.15 <= self.daily_residual_minimum_sector_return_5d <= 0.0:
+            raise ValueError(
+                "daily residual minimum sector five-day return must be in [-15%, 0]"
+            )
+        if not -8.0 <= self.daily_residual_minimum_market_trend_z_20d <= 0.0:
+            raise ValueError(
+                "daily residual minimum market trend z must be in [-8, 0]"
+            )
+        if not self.daily_residual_lane_id.strip():
+            raise ValueError("daily residual lane id must be non-empty")
+        if not 1 <= self.daily_residual_maximum_holding_sessions <= 10:
+            raise ValueError("daily residual maximum holding must be 1-10 sessions")
+        if self.daily_residual_profit_retention_activation_fraction <= 0.0:
+            raise ValueError("daily residual profit-retention activation must be positive")
+        if self.daily_residual_profit_retention_giveback_fraction <= 0.0:
+            raise ValueError("daily residual profit-retention giveback must be positive")
+        if self.daily_residual_replacement_mode not in {
+            "disabled",
+            "sector_stale",
+            "portfolio_diversifying",
+            "combined",
+        }:
+            raise ValueError("unsupported daily residual replacement mode")
+        if not 1 <= self.daily_residual_replacement_minimum_held_sessions <= 10:
+            raise ValueError("daily residual replacement age must be 1-10 sessions")
+        if not -1.0 <= (
+            self.daily_residual_replacement_maximum_normalization_fraction
+        ) <= 1.0:
+            raise ValueError(
+                "daily residual replacement normalization fraction must be in [-1, 1]"
+            )
+        if not 0.0 <= self.daily_residual_replacement_minimum_score_margin <= 100.0:
+            raise ValueError("daily residual replacement score margin must be in [0, 100]")
+        if self.daily_residual_replacement_max_per_session not in {0, 1}:
+            raise ValueError("daily residual replacement cap must be zero or one")
 
     @property
     def timing_sizing(self) -> tuple[tuple[time, time, float], ...]:

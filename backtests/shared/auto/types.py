@@ -39,6 +39,10 @@ class GreedyResult:
     total_candidates: int
     accepted_count: int
     elapsed_seconds: float
+    # Full audit trail for every tested mutation in every greedy round.  The
+    # prior result shape retained only each round's winner, which made no-op,
+    # hard-rejected, and non-winning experiments impossible to diagnose.
+    candidate_evaluations: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

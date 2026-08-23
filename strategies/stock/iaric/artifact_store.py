@@ -125,6 +125,12 @@ def load_research_snapshot(trade_date: date, root: Path | None = None, settings:
             intraday_atr_seed=float(data.get("intraday_atr_seed", 0.0)),
             average_30m_volume=float(data.get("average_30m_volume", 0.0)),
             expected_5m_volume=float(data.get("expected_5m_volume", 0.0)),
+            expected_5m_profile=tuple(
+                float(value) for value in data.get("expected_5m_profile", ())
+            ),
+            information_state_available=bool(
+                data.get("information_state_available", False)
+            ),
         )
     held_positions = [
         HeldPositionResearch(
@@ -136,10 +142,94 @@ def load_research_snapshot(trade_date: date, root: Path | None = None, settings:
             initial_r=float(item["initial_r"]),
             setup_tag=str(item.get("setup_tag", "")),
             carry_eligible_flag=bool(item.get("carry_eligible_flag", False)),
+            sleeve_id=str(item.get("sleeve_id", "")),
+            issuer=str(item.get("issuer", "")),
+            sector=str(item.get("sector", "")),
+            residual_factor_model=str(item.get("residual_factor_model", "")),
+            residual_formation_sessions=int(item.get("residual_formation_sessions", 0)),
+            residual_volatility=float(item.get("residual_volatility", 0.0)),
+            residual_initial_dislocation_r=float(
+                item.get("residual_initial_dislocation_r", 0.0)
+            ),
+            residual_cumulative_normalization_r=float(
+                item.get("residual_cumulative_normalization_r", 0.0)
+            ),
+            residual_peak_normalization_r=float(
+                item.get(
+                    "residual_peak_normalization_r",
+                    max(
+                        0.0,
+                        float(item.get("residual_cumulative_normalization_r", 0.0)),
+                    ),
+                )
+            ),
+            residual_held_sessions=int(item.get("residual_held_sessions", 0)),
+            residual_partial_taken=bool(item.get("residual_partial_taken", False)),
+            residual_last_processed_session=(
+                date.fromisoformat(str(item["residual_last_processed_session"])[:10])
+                if item.get("residual_last_processed_session")
+                else None
+            ),
+            residual_qty_entry=int(item.get("residual_qty_entry", item["size"])),
+            residual_entry_commission=float(
+                item.get("residual_entry_commission", 0.0)
+            ),
+            residual_exit_commission=float(
+                item.get("residual_exit_commission", 0.0)
+            ),
+            residual_realized_pnl_usd=float(
+                item.get("residual_realized_pnl_usd", 0.0)
+            ),
+            residual_trade_id=str(item.get("residual_trade_id", "")),
+            residual_protective_stop_client_order_id=str(
+                item.get("residual_protective_stop_client_order_id", "")
+            ),
+            residual_protective_stop_price=float(
+                item.get("residual_protective_stop_price", item.get("stop", 0.0))
+            ),
+            residual_protective_stop_qty=int(
+                item.get("residual_protective_stop_qty", item.get("size", 0))
+            ),
+            residual_lane_id=str(item.get("residual_lane_id", "")),
+            residual_model_contract_version=str(
+                item.get("residual_model_contract_version", "")
+            ),
+            residual_model_intercept=float(
+                item.get("residual_model_intercept", 0.0)
+            ),
+            residual_factor_names=tuple(
+                str(value) for value in item.get("residual_factor_names", ())
+            ),
+            residual_factor_betas=tuple(
+                float(value) for value in item.get("residual_factor_betas", ())
+            ),
+            residual_peer_symbols=tuple(
+                str(value) for value in item.get("residual_peer_symbols", ())
+            ),
+            residual_model_estimation_session=(
+                date.fromisoformat(str(item["residual_model_estimation_session"])[:10])
+                if item.get("residual_model_estimation_session")
+                else None
+            ),
         )
         for item in payload.get("held_positions", [])
     ]
     market = payload["market"]
+    reference_daily_bars = {
+        str(symbol): [
+            ResearchDailyBar(
+                trade_date=date.fromisoformat(str(bar["trade_date"])[:10]),
+                open=float(bar["open"]),
+                high=float(bar["high"]),
+                low=float(bar["low"]),
+                close=float(bar["close"]),
+                volume=float(bar.get("volume", 0.0)),
+                event_tag=str(bar.get("event_tag", "")),
+            )
+            for bar in bars
+        ]
+        for symbol, bars in payload.get("reference_daily_bars", {}).items()
+    }
     return ResearchSnapshot(
         trade_date=date.fromisoformat(payload["trade_date"]),
         market=MarketResearch(
@@ -152,6 +242,14 @@ def load_research_snapshot(trade_date: date, root: Path | None = None, settings:
         sectors=sectors,
         symbols=symbols,
         held_positions=held_positions,
+        benchmark_dates=[
+            date.fromisoformat(str(value)[:10])
+            for value in payload.get("benchmark_dates", [])
+        ],
+        benchmark_closes=[
+            float(value) for value in payload.get("benchmark_closes", [])
+        ],
+        reference_daily_bars=reference_daily_bars,
     )
 
 
@@ -165,6 +263,9 @@ def persist_watchlist_artifact(artifact: WatchlistArtifact, root: Path | None = 
         "overflow": [_serialize(asdict(item)) for item in artifact.overflow],
         "market_wide_institutional_selling": artifact.market_wide_institutional_selling,
         "held_positions": [_serialize(asdict(item)) for item in artifact.held_positions],
+        "strategy_mode": artifact.strategy_mode,
+        "selection_contract_version": artifact.selection_contract_version,
+        "strategy_parameters": _serialize(artifact.strategy_parameters),
     }
     path = artifact_path(artifact.trade_date, root=root, settings=settings)
     _write_json(path, payload)
@@ -211,6 +312,8 @@ def _watchlist_item_from_dict(data: dict[str, Any]) -> WatchlistItem:
         recommended_risk_r=float(data["recommended_risk_r"]),
         average_30m_volume=float(data.get("average_30m_volume", 0.0)),
         expected_5m_volume=float(data.get("expected_5m_volume", 0.0)),
+        expected_5m_profile=tuple(float(value) for value in data.get("expected_5m_profile", ())),
+        information_state_available=bool(data.get("information_state_available", False)),
         entry_gap_pct=float(data.get("entry_gap_pct", 0.0)),
         flow_proxy_gate_pass=bool(data.get("flow_proxy_gate_pass", True)),
         overflow_rank=int(data["overflow_rank"]) if data.get("overflow_rank") is not None else None,
@@ -221,8 +324,61 @@ def _watchlist_item_from_dict(data: dict[str, Any]) -> WatchlistItem:
         trend_tier=str(data.get("trend_tier", "STRONG")),
         rescue_flow_candidate=bool(data.get("rescue_flow_candidate", False)),
         sizing_mult=float(data.get("sizing_mult", 1.0)),
+        cdd_value=int(data.get("cdd_value", 0)),
         ema10_daily=float(data.get("ema10_daily", 0.0)),
         rsi14_daily=float(data.get("rsi14_daily", 0.0)),
+        entry_rank=int(data.get("entry_rank", 0)),
+        entry_rank_pct=float(data.get("entry_rank_pct", 100.0)),
+        entry_rsi=float(data.get("entry_rsi", 50.0)),
+        previous_close=float(data.get("previous_close", 0.0)),
+        aperture_candidate=bool(data.get("aperture_candidate", False)),
+        aperture_context_score=float(data.get("aperture_context_score", 0.0)),
+        previous_high=float(data.get("previous_high", 0.0)),
+        previous_low=float(data.get("previous_low", 0.0)),
+        five_day_return=float(data.get("five_day_return", 0.0)),
+        sma20_slope_atr=float(data.get("sma20_slope_atr", 0.0)),
+        sleeve_id=str(data.get("sleeve_id", "")),
+        residual_factor_model=str(data.get("residual_factor_model", "")),
+        residual_formation_sessions=int(data.get("residual_formation_sessions", 0)),
+        residual_z=float(data.get("residual_z", 0.0)),
+        residual_volatility=float(data.get("residual_volatility", 0.0)),
+        residual_initial_dislocation_r=float(
+            data.get("residual_initial_dislocation_r", 0.0)
+        ),
+        residual_anchor_price=float(data.get("residual_anchor_price", 0.0)),
+        residual_remaining_room_r=float(data.get("residual_remaining_room_r", 0.0)),
+        residual_score_components={
+            str(name): float(value)
+            for name, value in data.get("residual_score_components", {}).items()
+        },
+        residual_admission_score=float(data.get("residual_admission_score", 0.0)),
+        residual_ranking_score=float(data.get("residual_ranking_score", 0.0)),
+        residual_failed_continuation_r=float(
+            data.get("residual_failed_continuation_r", 0.0)
+        ),
+        residual_sector_return_5d=float(
+            data.get("residual_sector_return_5d", 0.0)
+        ),
+        residual_lane_id=str(data.get("residual_lane_id", "")),
+        residual_model_contract_version=str(
+            data.get("residual_model_contract_version", "")
+        ),
+        residual_model_intercept=float(data.get("residual_model_intercept", 0.0)),
+        residual_factor_names=tuple(
+            str(value) for value in data.get("residual_factor_names", ())
+        ),
+        residual_factor_betas=tuple(
+            float(value) for value in data.get("residual_factor_betas", ())
+        ),
+        residual_peer_symbols=tuple(
+            str(value) for value in data.get("residual_peer_symbols", ())
+        ),
+        residual_model_estimation_session=(
+            date.fromisoformat(str(data["residual_model_estimation_session"])[:10])
+            if data.get("residual_model_estimation_session")
+            else None
+        ),
+        entry_clock=str(data.get("entry_clock", "")),
     )
 
 
@@ -261,9 +417,99 @@ def load_watchlist_artifact(trade_date: date, root: Path | None = None, settings
                 ),
                 carry_eligible_flag=bool(data.get("carry_eligible_flag", False)),
                 flow_reversal_flag=bool(data.get("flow_reversal_flag", False)),
+                issuer=str(data.get("issuer", "")),
+                sector=str(data.get("sector", "")),
+                exchange=str(data.get("exchange", "SMART")),
+                primary_exchange=str(data.get("primary_exchange", "")),
+                currency=str(data.get("currency", "USD")),
+                tick_size=float(data.get("tick_size", 0.01)),
+                point_value=float(data.get("point_value", 1.0)),
+                sleeve_id=str(data.get("sleeve_id", "")),
+                residual_factor_model=str(data.get("residual_factor_model", "")),
+                residual_formation_sessions=int(
+                    data.get("residual_formation_sessions", 0)
+                ),
+                residual_volatility=float(data.get("residual_volatility", 0.0)),
+                residual_initial_dislocation_r=float(
+                    data.get("residual_initial_dislocation_r", 0.0)
+                ),
+                residual_cumulative_normalization_r=float(
+                    data.get("residual_cumulative_normalization_r", 0.0)
+                ),
+                residual_peak_normalization_r=float(
+                    data.get(
+                        "residual_peak_normalization_r",
+                        max(
+                            0.0,
+                            float(
+                                data.get(
+                                    "residual_cumulative_normalization_r", 0.0
+                                )
+                            ),
+                        ),
+                    )
+                ),
+                residual_held_sessions=int(data.get("residual_held_sessions", 0)),
+                residual_partial_taken=bool(data.get("residual_partial_taken", False)),
+                residual_last_processed_session=(
+                    date.fromisoformat(str(data["residual_last_processed_session"])[:10])
+                    if data.get("residual_last_processed_session")
+                    else None
+                ),
+                residual_pending_action=str(data.get("residual_pending_action", "hold")),
+                residual_pending_reason=str(data.get("residual_pending_reason", "")),
+                residual_pending_exit_fraction=float(
+                    data.get("residual_pending_exit_fraction", 0.0)
+                ),
+                residual_qty_entry=int(data.get("residual_qty_entry", data["size"])),
+                residual_entry_commission=float(
+                    data.get("residual_entry_commission", 0.0)
+                ),
+                residual_exit_commission=float(
+                    data.get("residual_exit_commission", 0.0)
+                ),
+                residual_realized_pnl_usd=float(
+                    data.get("residual_realized_pnl_usd", 0.0)
+                ),
+                residual_trade_id=str(data.get("residual_trade_id", "")),
+                residual_protective_stop_client_order_id=str(
+                    data.get("residual_protective_stop_client_order_id", "")
+                ),
+                residual_protective_stop_price=float(
+                    data.get("residual_protective_stop_price", data.get("stop", 0.0))
+                ),
+                residual_protective_stop_qty=int(
+                    data.get("residual_protective_stop_qty", data.get("size", 0))
+                ),
+                residual_lane_id=str(data.get("residual_lane_id", "")),
+                residual_model_contract_version=str(
+                    data.get("residual_model_contract_version", "")
+                ),
+                residual_model_intercept=float(
+                    data.get("residual_model_intercept", 0.0)
+                ),
+                residual_factor_names=tuple(
+                    str(value) for value in data.get("residual_factor_names", ())
+                ),
+                residual_factor_betas=tuple(
+                    float(value) for value in data.get("residual_factor_betas", ())
+                ),
+                residual_peer_symbols=tuple(
+                    str(value) for value in data.get("residual_peer_symbols", ())
+                ),
+                residual_model_estimation_session=(
+                    date.fromisoformat(
+                        str(data["residual_model_estimation_session"])[:10]
+                    )
+                    if data.get("residual_model_estimation_session")
+                    else None
+                ),
             )
             for data in payload.get("held_positions", [])
         ],
+        strategy_mode=str(payload.get("strategy_mode", "legacy_pullback")),
+        selection_contract_version=str(payload.get("selection_contract_version", "")),
+        strategy_parameters=dict(payload.get("strategy_parameters", {})),
     )
 
 
@@ -300,6 +546,21 @@ def coerce_intraday_state_snapshot(
             return value
         return date.fromisoformat(value)
 
+    meta = dict(payload.get("meta", {}))
+    if meta.get("strategy_mode") == "daily_residual_reversion":
+        from .core.daily_residual import hydrate_daily_residual_symbol_state
+
+        return IntradayStateSnapshot(
+            trade_date=_as_date(payload["trade_date"]),
+            saved_at=_as_datetime(payload["saved_at"]),
+            symbols=[
+                hydrate_daily_residual_symbol_state(data)
+                for data in payload.get("symbols", [])
+            ],
+            last_decision_code=str(payload.get("last_decision_code", "")),
+            meta=meta,
+        )
+
     def _pending(data: dict[str, Any] | None) -> PendingOrderState | None:
         if not data:
             return None
@@ -330,8 +591,17 @@ def coerce_intraday_state_snapshot(
             stop_order_id=str(data.get("stop_order_id", "")),
             trade_id=str(data.get("trade_id", "")),
             realized_pnl_usd=float(data.get("realized_pnl_usd", 0.0)),
+            entry_commission=float(data.get("entry_commission", 0.0)),
+            exit_commission=float(data.get("exit_commission", 0.0)),
+            opportunity_event_id=str(data.get("opportunity_event_id", "")),
+            reversion_anchor=float(data.get("reversion_anchor", 0.0)),
+            structural_stop_anchor=float(data.get("structural_stop_anchor", 0.0)),
+            initial_remaining_room_atr=float(data.get("initial_remaining_room_atr", 0.0)),
+            prospective_reward_risk=float(data.get("prospective_reward_risk", 0.0)),
             setup_tag=str(data.get("setup_tag", "UNCLASSIFIED")),
             time_stop_deadline=_as_datetime(data.get("time_stop_deadline")),
+            pending_partial_stop=float(data.get("pending_partial_stop", 0.0)),
+            pending_partial_stop_buffer=float(data.get("pending_partial_stop_buffer", 0.0)),
         )
 
     def _pb_symbol(data: dict[str, Any]) -> PBSymbolState:
@@ -376,6 +646,19 @@ def coerce_intraday_state_snapshot(
             consecutive_bars_below_vwap=int(data.get("consecutive_bars_below_vwap", 0)),
             ema10_daily=float(data.get("ema10_daily", 0.0)),
             rsi14_daily=float(data.get("rsi14_daily", 0.0)),
+            opportunity_family=str(data.get("opportunity_family", "")),
+            opportunity_signal_bar_idx=int(data.get("opportunity_signal_bar_idx", -1)),
+            opportunity_signal_close=float(data.get("opportunity_signal_close", 0.0)),
+            opportunity_event_id=str(data.get("opportunity_event_id", "")),
+            opportunity_reversion_anchor=float(data.get("opportunity_reversion_anchor", 0.0)),
+            opportunity_stop_anchor=float(data.get("opportunity_stop_anchor", 0.0)),
+            opportunity_remaining_room_atr=float(data.get("opportunity_remaining_room_atr", 0.0)),
+            opportunity_prospective_reward_risk=float(
+                data.get("opportunity_prospective_reward_risk", 0.0)
+            ),
+            opportunity_consumed_families=list(data.get("opportunity_consumed_families", [])),
+            opportunity_audit_bar_idx=int(data.get("opportunity_audit_bar_idx", -1)),
+            opportunity_audit_events=list(data.get("opportunity_audit_events", [])),
             stopped_out_today=bool(data.get("stopped_out_today", False)),
             flush_bar_idx=int(data.get("flush_bar_idx", 0)),
             ready_bar_idx=int(data.get("ready_bar_idx", -1)),
@@ -394,6 +677,17 @@ def coerce_intraday_state_snapshot(
             accepted_score=float(data.get("accepted_score", 0.0)),
             accepted_session_atr=float(data.get("accepted_session_atr", 0.0)),
             accepted_score_components=dict(data.get("accepted_score_components", {})),
+            accepted_lane_id=str(data.get("accepted_lane_id", "")),
+            accepted_event_id=str(data.get("accepted_event_id", "")),
+            accepted_reversion_anchor=float(data.get("accepted_reversion_anchor", 0.0)),
+            accepted_stop_anchor=float(data.get("accepted_stop_anchor", 0.0)),
+            accepted_remaining_room_atr=float(data.get("accepted_remaining_room_atr", 0.0)),
+            accepted_prospective_reward_risk=float(
+                data.get("accepted_prospective_reward_risk", 0.0)
+            ),
+            entry_rank=int(data.get("entry_rank", 0)),
+            entry_rank_pct=float(data.get("entry_rank_pct", 100.0)),
+            entry_rsi=float(data.get("entry_rsi", 50.0)),
         )
 
     symbols = []

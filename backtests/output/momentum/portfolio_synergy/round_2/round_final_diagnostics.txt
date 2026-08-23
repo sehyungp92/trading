@@ -46,6 +46,20 @@ Portfolio max DD is reported on a bar-close mark-to-market basis, matching the i
 
 This is a local optimum for the tested seven-component portfolio score, not proof of a global optimum.
 
+## Explicit Synergy Verdict
+
+**Is portfolio synergy maximized? No. Live-rule synergy is not maximized: the rejected trades contain more realized R than the losses avoided, and the relaxed shared-cap counterfactual has better return efficiency.**
+
+| Question | Evidence | Answer |
+|---|---|---|
+| Are worse trades preferentially blocked? | Accepted-minus-blocked average R -0.047R; net block value -41.16R | No |
+| Are winning-trade blocks minimized? | 4.95% of all eventual winners blocked; 41 blocked winners | Partly |
+| Do live rules preserve opportunity? | 96.6% of relaxed trades and 77.1% of relaxed net profit captured | Yes |
+| Do live rules improve max DD? | Optimized minus relaxed MTM DD -0.25% | Yes |
+| Is the return/DD trade-off superior? | Calmar delta -2.29; PF delta -0.51 | No |
+
+The relaxed scenario is an opportunity upper bound, not a deployable recommendation: it removes shared heat, contract, concurrency and stop constraints. Its purpose is to measure how much potentially valuable alpha the live rules discard.
+
 ## Portfolio Risk Basis
 
 | Basis | Max DD | Final Equity | Net Return | Calmar | Points | Source |
@@ -62,23 +76,54 @@ This is a local optimum for the tested seven-component portfolio score, not proo
 | live_rules_risk_1_5x | 1237 | 58 | 4.5% | $314,815 | 42.59 | 63.5% | 3.41 | 9.95% | 5.60 | 10.12 | 12.79 |
 | live_rules_risk_2_0x | 1237 | 58 | 4.5% | $317,280 | 42.59 | 63.5% | 3.42 | 11.69% | 5.47 | 10.04 | 10.94 |
 
+## Live-Rule Synergy Counterfactual
+
+| Measure | Optimized live rules | Relaxed shared caps | Optimized delta/capture |
+|---|---:|---:|---:|
+| Net profit | $301,557 | $391,188 | 77.1% captured |
+| Accepted trades | 1238 | 1282 | 96.6% captured |
+| MTM max DD | 7.55% | 7.80% | -0.25% |
+| Calmar | 16.39 | 18.69 | -2.29 |
+| Profit factor | 3.40 | 3.91 | -0.51 |
+| Immutable score | 1.1259 | 1.1401 | -0.0142 |
+
+## Overall Blocker Discrimination
+
+| Population | Count | Win rate | Total R | Avg R | Median R | P10 | P25 | P75 | P90 | Raw PnL |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Accepted | 1238 | 63.6% | 835.55R | 0.675R | 0.211R | -1.008 | -0.322 | 1.209 | 2.569 | $374,291 |
+| Blocked | 57 | 71.9% | 41.16R | 0.722R | 0.569R | -1.012 | -0.052 | 1.816 | 2.074 | $17,890 |
+
+| Blocker-quality measure | Value | Interpretation |
+|---|---:|---|
+| Positive-trade block rate | 4.95% | Share of all eventual winners rejected |
+| Non-positive-trade block rate | 3.43% | Share of all eventual non-winners rejected |
+| Blocker precision | 28.07% | Share of blocks that were non-positive |
+| Forgone winning R | 53.44R | Ex-post opportunity cost |
+| Avoided losing R | 12.28R | Ex-post protection |
+| Net block value | -41.16R | Positive means losses avoided exceeded winners forgone |
+| Block efficiency | 18.68% | Avoided-loss share of gross blocked absolute R |
+| Accepted-minus-blocked average R | -0.047R | Positive means accepted outcomes were stronger |
+| Accepted win-rate uplift | -0.37% | Accepted WR minus fired-candidate WR |
+| Net block value, source raw dollars | $-17,890 | Diagnostic only; source quantities are not shared-ledger sizing |
+
 ## Fired, Accepted, Blocked By Strategy
 
-| Strategy | Fired | Accepted | Blocked | Accept Rate | Accepted WR | Blocked Raw WR | Adjusted PnL | Blocked Raw PnL | Avg Accepted R | Avg Blocked R |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NQ_REGIME | 800 | 775 | 25 | 96.9% | 71.9% | 72.0% | $219,959 | $4,502 | 0.82 | 0.56 |
-| VdubusNQ_v4 | 212 | 207 | 5 | 97.6% | 45.4% | 60.0% | $36,677 | $1,970 | 0.40 | 0.83 |
-| NQDTC_v2.1 | 158 | 152 | 6 | 96.2% | 55.3% | 50.0% | $32,932 | $2,861 | 0.51 | 0.86 |
-| DownturnDominator_v1 | 125 | 104 | 21 | 83.2% | 49.0% | 81.0% | $11,989 | $8,556 | 0.38 | 0.85 |
+| Strategy | Fired | Accepted | Blocked | Accept Rate | Accepted WR | Blocked WR | Adjusted PnL | Blocked Raw PnL | Avg Accepted R | Avg Blocked R | Good-trade block rate | Bad-trade block rate | R discrimination |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| NQ_REGIME | 800 | 775 | 25 | 96.9% | 71.9% | 72.0% | $219,959 | $4,502 | 0.82 | 0.56 | 3.13% | 3.11% | +0.255R |
+| VdubusNQ_v4 | 212 | 207 | 5 | 97.6% | 45.4% | 60.0% | $36,677 | $1,970 | 0.40 | 0.83 | 3.06% | 1.75% | -0.422R |
+| NQDTC_v2.1 | 158 | 152 | 6 | 96.2% | 55.3% | 50.0% | $32,932 | $2,861 | 0.51 | 0.86 | 3.45% | 4.23% | -0.345R |
+| DownturnDominator_v1 | 125 | 104 | 21 | 83.2% | 49.0% | 81.0% | $11,989 | $8,556 | 0.38 | 0.85 | 25.00% | 7.02% | -0.470R |
 
 ## Block Reasons
 
-| Reason | Count | Raw PnL Of Blocked | Raw WR | Avg Blocked R | Avg Open Positions | Main Strategies |
-|---|---:|---:|---:|---:|---:|---|
-| portfolio_daily_stop | 30 | $9,675 | 76.7% | 0.84 | 0.00 | NQ_REGIME:23, VdubusNQ_v4:3, NQDTC_v2.1:2, DownturnDominator_v1:2 |
-| dynamic_capacity_floor | 13 | $7,177 | 84.6% | 0.81 | 0.15 | DownturnDominator_v1:13 |
-| strategy_daily_stop | 10 | $-1,759 | 50.0% | 0.21 | 0.10 | DownturnDominator_v1:6, NQDTC_v2.1:4 |
-| portfolio_weekly_stop | 4 | $2,797 | 50.0% | 0.86 | 0.00 | VdubusNQ_v4:2, NQ_REGIME:2 |
+| Reason | Count | Winners | Non-winners | Raw PnL | Raw WR | Total R | Avg R | Net block value R | Avg open positions | Main strategies |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| portfolio_daily_stop | 30 | 23 | 7 | $9,675 | 76.7% | 25.14R | 0.84 | -25.14R | 0.00 | NQ_REGIME:23, VdubusNQ_v4:3, NQDTC_v2.1:2, DownturnDominator_v1:2 |
+| dynamic_capacity_floor | 13 | 11 | 2 | $7,177 | 84.6% | 10.50R | 0.81 | -10.50R | 0.15 | DownturnDominator_v1:13 |
+| strategy_daily_stop | 10 | 5 | 5 | $-1,759 | 50.0% | 2.09R | 0.21 | -2.09R | 0.10 | DownturnDominator_v1:6, NQDTC_v2.1:4 |
+| portfolio_weekly_stop | 4 | 2 | 2 | $2,797 | 50.0% | 3.44R | 0.86 | -3.44R | 0.00 | VdubusNQ_v4:2, NQ_REGIME:2 |
 
 ## Candidate Size Pressure
 
@@ -105,29 +150,112 @@ Top within-15m strategy pairs:
 - DownturnDominator_v1 / DownturnDominator_v1: 2
 - DownturnDominator_v1 / NQDTC_v2.1: 1
 
+## Drawdown Path and Sleeve Attribution
+
+| Scenario | Max DD | Peak | Trough | Recovery | Peak equity | Trough equity | Duration hours | Peak-to-trough contribution by strategy |
+|---|---:|---|---|---|---:|---:|---:|---|
+| optimized_live_rules | 7.55% | 2024-03-21T19:00:00+00:00 | 2024-04-03T19:10:00+00:00 | 2024-04-05T16:00:00+00:00 | $75,831 | $70,104 | 312.2 | NQ_REGIME:$-4,816, VdubusNQ_v4:$+72, NQDTC_v2.1:$-982, DownturnDominator_v1:$+0 |
+| same_allocations_relaxed_shared_caps | 7.80% | 2024-03-21T19:00:00+00:00 | 2024-04-03T19:10:00+00:00 | 2024-04-05T16:55:00+00:00 | $81,725 | $75,348 | 312.2 | NQ_REGIME:$-5,402, VdubusNQ_v4:$+72, NQDTC_v2.1:$-1,047, DownturnDominator_v1:$+0 |
+| live_rules_risk_1_5x | 9.95% | 2024-03-08T20:35:00+00:00 | 2024-04-03T19:10:00+00:00 | 2024-04-05T16:55:00+00:00 | $84,938 | $76,489 | 622.6 | NQ_REGIME:$-5,614, VdubusNQ_v4:$-457, NQDTC_v2.1:$-2,378, DownturnDominator_v1:$+0 |
+| live_rules_risk_2_0x | 11.69% | 2023-12-13T20:00:00+00:00 | 2023-12-14T15:00:00+00:00 | 2024-01-04T13:35:00+00:00 | $61,000 | $53,872 | 19.0 | NQ_REGIME:$-6,964, VdubusNQ_v4:$-165, NQDTC_v2.1:$+0, DownturnDominator_v1:$+0 |
+
+Negative sleeve contribution identifies MTM PnL lost from the portfolio drawdown peak to trough. It is path attribution, not proof that the sleeve should be removed.
+
+## Monthly Opportunity and Blocking Path
+
+| Month | Accepted | Blocked | Adjusted PnL | Accepted R | Blocked R | Blocked source raw PnL |
+|---|---:|---:|---:|---:|---:|---:|
+| 2023-11 | 1 | 0 | $-127 | -0.52R | 0.00R | $+0 |
+| 2023-12 | 14 | 0 | $+2,645 | 14.36R | 0.00R | $+0 |
+| 2024-01 | 20 | 0 | $+8,872 | 43.15R | 0.00R | $+0 |
+| 2024-02 | 24 | 0 | $+7,968 | 35.29R | 0.00R | $+0 |
+| 2024-03 | 45 | 0 | $+4,407 | 15.44R | 0.00R | $+0 |
+| 2024-04 | 33 | 1 | $+4,813 | 14.08R | -0.56R | $-67 |
+| 2024-05 | 54 | 2 | $+10,239 | 31.61R | 0.82R | $+150 |
+| 2024-06 | 59 | 0 | $+14,034 | 31.91R | 0.00R | $+0 |
+| 2024-07 | 38 | 0 | $+13,051 | 35.77R | 0.00R | $+0 |
+| 2024-08 | 53 | 5 | $+23,301 | 59.88R | 6.89R | $+3,210 |
+| 2024-09 | 39 | 1 | $+9,083 | 22.41R | 1.83R | $+1,047 |
+| 2024-10 | 57 | 1 | $+20,100 | 45.41R | 0.11R | $+78 |
+| 2024-11 | 48 | 0 | $+8,043 | 20.23R | 0.00R | $+0 |
+| 2024-12 | 44 | 0 | $+18,693 | 45.30R | 0.00R | $+0 |
+| 2025-01 | 34 | 0 | $+10,233 | 22.74R | 0.00R | $+0 |
+| 2025-02 | 41 | 0 | $+8,023 | 19.53R | 0.00R | $+0 |
+| 2025-03 | 35 | 5 | $+13,618 | 33.00R | 9.62R | $+4,885 |
+| 2025-04 | 41 | 9 | $+3,240 | 9.23R | 6.46R | $+3,898 |
+| 2025-05 | 50 | 0 | $+13,013 | 36.21R | 0.00R | $+0 |
+| 2025-06 | 46 | 3 | $+8,433 | 23.61R | -0.45R | $-1,202 |
+| 2025-07 | 52 | 13 | $+6,185 | 20.31R | 11.47R | $+4,879 |
+| 2025-08 | 52 | 1 | $+6,740 | 16.78R | 0.10R | $+244 |
+| 2025-09 | 53 | 0 | $+12,796 | 35.20R | 0.00R | $+0 |
+| 2025-10 | 48 | 0 | $+8,817 | 20.16R | 0.00R | $+0 |
+| 2025-11 | 30 | 0 | $+9,563 | 29.83R | 0.00R | $+0 |
+| 2025-12 | 38 | 2 | $+5,491 | 14.63R | 1.69R | $+312 |
+| 2026-01 | 44 | 0 | $+10,427 | 30.04R | 0.00R | $+0 |
+| 2026-02 | 44 | 7 | $+12,808 | 34.14R | -0.25R | $+309 |
+| 2026-03 | 50 | 4 | $+14,350 | 40.87R | 2.08R | $+1,201 |
+| 2026-04 | 49 | 3 | $+11,033 | 31.44R | 1.34R | $-1,052 |
+| 2026-05 | 2 | 0 | $+1,667 | 3.52R | 0.00R | $+0 |
+
 ## Individual Strategy Reference
 
-| Strategy | Individual Trades | Individual Return | PF | Max DD | Trades/Mo | High-value diagnostic note |
-|---|---:|---:|---:|---:|---:|---|
-| NQDTC_v2.1 | 161 | 352.8% | 1.87 | 17.0% |  |  |
-| VdubusNQ_v4 | 212 | 1373.6% | 2.65 | 17.5% | 6.26 | Fixed-qty headline return is 1373.6% with 212 trades, PF=2.65, fixed-qty DD=17.5%; deployable comparison should use 87.8 total R and 2.59 R/month. Normalized simple return would be 22.0% at 0.25% risk/R, 43.9% at 0.50% risk/R, and 87.8% at 1.00% risk/R over the sample. The fixed-qty run implies about $1,564 per R, which is why raw return is not comparable to dynamically sized strategies. |
-| DownturnDominator_v1 | 127 | 145.6% | 3.14 | 7.3% |  | Correction PnL is 134.0% with coverage 57.1%. Bear capture ratio is 11.1%. |
-| NQ_REGIME | 681 |  | 7.46 |  | 25.59 |  |
+| Strategy | Source round | Resolution | Individual Trades | Individual Return | PF | Max DD | Trades/Mo | High-value diagnostic note |
+|---|---:|---|---:|---:|---:|---:|---:|---|
+| NQDTC_v2.1 | 5 | manifest_direct | 161 | 352.8% | 1.87 | 17.0% |  |  |
+| VdubusNQ_v4 | 3 | manifest_direct | 212 | 1373.6% | 2.65 | 17.5% | 6.26 |  |
+| DownturnDominator_v1 | 4 | archived_sha256_match | 127 | 145.6% | 3.14 | 7.3% |  |  |
+| NQ_REGIME | 6 | manifest_direct | 681 |  | 7.46 |  | 25.59 |  |
 
-## Tested Frontier
+## Immutable Score, Scaling and Known Gap
 
-| Phase | Candidate | Score | Net Profit | Trades/Mo | Trades | PF | MTM Max DD | Block Rate |
-|---:|---|---:|---:|---:|---:|---:|---:|---:|
-| 3 | capacity_10_00_contracts_40_positions_8_risk_2_0 | 1.1256 | $297,275 | 41.97 | 1219 | 3.54 | 7.55% | 3.2% |
-| 4 | filter_vdubus_close_after_capacity | 1.1194 | $292,685 | 41.32 | 1200 | 3.57 | 7.60% | 4.7% |
-| 4 | filter_nqdtc_score_2_5_after_capacity | 1.1181 | $303,023 | 41.18 | 1196 | 3.77 | 7.50% | 5.0% |
-| 4 | filter_nq_regime_wide_ib_after_capacity | 1.1161 | $306,391 | 40.97 | 1190 | 3.69 | 7.63% | 5.5% |
-| 3 | capacity_10_00_contracts_40_positions_8_risk_1_75 | 1.1090 | $270,814 | 41.97 | 1219 | 3.72 | 7.52% | 3.2% |
-| 4 | filter_nq_regime_wide_and_nqdtc_low_score | 1.1086 | $312,166 | 40.18 | 1167 | 3.94 | 7.59% | 7.3% |
-| 3 | capacity_9_00_contracts_34_positions_7_risk_1_75 | 1.0878 | $251,292 | 41.97 | 1219 | 3.55 | 7.55% | 3.2% |
-| 3 | capacity_8_25_contracts_30_positions_7_risk_1_5 | 1.0633 | $226,522 | 42.25 | 1227 | 3.62 | 7.82% | 2.5% |
-| 3 | capacity_7_25_contracts_26_risk_1_5 | 1.0462 | $210,813 | 42.25 | 1227 | 3.47 | 7.77% | 2.5% |
-| 3 | capacity_6_75_contracts_24_risk_1_5 | 1.0363 | $201,712 | 42.25 | 1227 | 3.39 | 7.56% | 2.5% |
+Selection rule: weighted seven-component score; hard reject for non-positive PnL, MTM drawdown above 20%, PF below 1.35, or inactive sleeve.
+
+**Important:** The immutable score penalizes aggregate block rate but has no direct component for blocker outcome discrimination or forgone winning R.
+
+| Component | Weight | Target/scaling anchor | Optimized component | Weighted contribution | Relaxed component |
+|---|---:|---:|---:|---:|---:|
+| expected_return | 0.24 | $220,000 | 1.3000 | 0.3120 | 1.3000 |
+| trade_frequency | 0.18 | 40.00 | 1.0657 | 0.1918 | 1.1035 |
+| drawdown_control | 0.18 | 18.0% | 1.0000 | 0.1800 | 1.0000 |
+| profit_quality | 0.13 | 2.80 | 1.2000 | 0.1560 | 1.2000 |
+| risk_efficiency | 0.12 | 8.00 | 1.2500 | 0.1500 | 1.2500 |
+| strategy_balance | 0.10 | 80.00 | 1.0000 | 0.1000 | 1.0000 |
+| live_rule_health | 0.05 | 15.0% | 0.7218 | 0.0361 | 0.8690 |
+
+Optimized aggregate score: 1.1259; relaxed shared-cap score: 1.1401; final validation score: 0.92.
+
+Because blocker discrimination is absent from the score, the comprehensive verdict uses direct accepted-versus-blocked R diagnostics in addition to the immutable selection score.
+
+## Phase Progression
+
+| Phase | Candidates | Robust passes | Rejected | Accepted mutation | Accepted candidate | Current score | Best tested candidate | Best score |
+|---:|---:|---:|---:|:---:|---|---:|---|---:|
+| 1 | 3 | 0 | 0 | no |  | 0.9956 | filter_nq_regime_wide_ib | 0.9991 |
+| 2 | 3 | 0 | 0 | no |  | 0.9956 | vdubus_second_slot | 1.0323 |
+| 3 | 7 | 5 | 0 | yes | capacity_10_00_contracts_40_positions_8_risk_2_0 | 1.1256 | capacity_10_00_contracts_40_positions_8_risk_2_0 | 1.1256 |
+| 4 | 4 | 0 | 0 | no |  | 1.1256 | filter_vdubus_close_after_capacity | 1.1194 |
+
+## Full Tested Frontier
+
+| Phase | Candidate | Selected | Score | Validation score | Robust pass | Net Profit | Trades/Mo | Trades | PF | WR | MTM DD | Calmar | Block Rate | Validation PnL | Validation PF | Validation DD | Warnings/reason |
+|---:|---|:---:|---:|---:|:---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 3 | capacity_10_00_contracts_40_positions_8_risk_2_0 | yes | 1.1256 | 0.92 | yes | $297,275 | 41.97 | 1219 | 3.54 | 65.1% | 7.07% | 17.36 | 3.2% | 99915.14 | 3.24 | 6.8% |  |
+| 4 | filter_vdubus_close_after_capacity |  | 1.1194 | 0.91 | no | $292,685 | 41.32 | 1200 | 3.57 | 65.4% | 7.07% | 17.18 | 4.7% | 101784.43 | 3.39 | 6.7% | signal_filter_sample_below_threshold |
+| 4 | filter_nqdtc_score_2_5_after_capacity |  | 1.1181 | 0.91 | no | $303,023 | 41.18 | 1196 | 3.77 | 65.8% | 7.07% | 17.57 | 5.0% | 101706.41 | 3.36 | 6.8% | signal_filter_sample_below_threshold |
+| 4 | filter_nq_regime_wide_ib_after_capacity |  | 1.1161 | 0.91 | no | $306,391 | 40.97 | 1190 | 3.69 | 65.0% | 6.55% | 19.08 | 5.5% | 99529.81 | 3.32 | 6.8% | signal_filter_sample_below_threshold |
+| 3 | capacity_10_00_contracts_40_positions_8_risk_1_75 |  | 1.1090 | 0.92 | yes | $270,814 | 41.97 | 1219 | 3.72 | 65.0% | 7.07% | 16.34 | 3.2% | 94576.00 | 3.44 | 6.0% |  |
+| 4 | filter_nq_regime_wide_and_nqdtc_low_score |  | 1.1086 | 0.90 | no | $312,166 | 40.18 | 1167 | 3.94 | 65.7% | 6.51% | 19.45 | 7.3% | 101311.82 | 3.46 | 6.7% | signal_filter_sample_below_threshold |
+| 3 | capacity_9_00_contracts_34_positions_7_risk_1_75 |  | 1.0878 | 0.91 | yes | $251,292 | 41.97 | 1219 | 3.55 | 65.0% | 7.07% | 15.56 | 3.2% | 91157.02 | 3.37 | 6.3% |  |
+| 3 | capacity_8_25_contracts_30_positions_7_risk_1_5 |  | 1.0633 | 0.90 | yes | $226,522 | 42.25 | 1227 | 3.62 | 65.0% | 7.07% | 14.53 | 2.5% | 81357.24 | 3.34 | 5.7% |  |
+| 3 | capacity_7_25_contracts_26_risk_1_5 |  | 1.0462 | 0.89 | yes | $210,813 | 42.25 | 1227 | 3.47 | 65.0% | 7.07% | 13.84 | 2.5% | 77260.35 | 3.23 | 5.9% | net_profit_below_target |
+| 3 | capacity_6_75_contracts_24_risk_1_5 |  | 1.0363 | 0.89 | no | $201,712 | 42.25 | 1227 | 3.39 | 65.1% | 7.07% | 13.44 | 2.5% | 75039.67 | 3.18 | 6.0% | net_profit_below_target, validation_score_not_improved |
+| 2 | vdubus_second_slot |  | 1.0323 | 0.89 | no | $200,777 | 41.94 | 1218 | 3.50 | 65.2% | 7.07% | 13.39 | 3.3% | 75039.67 | 3.18 | 6.0% | net_profit_below_target, validation_score_not_improved |
+| 2 | selective_extra_slots |  | 1.0323 | 0.89 | no | $200,777 | 41.94 | 1218 | 3.50 | 65.2% | 7.07% | 13.39 | 3.3% | 75039.67 | 3.18 | 6.0% | net_profit_below_target, validation_score_not_improved |
+| 3 | capacity_6_25_contracts_22_risk_1_5 |  | 1.0220 | 0.88 | no | $191,143 | 42.25 | 1227 | 3.30 | 65.1% | 7.07% | 12.95 | 2.5% | 72481.82 | 3.12 | 5.9% | net_profit_below_target, validation_score_not_improved |
+| 1 | filter_nq_regime_wide_ib |  | 0.9991 | 0.88 | no | $208,143 | 37.60 | 1092 | 3.77 | 66.5% | 6.63% | 14.64 | 13.3% | 75073.49 | 3.30 | 6.0% | frequency_below_target, net_profit_below_target, signal_filter_sample_below_threshold |
+| 2 | nq_regime_third_slot |  | 0.9956 | 0.89 | no | $196,778 | 38.53 | 1119 | 3.58 | 66.7% | 7.07% | 13.21 | 11.1% | 75039.67 | 3.18 | 6.0% | frequency_below_target, net_profit_below_target, validation_score_not_improved |
+| 1 | filter_vdubus_close |  | 0.9899 | 0.88 | no | $193,633 | 38.29 | 1112 | 3.54 | 66.6% | 7.07% | 13.07 | 11.7% | 75703.69 | 3.28 | 5.9% | frequency_below_target, net_profit_below_target, signal_filter_sample_below_threshold |
+| 1 | filter_nqdtc_score_2_5 |  | 0.9883 | 0.89 | no | $198,220 | 37.60 | 1092 | 3.80 | 67.4% | 7.07% | 13.28 | 13.3% | 76224.75 | 3.34 | 5.9% | frequency_below_target, net_profit_below_target, signal_filter_sample_below_threshold |
 
 ## Implementation Safeguards
 
@@ -145,6 +273,22 @@ Top within-15m strategy pairs:
 
 The portfolio result is official for shared-capital sizing/routing evidence. It does not replace source-strategy live/backtest parity tests for fills, order paths, or intrabar execution.
 
+## Synergy Decision Criteria
+
+| Criterion | Status |
+|---|:---:|
+| block_net_value_r_nonnegative | FAIL |
+| accepted_average_r_exceeds_blocked | FAIL |
+| nonpositive_block_rate_exceeds_positive_block_rate | FAIL |
+| optimized_drawdown_no_worse_than_relaxed | PASS |
+| optimized_calmar_at_least_relaxed | FAIL |
+| optimized_profit_factor_at_least_relaxed | FAIL |
+| optimized_score_at_least_relaxed | FAIL |
+| trade_capture_at_least_90pct | PASS |
+| block_rate_within_15pct_target | PASS |
+| frequency_at_least_40_per_month | PASS |
+| all_four_strategies_active | PASS |
+
 ## Interpretation
 
 - The lower portfolio profit is not mainly because the individual strategies lost their edge. The relaxed shared-cap scenario demonstrates much more gross opportunity, but it requires position stacking that the live engine should not allow.
@@ -152,3 +296,13 @@ The portfolio result is official for shared-capital sizing/routing evidence. It 
 - Optimized live rules captured 77.1% of relaxed-cap net profit and 96.6% of relaxed-cap trades.
 - The most blocked strategy was NQ_REGIME.
 - Frequency clears the 24 trades/month target; the remaining improvement problem is alpha per accepted slot and reducing avoidable max-concurrent blocks.
+
+## Final Answer to the Portfolio-Synergy Objective
+
+1. **Opportunity capture:** live rules retain 96.6% of relaxed trades and 77.1% of relaxed net profit. The latter is a diagnostic upper-bound comparison because relaxed compounding violates deployable shared caps.
+2. **Blocking worse trades:** fails. Net block value is -41.16R and accepted-minus-blocked average R is -0.047R.
+3. **Minimizing good-trade blocks:** 41 winners were blocked, representing 4.95% of all eventual winners. Blocker precision is 28.07%.
+4. **Max-drawdown trade-off:** live rules change MTM DD by -0.25%, but Calmar changes by -2.29; the return/DD trade-off does not pass.
+5. **Maximized synergy:** not established. Verdict: `high_opportunity_capture_but_blocker_discrimination_not_synergistic`.
+
+The correct use of this result is as shared-capital sizing/routing evidence. A subsequent optimization should add a frozen blocker-discrimination term to the score, rank simultaneous candidates using causal expected value, and validate that the admitted set has higher R than the rejected set without weakening live heat and contract safeguards.

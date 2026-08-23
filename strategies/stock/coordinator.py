@@ -593,13 +593,20 @@ class StockFamilyCoordinator:
             if not getattr(overrides, "disable_market_data", False) and self._contract_factory is not None:
                 try:
                     MarketDataCls = desc["market_data_cls"]()
-                    md_source = MarketDataCls(
-                        ib=session.ib,
-                        contract_factory=self._contract_factory,
-                        on_quote=engine.on_quote,
-                        on_bar=engine.on_bar,
-                        historical_requester=getattr(session, "req_historical_data", None),
-                    )
+                    market_data_kwargs = {
+                        "ib": session.ib,
+                        "contract_factory": self._contract_factory,
+                        "on_quote": engine.on_quote,
+                        "historical_requester": getattr(session, "req_historical_data", None),
+                    }
+                    if sid == "IARIC_v1":
+                        market_data_kwargs.update(
+                            on_completed_5m_bar=engine.on_completed_5m_bar,
+                            on_bar_batch_complete=engine.flush_completed_5m_batch,
+                        )
+                    else:
+                        market_data_kwargs["on_bar"] = engine.on_bar
+                    md_source = MarketDataCls(**market_data_kwargs)
                     await md_source.start()
                     # Initial subscription setup
                     if hasattr(engine, "subscription_instruments"):
@@ -1203,18 +1210,94 @@ class StockFamilyCoordinator:
         trade_recorder = getattr(ctx, "trade_recorder", None)
 
         def _build_iaric_descriptor() -> dict[str, Any]:
+            import dataclasses
             from strategies.stock.iaric.config import (
                 STRATEGY_ID as IARIC_ID,
                 StrategySettings as IARICSettings,
             )
 
             iaric_settings = IARICSettings()
+            iaric_artifact = artifacts.get(IARIC_ID)
+            if getattr(iaric_artifact, "strategy_mode", "") == "daily_residual_reversion":
+                parameters = dict(
+                    getattr(iaric_artifact, "strategy_parameters", {}) or {}
+                )
+                iaric_settings = dataclasses.replace(
+                    iaric_settings,
+                    strategy_mode="daily_residual_reversion",
+                    daily_residual_factor_model=str(parameters["factor_model"]),
+                    daily_residual_formation_sessions=int(
+                        parameters["formation_sessions"]
+                    ),
+                    daily_residual_minimum_z=float(parameters["minimum_z"]),
+                    daily_residual_minimum_score=float(
+                        parameters.get("minimum_score", 0.0)
+                    ),
+                    daily_residual_score_components=tuple(
+                        parameters["score_components"]
+                    ),
+                    daily_residual_ranking_score_components=tuple(
+                        parameters.get("ranking_score_components", ())
+                    ),
+                    daily_residual_max_positions=int(parameters["max_positions"]),
+                    daily_residual_max_positions_per_sector=int(
+                        parameters["max_positions_per_sector"]
+                    ),
+                    daily_residual_sector_overflow_slots=int(
+                        parameters.get("sector_overflow_slots", 0)
+                    ),
+                    daily_residual_sector_overflow_minimum_score=float(
+                        parameters.get("sector_overflow_minimum_score", 50.0)
+                    ),
+                    daily_residual_sector_overflow_minimum_z=float(
+                        parameters.get("sector_overflow_minimum_z", 1.0)
+                    ),
+                    daily_residual_sector_overflow_risk_multiplier=float(
+                        parameters.get("sector_overflow_risk_multiplier", 1.0)
+                    ),
+                    daily_residual_risk_fraction=float(parameters["risk_fraction"]),
+                    daily_residual_maximum_notional_fraction=float(
+                        parameters["maximum_notional_fraction"]
+                    ),
+                    daily_residual_partial_normalization_fraction=float(
+                        parameters["partial_normalization_fraction"]
+                    ),
+                    daily_residual_full_normalization_fraction=float(
+                        parameters["full_normalization_fraction"]
+                    ),
+                    daily_residual_structural_failure_extension_fraction=float(
+                        parameters["structural_failure_extension_fraction"]
+                    ),
+                    daily_residual_profit_retention_activation_fraction=float(
+                        parameters.get(
+                            "profit_retention_activation_fraction", 99.0
+                        )
+                    ),
+                    daily_residual_profit_retention_giveback_fraction=float(
+                        parameters.get("profit_retention_giveback_fraction", 99.0)
+                    ),
+                    daily_residual_maximum_holding_sessions=int(
+                        parameters["maximum_holding_sessions"]
+                    ),
+                    daily_residual_partial_exit_fraction=float(
+                        parameters["partial_exit_fraction"]
+                    ),
+                )
+            residual_mode = iaric_settings.strategy_mode == "daily_residual_reversion"
             return {
                 "strategy_id": IARIC_ID,
-                "base_risk_pct": iaric_settings.base_risk_fraction,
+                "base_risk_pct": (
+                    iaric_settings.daily_residual_risk_fraction
+                    if residual_mode
+                    else iaric_settings.base_risk_fraction
+                ),
                 "daily_stop_R": iaric_settings.daily_stop_r,
                 "heat_cap_R": iaric_settings.heat_cap_r,
-                "max_concurrent": iaric_settings.pb_max_positions,
+                "max_concurrent": (
+                    iaric_settings.daily_residual_max_positions
+                    if residual_mode
+                    else iaric_settings.pb_max_positions
+                ),
                 "portfolio_daily_stop_R": iaric_settings.portfolio_daily_stop_r,
                 "adapter": _make_adapter,
                 "engine_cls": _import_iaric_engine,
@@ -1224,7 +1307,7 @@ class StockFamilyCoordinator:
                 "account_id": account_id,
                 "settings": iaric_settings,
                 "data_key": "artifact",
-                "data_value": artifacts.get(IARIC_ID),
+                "data_value": iaric_artifact,
                 "diagnostics_factory": lambda s=iaric_settings: _make_diagnostics(
                     "strategies.stock.iaric.diagnostics", s.diagnostics_dir,
                 ),
@@ -1281,8 +1364,8 @@ class StockFamilyCoordinator:
 # ── Deferred engine imports ──────────────────────────────────────────
 
 def _import_iaric_engine():
-    from strategies.stock.iaric.engine import IARICEngine
-    return IARICEngine
+    from strategies.stock.iaric.router import IARICEngineRouter
+    return IARICEngineRouter
 
 
 def _import_alcb_engine():

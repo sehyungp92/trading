@@ -1,228 +1,69 @@
 {
+  "boundary_policy": "purged complete trades; no outcome may cross a fold or IS/OOS boundary",
+  "contract": "shared_account_round3_stream_synergy_phased_auto_v3_stability_guard",
+  "data_authority": {
+    "mode": "legacy_cache_diagnostic_only",
+    "production_eligible": false
+  },
   "family": "stock",
-  "strategy": "portfolio_synergy",
-  "strategy_name": "stock_portfolio_synergy",
+  "generated_at_utc": "2026-08-23T21:13:33.523376+00:00",
+  "immutable_score": {
+    "alpha_throughput": 0.25,
+    "blocker_value": 0.1,
+    "fixed_scales": {
+      "R_per_month": 15.0,
+      "annual_log_growth": 0.5,
+      "blocked_value_R_per_month": 2.0,
+      "synergy_CE": 0.1,
+      "trades_per_month": 100.0
+    },
+    "fold_aggregation": "0.55*median + 0.30*q25 + 0.15*worst - 0.10*IQR",
+    "frequency": 0.1,
+    "growth": 0.45,
+    "interaction_selection": {
+      "fallback": "retain simpler phase-4 incumbent",
+      "maximum_cscv_pbo": 0.25,
+      "minimum_robust_score_gain": 0.005
+    },
+    "matched_risk_synergy": 0.1,
+    "realism_penalties": {
+      "gross_leverage_cap": 1.75,
+      "minimum_mark_coverage": 0.98,
+      "overnight_gross_leverage_cap": 1.15,
+      "zero_margin_breaches": true
+    },
+    "risk_target": "10-12% daily-MTM drawdown; hard IS gate 15%"
+  },
+  "initial_equity": 25000.0,
+  "is_window": [
+    "2024-03-25",
+    "2026-03-01"
+  ],
+  "oos_policy": "single_evaluation_after_selection_freeze",
+  "oos_window": [
+    "2026-03-02",
+    "2026-05-01"
+  ],
+  "realism_contract": {
+    "completed_bar_marks_only": true,
+    "debit_cash_financing_included": true,
+    "gross_intraday_cap": 1.75,
+    "gross_overnight_cap": 1.15,
+    "integer_share_floor_without_forced_minimum": true,
+    "net_cap": 1.65,
+    "point_in_time_universe": false,
+    "raw_signal_level_cosimulation": false,
+    "reg_t_initial_margin_long_pct": 0.5,
+    "shared_cash_nlv_and_margin_ledger": true,
+    "sizing_uses_causal_mark_to_market_nlv": true
+  },
+  "reference_risk_pct_fixed": 0.0025,
   "round": 1,
-  "description": "round_1_dynamic_stock_synergy",
-  "generated_at_utc": "2026-05-24T01:02:58.140067+00:00",
-  "baseline_source": null,
-  "baseline_mutation_count": 8,
-  "baseline_mutations": {
-    "initial_equity": 25000.0,
-    "risk_stance": "aggressive_controlled",
-    "portfolio_rules": {
-      "reference_risk_pct": 0.006,
-      "heat_cap_R": 6.0,
-      "max_total_active_positions": 12,
-      "max_symbol_heat_R": 2.2,
-      "max_long_heat_R": 6.25,
-      "portfolio_daily_stop_R": 3.5,
-      "portfolio_weekly_stop_R": 8.0,
-      "max_single_strategy_trade_share": 0.72,
-      "max_single_strategy_risk_share": 0.72,
-      "drawdown_tiers": [
-        [
-          0.04,
-          1.0
-        ],
-        [
-          0.07,
-          0.75
-        ],
-        [
-          0.1,
-          0.4
-        ],
-        [
-          0.13,
-          0.0
-        ]
-      ]
-    },
-    "strategy_allocations": {
-      "IARIC_V5R1": {
-        "unit_risk_pct": 0.008,
-        "max_heat_R": 4.6,
-        "max_concurrent": 9,
-        "daily_stop_R": 2.75,
-        "priority": 0,
-        "role": "primary pullback alpha and frequency engine"
-      },
-      "ALCB_R3": {
-        "unit_risk_pct": 0.0065,
-        "max_heat_R": 3.25,
-        "max_concurrent": 6,
-        "daily_stop_R": 2.35,
-        "priority": 1,
-        "role": "intraday momentum complement and early-session alpha sleeve"
-      }
-    },
-    "dynamic_allocation": {
-      "enabled": true,
-      "lookback_trades": 60,
-      "min_mult": 0.65,
-      "max_mult": 1.22,
-      "positive_expectancy_boost": 0.1,
-      "negative_expectancy_cut": 0.18,
-      "drawdown_risk_floor": 0.4
-    },
-    "cross_strategy_rules": {
-      "priority_order": [
-        "IARIC_V5R1",
-        "ALCB_R3"
-      ],
-      "candidate_rank_mode": "diagnostic_alpha_score",
-      "same_symbol_policy": "half_size",
-      "same_symbol_size_mult": 0.5,
-      "same_sector_heat_cap_R": 3.8,
-      "iaric_priority_headroom_R": 1.15
-    },
-    "strategy_filters": {
-      "ALCB_R3": {
-        "financials_size_mult": 0.65,
-        "pdh_size_mult": 1.1,
-        "score5_no_surge_mult": 0.7
-      },
-      "IARIC_V5R1": {
-        "delayed_confirm_min_quality": 0.0,
-        "gap_up_size_mult": 0.85,
-        "carry_route_size_mult": 0.75
-      }
-    },
-    "validation": {
-      "walk_forward_required": true,
-      "min_positive_slices": 4,
-      "completed_bar_and_fee_parity_required": true
-    }
-  },
-  "scoring_weights": {
-    "alpha_return": 0.27,
-    "trade_frequency": 0.23,
-    "drawdown_control": 0.19,
-    "profit_factor_quality": 0.12,
-    "synergy_capture": 0.08,
-    "allocation_balance": 0.06,
-    "robustness": 0.05
-  },
-  "execution_context": {
-    "data_dir": "backtests\\stock\\data\\raw",
-    "initial_equity": 25000.0,
-    "start_date": "2024-01-01",
-    "end_date": "2026-03-01",
-    "max_workers": 1
-  },
-  "provenance": {
-    "schema_version": 1,
-    "selection_fingerprint": "7032c5765e1209756b3e0ad1c4b1be4d6bb0d4c0623f2d2ade4f5dab1e2c68c5",
-    "diagnostics_fingerprint": "7032c5765e1209756b3e0ad1c4b1be4d6bb0d4c0623f2d2ade4f5dab1e2c68c5",
-    "items": [
-      {
-        "name": "data_dir",
-        "kind": "tree_contents",
-        "fingerprint": "3e7834170767b1c4a57550d5241863253af0fde2317d2a6893e3735dda63779c",
-        "paths": [
-          "backtests/stock/data/raw"
-        ],
-        "scope": "data",
-        "notes": "Content fingerprint for selection-relevant replay data files."
-      },
-      {
-        "name": "code:backtests/stock/auto/portfolio_synergy/core/logic.py",
-        "kind": "file_contents",
-        "fingerprint": "a87afc3dc9c8a5178f8632e91ec562b588a48c84b5c2eaca7424fb4f63cf1e1e",
-        "paths": [
-          "backtests/stock/auto/portfolio_synergy/core/logic.py"
-        ],
-        "scope": "selection",
-        "notes": ""
-      },
-      {
-        "name": "code:backtests/stock/auto/portfolio_synergy/core/state.py",
-        "kind": "file_contents",
-        "fingerprint": "8d0ce0263083becd0ffe20e094fb5d09522b0d3a09da18f6893d0831d297abb8",
-        "paths": [
-          "backtests/stock/auto/portfolio_synergy/core/state.py"
-        ],
-        "scope": "selection",
-        "notes": ""
-      },
-      {
-        "name": "code:backtests/stock/auto/portfolio_synergy/evaluator.py",
-        "kind": "file_contents",
-        "fingerprint": "cc9a271750a6e58b96784603fe704abbec5af5f53783ed7065114e6d4d81f4b6",
-        "paths": [
-          "backtests/stock/auto/portfolio_synergy/evaluator.py"
-        ],
-        "scope": "selection",
-        "notes": ""
-      },
-      {
-        "name": "code:libs/oms/risk/portfolio_rules.py",
-        "kind": "file_contents",
-        "fingerprint": "edcbd6dcb34810ecda91d76a690b0efe462d49932be353a29043d8d3547584d4",
-        "paths": [
-          "libs/oms/risk/portfolio_rules.py"
-        ],
-        "scope": "selection",
-        "notes": ""
-      },
-      {
-        "name": "plugin",
-        "kind": "plugin_identity",
-        "fingerprint": "fdf53b74afe8351d895c4b41d861994ea657ab1fd5efb284dd3663eaf4ed892a",
-        "paths": [],
-        "scope": "selection",
-        "notes": ""
-      },
-      {
-        "name": "selection_context",
-        "kind": "stable_json",
-        "fingerprint": "db97742a4ed83dc89113355a945d1029f9c8dce1a0f0dc0dc7ce6e52db3b9c5d",
-        "paths": [],
-        "scope": "selection",
-        "notes": ""
-      },
-      {
-        "name": "code_tree:backtests/stock/auto/portfolio_synergy",
-        "kind": "tree_contents",
-        "fingerprint": "f6502cc43ab162cac630008f01de5aeac37afe5c2547d15ec1e6700962a6e2b4",
-        "paths": [
-          "backtests/stock/auto/portfolio_synergy"
-        ],
-        "scope": "selection",
-        "notes": ""
-      },
-      {
-        "name": "shared_auto_package",
-        "kind": "tree_contents",
-        "fingerprint": "b58cff0ef3381b09a3e6abcacca3dbbcc093afc7c8583a6e34c39a8886dd6f3c",
-        "paths": [
-          "backtests/shared/auto"
-        ],
-        "scope": "selection",
-        "notes": ""
-      },
-      {
-        "name": "source_artifact:ALCB_R3",
-        "kind": "source_artifact_contents",
-        "fingerprint": "6cc28ae370bd858784cc5d5071fef9052881ddb1abe3a98bd4fdd929cadb6226",
-        "paths": [
-          "backtests/output/stock/alcb/round_2/optimized_config.json"
-        ],
-        "scope": "source_artifact",
-        "notes": ""
-      },
-      {
-        "name": "source_artifact:IARIC_V5R1",
-        "kind": "source_artifact_contents",
-        "fingerprint": "b597e73aee96c61142833774e701fe6599452b11aa8e3649b95379110f773fd3",
-        "paths": [
-          "backtests/output/stock/iaric/round_1/optimized_config.json"
-        ],
-        "scope": "source_artifact",
-        "notes": ""
-      }
-    ]
-  },
-  "provenance_status": "complete"
+  "strategy": "portfolio_synergy",
+  "canonical_round": "round_1",
+  "canonicalized_at_utc": "2026-08-23T21:56:53.317928+00:00",
+  "canonicalization_source": "round_6_realism_stable",
+  "archive_lineage": "backtests\\output\\stock\\portfolio_synergy\\archive\\20260823_215653_pre_realism_round1_reset",
+  "activation_scope": "research_only",
+  "production_eligible": false
 }

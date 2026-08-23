@@ -787,7 +787,13 @@ def compute_momentum_score(
     *,
     use_avwap_filter: bool = True,
 ) -> tuple[int, dict[str, int]]:
-    """8-factor momentum scoring. Each factor contributes 0 or 1."""
+    """Seven-factor momentum score built only from replayable completed-bar data.
+
+    ``sector_flow`` remains in the signature for backward compatibility, but it
+    is intentionally excluded: the live candidate payload and the historical
+    replay do not share a point-in-time sector-flow series.
+    """
+    del sector_flow
     score = 0
     detail: dict[str, int] = {}
 
@@ -828,12 +834,7 @@ def compute_momentum_score(
         score += 1
         detail["adx_trending"] = 1
 
-    # 7. Sector flow positive
-    if sector_flow > 0:
-        score += 1
-        detail["sector_flow_pos"] = 1
-
-    # 8. Gap up from prior close
+    # 7. Gap up from prior close
     if bars_today and bars_today[0].open > prior_day_close:
         score += 1
         detail["gap_up"] = 1

@@ -348,6 +348,49 @@ def test_stock_portfolio_mtm_drawdown_marks_open_loser_before_exit() -> None:
     assert mtm["max_drawdown_pct"] > result.metrics["max_drawdown_pct"]
 
 
+def test_stock_portfolio_mtm_anchors_unadjusted_bars_to_adjusted_trade_price() -> None:
+    start = datetime(2025, 1, 2, 15, 0, tzinfo=timezone.utc)
+    trade = TradeRecord(
+        strategy="ALCB",
+        symbol="KLAC",
+        direction=Direction.LONG,
+        entry_time=start,
+        exit_time=start + timedelta(hours=2),
+        entry_price=100.0,
+        exit_price=100.0,
+        quantity=10,
+        pnl=0.0,
+        r_multiple=0.0,
+        risk_per_share=1.0,
+        commission=0.0,
+        slippage=0.0,
+        entry_type="OR_BREAKOUT",
+        sector="Technology",
+    )
+    effective = build_effective_portfolio_config(
+        {"strategy_allocations.ALCB_R3.unit_risk_pct": 0.01},
+        initial_equity=1_000.0,
+    )
+    result = run_portfolio_replay([trade], [], effective)
+    bars = pd.DataFrame(
+        {"close": [1_000.0, 900.0, 1_000.0]},
+        index=pd.DatetimeIndex(
+            [start, start + timedelta(hours=1), start + timedelta(hours=2)]
+        ),
+    )
+
+    mtm = _stock_portfolio_mtm_metrics(
+        result.state.accepted_positions,
+        initial_equity=1_000.0,
+        price_bars_by_symbol={"KLAC": bars},
+    )
+
+    position = result.state.accepted_positions[0]
+    expected_drawdown = position.entry_price * position.quantity * 0.10 / 1_000.0
+    assert abs(mtm["max_drawdown_pct"] - expected_drawdown) < 1e-9
+    assert mtm["max_drawdown_pct"] < 0.20
+
+
 def test_stock_portfolio_mtm_marks_partial_price_coverage() -> None:
     alcb, iaric = _synthetic_stock_portfolio_trades()
     alcb[0].exit_time = alcb[0].entry_time + timedelta(hours=2)

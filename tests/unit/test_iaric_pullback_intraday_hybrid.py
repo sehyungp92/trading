@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date, datetime, time, timedelta, timezone
 from types import SimpleNamespace
 
@@ -44,13 +45,17 @@ class _FakeReplay:
         lows[-1] = min(bar.low for bar in bars)
         closes[-1] = bars[-1].close
 
+        daily_volumes = np.full(len(self._dates), 1_000_000.0)
+        # Keep the completed-session volume fallback internally consistent
+        # with this intentionally small synthetic intraday tape.
+        daily_volumes[-2:] = sum(bar.volume for bar in bars)
         self._daily_arrs = {
             "AAA": {
                 "open": opens,
                 "high": highs,
                 "low": lows,
                 "close": closes,
-                "volume": np.full(len(self._dates), 1_000_000.0),
+                "volume": daily_volumes,
             }
         }
         self._daily_didx = {"AAA": (self._dates, list(range(len(self._dates))))}
@@ -331,6 +336,46 @@ def test_intraday_hybrid_queues_ready_entries_for_next_bar_open_fill():
     assert ledger["accepted_bar_index"] + 1 == ledger["entry_bar_index"]
 
 
+def test_non_open_routes_estimate_session_atr_from_completed_prefix(monkeypatch) -> None:
+    replay = _FakeReplay()
+    observed_prefix_lengths: list[int] = []
+    original = IARICPullbackIntradayHybridEngine._session_atr
+
+    def observe_prefix(self, item, bars):
+        observed_prefix_lengths.append(len(bars))
+        return original(self, item, bars)
+
+    monkeypatch.setattr(
+        IARICPullbackIntradayHybridEngine,
+        "_session_atr",
+        observe_prefix,
+    )
+    config = IARICBacktestConfig(
+        start_date=replay.trade_date.isoformat(),
+        end_date=replay.trade_date.isoformat(),
+        param_overrides={
+            "pb_execution_mode": "intraday_hybrid",
+            "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
+            "pb_rsi_entry": 20.0,
+            "pb_entry_score_min": 45.0,
+            "pb_entry_score_family": "route_momentum_v1",
+            "pb_ready_min_volume_ratio": 0.5,
+            "pb_entry_strength_sizing": False,
+            "pb_open_scored_enabled": False,
+        },
+    )
+
+    IARICPullbackIntradayHybridEngine(config, replay, collect_diagnostics=True).run()
+
+    assert observed_prefix_lengths
+    assert observed_prefix_lengths[0] == 1
+    assert observed_prefix_lengths == list(
+        range(1, max(observed_prefix_lengths) + 1)
+    )
+
+
 def test_intraday_hybrid_does_not_carry_when_carry_is_disabled():
     replay = _FakeReplayCarryWindow()
     replay._bars_by_date = {}
@@ -514,7 +559,7 @@ def test_intraday_hybrid_open_scored_defaults_to_first_eligible_5m_open():
             "pb_v2_signal_floor": 0.0,
             "pb_v2_enabled": False,
             "pb_rsi_entry": 20.0,
-            "pb_entry_score_min": 45.0,
+            "pb_entry_score_min": 0.0,
             "pb_entry_strength_sizing": False,
             "pb_carry_enabled": False,
             "pb_open_scored_enabled": True,
@@ -530,6 +575,8 @@ def test_intraday_hybrid_open_scored_defaults_to_first_eligible_5m_open():
     bars = replay.get_5m_bar_objects_for_date("AAA", replay.trade_date)
     expected_fill = round(bars[1].open + bars[1].open * config.slippage.slip_bps_normal / 10_000, 2)
     assert trade.metadata["entry_trigger"] == "OPEN_SCORED_ENTRY"
+    assert "entry_score_component_daily_signal" in trade.metadata
+    assert trade.metadata["entry_score_component_daily_signal"] > 0.0
     assert trade.entry_time == bars[1].start_time
     assert trade.entry_price == expected_fill
     assert trade.metadata["entry_bar_index"] == 1
@@ -539,7 +586,222 @@ def test_intraday_hybrid_open_scored_defaults_to_first_eligible_5m_open():
     assert ledger["entry_price"] == expected_fill
     assert ledger["entry_bar_index"] == 1
     assert ledger["open_scored_fill_timing"] == "next_5m_open"
+    assert ledger["signal_bar_index"] == 0
+    assert ledger["selection_reason"] == "completed_5m_entry_score"
     assert trade.risk_per_share == pytest.approx(ledger["risk_per_share"])
+    assert trade.risk_per_share != pytest.approx(config.param_overrides.get("pb_atr_stop_mult", 1.0) * ledger["entry_atr"])
+
+
+@pytest.mark.parametrize(
+    ("after_bar", "expected_signal_idx", "expected_fill_idx"),
+    ((0, 0, 1), (5, 5, 6), (10, 10, 11)),
+)
+def test_open_scored_after_bar_is_completed_signal_then_next_bar_fill(
+    after_bar: int,
+    expected_signal_idx: int,
+    expected_fill_idx: int,
+) -> None:
+    replay = _FakeReplay()
+    engine = object.__new__(IARICPullbackIntradayHybridEngine)
+    engine._settings = replace(
+        StrategySettings(),
+        pb_v2_enabled=True,
+        pb_v2_open_scored_after_bar=after_bar,
+    )
+
+    selection = engine._open_scored_signal_and_fill_bars(
+        replay.get_5m_bar_objects_for_date("AAA", replay.trade_date)
+    )
+
+    assert selection is not None
+    signal_idx, signal_bar, fill_idx, fill_bar = selection
+    assert signal_idx == expected_signal_idx
+    assert fill_idx == expected_fill_idx
+    assert signal_bar.end_time == fill_bar.start_time
+
+
+def test_open_scored_replay_retries_later_completed_bars_like_live() -> None:
+    replay = _FakeReplay()
+    config = IARICBacktestConfig(
+        start_date=replay.trade_date.isoformat(),
+        end_date=replay.trade_date.isoformat(),
+        param_overrides={
+            "pb_execution_mode": "intraday_hybrid",
+            "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
+            "pb_rsi_entry": 20.0,
+            "pb_entry_score_min": 0.0,
+            "pb_entry_strength_sizing": False,
+            "pb_carry_enabled": False,
+            "pb_open_scored_enabled": True,
+            "pb_open_scored_min_score": 0.0,
+            "pb_open_scored_rank_pct_max": 100.0,
+            "pb_open_scored_fill_timing": "next_5m_open",
+            "pb_v2_open_scored_confirmation_policy": "bullish_close",
+            "pb_opening_reclaim_enabled": False,
+            "pb_delayed_confirm_enabled": False,
+        },
+    )
+
+    result = IARICPullbackIntradayHybridEngine(
+        config,
+        replay,
+        collect_diagnostics=True,
+    ).run()
+
+    assert len(result.trades) == 1
+    bars = replay.get_5m_bar_objects_for_date("AAA", replay.trade_date)
+    trade = result.trades[0]
+    assert result.candidate_ledger is not None
+    ledger = result.candidate_ledger[replay.trade_date][0]
+    assert ledger["signal_bar_index"] == 2
+    assert ledger["entry_bar_index"] == 3
+    assert trade.metadata["entry_bar_index"] == 3
+    assert trade.entry_time == bars[3].start_time
+
+
+def test_open_scored_confirmed_retest_fills_only_after_completed_confirmation() -> None:
+    replay = _FakeReplay()
+    config = IARICBacktestConfig(
+        start_date=replay.trade_date.isoformat(),
+        end_date=replay.trade_date.isoformat(),
+        param_overrides={
+            "pb_execution_mode": "intraday_hybrid",
+            "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
+            "pb_rsi_entry": 20.0,
+            "pb_entry_score_min": 0.0,
+            "pb_entry_strength_sizing": False,
+            "pb_carry_enabled": False,
+            "pb_open_scored_enabled": True,
+            "pb_open_scored_min_score": 0.0,
+            "pb_open_scored_rank_pct_max": 100.0,
+            "pb_open_scored_fill_timing": "next_5m_open",
+            "pb_open_scored_transition": "confirmed_retest",
+            "pb_open_scored_retest_min_impulse_atr": 0.0,
+            "pb_open_scored_retest_max_extension_atr": 2.0,
+            "pb_opening_reclaim_enabled": False,
+            "pb_delayed_confirm_enabled": False,
+            "pb_v2_vwap_bounce_enabled": False,
+            "pb_v2_afternoon_retest_enabled": False,
+        },
+    )
+
+    result = IARICPullbackIntradayHybridEngine(
+        config,
+        replay,
+        collect_diagnostics=True,
+    ).run()
+
+    assert len(result.trades) == 1
+    trade = result.trades[0]
+    bars = replay.get_5m_bar_objects_for_date("AAA", replay.trade_date)
+    assert trade.metadata["entry_route_family"] == "OPEN_SCORED_RETEST"
+    assert trade.metadata["accepted_bar_index"] == 2
+    assert trade.metadata["entry_bar_index"] == 3
+    assert trade.entry_time == bars[3].start_time
+    assert trade.metadata["accepted_timestamp"] == bars[2].end_time.isoformat()
+    assert result.funnel_counters is not None
+    assert result.funnel_counters["open_scored_retest_armed"] == 1
+    assert result.funnel_counters["open_scored_retest_confirmed"] == 1
+
+
+def test_open_scored_retrace_limit_only_fills_on_later_penetrating_bar() -> None:
+    replay = _FakeReplay()
+    config = IARICBacktestConfig(
+        start_date=replay.trade_date.isoformat(),
+        end_date=replay.trade_date.isoformat(),
+        param_overrides={
+            "pb_execution_mode": "intraday_hybrid",
+            "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
+            "pb_rsi_entry": 20.0,
+            "pb_entry_score_min": 0.0,
+            "pb_entry_strength_sizing": False,
+            "pb_carry_enabled": False,
+            "pb_open_scored_enabled": True,
+            "pb_open_scored_min_score": 0.0,
+            "pb_open_scored_rank_pct_max": 100.0,
+            "pb_open_scored_fill_timing": "next_5m_open",
+            "pb_open_scored_transition": "resting_retrace",
+            "pb_open_scored_retrace_limit_fraction": 0.35,
+            "pb_open_scored_retrace_limit_window_bars": 12,
+            "pb_open_scored_retrace_limit_penetration_ticks": 1,
+            "pb_opening_reclaim_enabled": False,
+            "pb_delayed_confirm_enabled": False,
+            "pb_v2_vwap_bounce_enabled": False,
+            "pb_v2_afternoon_retest_enabled": False,
+        },
+    )
+
+    result = IARICPullbackIntradayHybridEngine(
+        config,
+        replay,
+        collect_diagnostics=True,
+    ).run()
+
+    assert len(result.trades) == 1
+    trade = result.trades[0]
+    bars = replay.get_5m_bar_objects_for_date("AAA", replay.trade_date)
+    assert trade.metadata["entry_route_family"] == "OPEN_SCORED_RETRACE_LIMIT"
+    assert trade.metadata["accepted_bar_index"] == 0
+    assert trade.metadata["entry_bar_index"] == 1
+    assert trade.entry_time == bars[1].start_time
+    assert trade.entry_price <= trade.metadata["accepted_entry_price"]
+    assert result.funnel_counters is not None
+    assert result.funnel_counters["open_scored_retrace_limit_armed"] == 1
+    assert result.funnel_counters["open_scored_retrace_limit_filled"] == 1
+
+
+def test_intraday_hybrid_diagnostics_are_observer_only_for_execution() -> None:
+    replay = _FakeReplay()
+    config = IARICBacktestConfig(
+        start_date=replay.trade_date.isoformat(),
+        end_date=replay.trade_date.isoformat(),
+        param_overrides={
+            "pb_execution_mode": "intraday_hybrid",
+            "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
+            "pb_rsi_entry": 20.0,
+            "pb_entry_score_min": 45.0,
+            "pb_entry_strength_sizing": False,
+            "pb_carry_enabled": False,
+            "pb_open_scored_enabled": True,
+            "pb_open_scored_min_score": 0.0,
+            "pb_open_scored_rank_pct_max": 100.0,
+            "pb_open_scored_fill_timing": "next_5m_open",
+        },
+    )
+
+    observed = IARICPullbackIntradayHybridEngine(
+        config, _FakeReplay(), collect_diagnostics=True
+    ).run()
+    lean = IARICPullbackIntradayHybridEngine(
+        config, _FakeReplay(), collect_diagnostics=False
+    ).run()
+
+    def execution_tuple(result):
+        return [
+            (
+                trade.symbol,
+                trade.entry_time,
+                trade.exit_time,
+                trade.entry_price,
+                trade.exit_price,
+                trade.quantity,
+                trade.pnl,
+                trade.r_multiple,
+                trade.exit_reason,
+            )
+            for trade in result.trades
+        ]
+
+    assert execution_tuple(observed) == execution_tuple(lean)
+    np.testing.assert_allclose(observed.equity_curve, lean.equity_curve)
 
 
 def test_intraday_hybrid_default_open_scored_rejects_when_5m_missing():

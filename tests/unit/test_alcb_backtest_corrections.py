@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import date, datetime, time, timedelta, timezone
 from types import SimpleNamespace
 
@@ -8,10 +9,11 @@ import pytest
 
 from backtests.stock.analysis.alcb_diagnostics import _entry_bar_number
 from backtests.stock.analysis.alcb_qe_replacement import _time_bucket
-from backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
+from backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker, ShadowSetup
 from backtests.stock.auto.greedy_optimize import run_greedy
 from backtests.stock.auto.scoring import CompositeScore
 from backtests.stock.config_alcb import ALCBAblationFlags, ALCBBacktestConfig
+from backtests.stock.data.calendar import RAW_SESSION_POLICY, RTH_SESSION_POLICY
 from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
 from backtests.stock.engine.research_replay import ResearchReplayEngine
 from backtests.stock.models import Direction as BTDirection, TradeRecord
@@ -21,6 +23,7 @@ from strategies.stock.alcb.models import (
     CandidateArtifact,
     CandidateItem,
     Campaign,
+    Direction,
     RegimeSnapshot,
     ResearchDailyBar,
 )
@@ -56,7 +59,7 @@ def _make_candidate(trade_date: date) -> CandidateItem:
         tick_size=0.01,
         point_value=1.0,
         sector="Technology",
-        adv20_usd=50_000_000.0,
+        adv20_usd=5_000_000_000.0,
         median_spread_pct=0.001,
         selection_score=8,
         selection_detail={"rs": 3},
@@ -181,10 +184,19 @@ def test_alcb_selection_for_date_uses_previous_close_and_settings_aware_cache(mo
     trade_date = date(2026, 2, 3)
     prev_date = date(2026, 2, 2)
     calls: list[tuple[date, date, float, float]] = []
+    policies: list[str] = []
 
     monkeypatch.setattr(replay, "get_prev_trading_date", lambda d: prev_date)
 
-    def fake_build(trade_date_arg, *, min_price=None, min_adv_usd=None, as_of_date=None):
+    def fake_build(
+        trade_date_arg,
+        *,
+        min_price=None,
+        min_adv_usd=None,
+        as_of_date=None,
+        session_policy=None,
+    ):
+        policies.append(session_policy)
         calls.append((trade_date_arg, as_of_date, min_price, min_adv_usd))
         return SimpleNamespace(trade_date=trade_date_arg)
 
@@ -197,11 +209,55 @@ def test_alcb_selection_for_date_uses_previous_close_and_settings_aware_cache(mo
     replay.alcb_selection_for_date(trade_date, settings_a)
     replay.alcb_selection_for_date(trade_date, settings_a)
     replay.alcb_selection_for_date(trade_date, settings_b)
+    replay.alcb_selection_for_date(
+        trade_date,
+        settings_a,
+        session_policy=RAW_SESSION_POLICY,
+    )
 
     assert calls == [
         (trade_date, prev_date, 15.0, 20_000_000.0),
         (trade_date, prev_date, 20.0, 20_000_000.0),
+        (trade_date, prev_date, 15.0, 20_000_000.0),
     ]
+    assert policies == [RTH_SESSION_POLICY, RTH_SESSION_POLICY, RAW_SESSION_POLICY]
+
+
+def test_alcb_engine_filters_premarket_bars_but_preserves_raw_control():
+    trade_date = date(2026, 2, 3)
+    premarket = Bar(
+        symbol="AAA",
+        start_time=datetime(2026, 2, 3, 13, 0, tzinfo=timezone.utc),
+        end_time=datetime(2026, 2, 3, 13, 5, tzinfo=timezone.utc),
+        open=9.9,
+        high=10.0,
+        low=9.8,
+        close=9.95,
+        volume=1_000,
+    )
+    rth = _make_bar_series(trade_date, [(10.0, 10.1, 9.9, 10.0, 2_000)])[0]
+    replay = _FakeReplay(trade_date, [premarket, rth])
+    config = _make_config(trade_date, eod_flatten_time=time(9, 45))
+
+    assert ALCBIntradayEngine(config, replay)._bars_for_date("AAA", trade_date) == [rth]
+    raw_config = replace(config, intraday_session_policy=RAW_SESSION_POLICY)
+    assert ALCBIntradayEngine(raw_config, replay)._bars_for_date("AAA", trade_date) == [premarket, rth]
+
+
+def test_shadow_tracker_deduplicates_one_armed_rejection_opportunity():
+    tracker = ALCBShadowTracker()
+    setup = ShadowSetup(
+        symbol="AAA",
+        trade_date=date(2026, 2, 3),
+        rejection_gate="rvol_filter",
+        direction=Direction.LONG,
+        entry_price=10.0,
+        stop_price=9.5,
+        opportunity_id="2026-02-03:AAA:OR_BREAKOUT:0",
+    )
+
+    assert tracker.record_rejection(setup) is True
+    assert tracker.record_rejection(replace(setup)) is False
 
 
 def test_intraday_engine_fills_on_next_bar_open_not_signal_bar_close():

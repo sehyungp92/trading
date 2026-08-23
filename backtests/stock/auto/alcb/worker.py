@@ -5,6 +5,8 @@ import sys
 import traceback
 from pathlib import Path
 
+import numpy as np
+
 from backtests.shared.auto.types import ScoredCandidate
 
 from .phase_scoring import merge_alcb_metrics, score_alcb_phase
@@ -110,6 +112,45 @@ def score_candidate(args: tuple) -> ScoredCandidate:
         return ScoredCandidate(name=name, score=score, metrics=merged_metrics)
     except Exception:
         return ScoredCandidate(name=name, score=0.0, rejected=True, reject_reason=traceback.format_exc())
+
+
+def evaluate_candidate_metrics(args: tuple[str, dict, dict]) -> dict:
+    """Evaluate a recovery candidate without phase-specific scoring or gates.
+
+    Baseline reconstruction compares historical endpoints and broad family
+    counterfactuals.  Returning raw, finite economics keeps those comparisons
+    independent from whichever phased-auto score happens to be active.
+    """
+
+    name, candidate_muts, base_muts = args
+    try:
+        from backtests.stock.auto.config_mutator import mutate_alcb_config
+        from backtests.stock.auto.scoring import extract_metrics
+        from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
+
+        all_muts = hydrate_time_mutations(dict(base_muts))
+        all_muts.update(hydrate_time_mutations(dict(candidate_muts)))
+        config = mutate_alcb_config(_worker_config, all_muts)
+        result = ALCBIntradayEngine(config, _worker_replay).run()
+        perf = extract_metrics(
+            result.trades,
+            result.equity_curve,
+            result.timestamps,
+            _worker_equity,
+        )
+        metrics = merge_alcb_metrics(perf, result.trades)
+        metrics.setdefault("avg_r", float(metrics.get("expectancy", 0.0)))
+        return {
+            "name": name,
+            "metrics": {
+                key: float(value)
+                for key, value in metrics.items()
+                if isinstance(value, (int, float, np.integer, np.floating))
+                and np.isfinite(float(value))
+            },
+        }
+    except Exception:
+        return {"name": name, "metrics": {}, "error": traceback.format_exc()}
 
 
 _EARLY_REJECT_CHECKS: tuple[tuple[str, str, bool], ...] = (

@@ -81,7 +81,7 @@
         "fib_a_high": 1.1,
         "confirmation_required": 0,
         "daily_room_min_r": 0.0,
-        "asset_context_enabled": false,
+        "etf_context_enabled": false,
         "entry_order_model": "confirmation_close",
         "initial_stop_source": "pullback",
         "min_stop_atr_mult": 0.1,

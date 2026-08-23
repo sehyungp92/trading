@@ -1,0 +1,85 @@
+{
+  "issuer_positive_r_hhi": 0.04079742388854807,
+  "positive_r": 295.4359615362602,
+  "remainder_after_top_10_total_r": 38.18021648572937,
+  "remainder_after_top_20_total_r": 4.1367880140261235,
+  "sector_positive_r_hhi": 0.17963272840022185,
+  "top_10_trades_total_r": 45.864717240602424,
+  "top_1_trade_total_r": 5.559579423023224,
+  "top_20_trades_total_r": 79.90814571230567,
+  "top_5_trades_total_r": 25.3797225284288,
+  "top_positive_issuer_share": 0.10176335784989379,
+  "top_positive_issuers": [
+    [
+      "TSLA",
+      0.10176335784989379
+    ],
+    [
+      "AMZN",
+      0.06865423223752255
+    ],
+    [
+      "GS",
+      0.06360486287421577
+    ],
+    [
+      "META",
+      0.054855466353298334
+    ],
+    [
+      "BLK",
+      0.0492412818472173
+    ],
+    [
+      "WMT",
+      0.04694020610988032
+    ],
+    [
+      "NFLX",
+      0.0462793492653191
+    ],
+    [
+      "ALPHABET",
+      0.04317348106634041
+    ],
+    [
+      "BAC",
+      0.040547639201148546
+    ],
+    [
+      "CAT",
+      0.03616533939046223
+    ]
+  ],
+  "top_positive_sector_share": 0.2481683570997997,
+  "top_positive_sectors": [
+    [
+      "Financials",
+      0.2481683570997997
+    ],
+    [
+      "Consumer Discretionary",
+      0.20239774626706403
+    ],
+    [
+      "Healthcare",
+      0.1821723793184813
+    ],
+    [
+      "Communication Services",
+      0.14430829668495782
+    ],
+    [
+      "Technology",
+      0.13984767512935464
+    ],
+    [
+      "Consumer Staples",
+      0.04694020610988032
+    ],
+    [
+      "Industrials",
+      0.03616533939046223
+    ]
+  ]
+}

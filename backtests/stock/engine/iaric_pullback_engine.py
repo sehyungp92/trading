@@ -52,6 +52,7 @@ from strategies.stock.iaric.core.state import (
 )
 
 from strategies.stock.iaric.config import StrategySettings
+from strategies.stock.iaric.core.residual import align_values_by_date
 from strategies.stock.iaric.models import PBSymbolState, WatchlistArtifact, WatchlistItem
 
 logger = logging.getLogger(__name__)
@@ -812,6 +813,8 @@ def _daily_signal_bundle_v2(
 
 def _v2_score_sizing_mult(score: float, trend_tier: str, route_family: str, settings: StrategySettings) -> float:
     """Map V2 score to sizing multiplier, stacking trend and route adjustments."""
+    from strategies.stock.iaric.risk import route_sizing_multiplier
+
     if score >= 75:
         base = settings.pb_v2_sizing_premium
     elif score >= 60:
@@ -826,8 +829,7 @@ def _v2_score_sizing_mult(score: float, trend_tier: str, route_family: str, sett
     mult = base
     if trend_tier == "SECULAR":
         mult *= settings.pb_v2_secular_sizing_mult
-    if route_family == "AFTERNOON_RETEST":
-        mult *= settings.pb_v2_afternoon_retest_sizing_mult
+    mult *= route_sizing_multiplier(route_family, settings)
     return mult
 
 
@@ -865,6 +867,8 @@ def _should_flatten_v2(
 
 def _v2_rsi_exit_threshold(route_family: str, settings: StrategySettings) -> float:
     """Route-specific RSI exit threshold for V2."""
+    if str(route_family).upper().startswith("APERTURE_"):
+        return float(settings.pb_aperture_rsi_exit)
     if route_family == "OPEN_SCORED_ENTRY":
         return settings.pb_v2_rsi_exit_open_scored
     if route_family == "DELAYED_CONFIRM":
@@ -929,10 +933,22 @@ def _shared_pullback_state(
         indicators = {}
         # Pre-extract SPY closes for RS ratio when V2 is enabled
         spy_closes: np.ndarray | None = None
+        spy_dates: list[date] | None = None
         if v2:
-            spy_arrs = replay._daily_arrs.get("SPY")
+            spy_arrs = replay._daily_arrs.get("SPY") or getattr(
+                replay,
+                "_ref_arrs",
+                {},
+            ).get("SPY")
             if spy_arrs is not None:
                 spy_closes = spy_arrs["close"]
+                spy_index = replay._daily_didx.get("SPY") or getattr(
+                    replay,
+                    "_ref_didx",
+                    {},
+                ).get("SPY")
+                if spy_index is not None:
+                    spy_dates = list(spy_index[0])
         for sym, _, _ in active_universe:
             arrs = replay._daily_arrs.get(sym)
             if arrs is None:
@@ -952,6 +968,21 @@ def _shared_pullback_state(
                 "cdd": consecutive_down_days(closes),
             }
             if v2:
+                benchmark = None
+                symbol_index = replay._daily_didx.get(sym)
+                if (
+                    spy_closes is not None
+                    and spy_dates is not None
+                    and symbol_index is not None
+                ):
+                    benchmark = np.asarray(
+                        align_values_by_date(
+                            symbol_index[0],
+                            spy_dates,
+                            spy_closes,
+                        ),
+                        dtype=np.float64,
+                    )
                 adx_arr, pdi_arr, mdi_arr = adx_suite(highs, lows, closes, 14)
                 ind_dict.update({
                     "rsi5": rsi(closes, 5),
@@ -964,7 +995,7 @@ def _shared_pullback_state(
                     "minus_di": mdi_arr,
                     "sma200": rolling_sma(closes, 200),
                     "ema10": ema(closes, 10),
-                    "rs_ratio": relative_strength_ratio(closes, spy_closes, 20) if spy_closes is not None else np.full(len(closes), np.nan),
+                    "rs_ratio": relative_strength_ratio(closes, benchmark, 20) if benchmark is not None else np.full(len(closes), np.nan),
                 })
             indicators[sym] = ind_dict
         indicators_by_key[indicator_key] = indicators
@@ -980,7 +1011,10 @@ def _resolve_trade_universe(
     # Add SPY as benchmark for V2 RS computation (if not already in universe)
     if bool(getattr(settings, "pb_v2_enabled", False)):
         syms = {sym for sym, _, _ in universe}
-        if "SPY" not in syms and replay._daily_arrs.get("SPY") is not None:
+        if "SPY" not in syms and (
+            replay._daily_arrs.get("SPY") is not None
+            or getattr(replay, "_ref_arrs", {}).get("SPY") is not None
+        ):
             universe.append(("SPY", "benchmark", "benchmark"))
     if not bool(getattr(settings, "pb_backtest_intraday_universe_only", False)):
         return universe
@@ -1486,7 +1520,12 @@ class IARICPullbackDailyEngine:
                     if exit_price is None:
                         last_n = self._replay.get_flow_proxy_last_n(sym, prev_date, 2)
                         flatten, flatten_reason = _should_flatten_v2(
-                            pos, C, pos.close_pct, regime_tier, list(last_n) if last_n is not None else None, settings,
+                            pos,
+                            C,
+                            pos.close_pct,
+                            pos.regime_tier,
+                            list(last_n) if last_n is not None else None,
+                            settings,
                         )
                         if flatten:
                             exit_price = C

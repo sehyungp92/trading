@@ -514,39 +514,10 @@ def iaric_quote(fixture: Mapping[str, Any], symbol: str):
     )
 
 
-def iaric_minute_bars(fixture: Mapping[str, Any], symbol: str):
-    from strategies.stock.iaric.models import Bar
+def iaric_completed_5m_bars(fixture: Mapping[str, Any], symbol: str):
+    """Return the authoritative IARIC parity input without 1m synthesis."""
 
-    direct = source_bars(fixture, symbol, "1m")
-    if direct:
-        return [_stock_bar(row, minutes=1) for row in direct]
-    bars_5m = source_bars(fixture, symbol, "5m")
-    output = []
-    for row in bars_5m:
-        start = parse_time(row.get("timestamp") or row.get("time"))
-        volume = float(row.get("volume", 0.0)) / 5.0
-        prices = [
-            (float(row["open"]), max(float(row["open"]), float(row["high"])), min(float(row["open"]), float(row["low"])), float(row["open"])),
-            (float(row["open"]), float(row["high"]), float(row["low"]), float(row["close"])),
-            (float(row["close"]), float(row["high"]), float(row["low"]), float(row["close"])),
-            (float(row["close"]), float(row["high"]), float(row["low"]), float(row["close"])),
-            (float(row["close"]), float(row["high"]), float(row["low"]), float(row["close"])),
-        ]
-        for index, (open_, high, low, close) in enumerate(prices):
-            minute_start = start + timedelta(minutes=index)
-            output.append(
-                Bar(
-                    symbol=symbol,
-                    start_time=minute_start,
-                    end_time=minute_start + timedelta(minutes=1),
-                    open=open_,
-                    high=high,
-                    low=low,
-                    close=close,
-                    volume=volume,
-                )
-            )
-    return output
+    return [_stock_bar(row, minutes=5) for row in source_bars(fixture, symbol, "5m")]
 
 
 def overlay_rebalance_payload(fixture: Mapping[str, Any]) -> dict[str, Any]:

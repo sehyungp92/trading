@@ -49,10 +49,7 @@ class UnifiedBacktestConfig:
 
     initial_equity: float = 10_000.0
     data_dir: Path = field(default_factory=lambda: Path("backtest/data/raw"))
-    # ETF bars remain in data_dir. Certified NQ/GC context can be supplied
-    # independently so portfolio replay uses the same authority as TPC replay.
-    tpc_context_data_dir: Path | None = None
-    tpc_require_context_authority: bool = False
+    # TPC uses only the traded ETFs in data_dir.
     start_date: str | None = None  # "YYYY-MM-DD" — trim data before this date
     end_date: str | None = None    # "YYYY-MM-DD" — trim data after this date
     slippage: SlippageConfig = field(default_factory=SlippageConfig)

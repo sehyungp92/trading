@@ -1,0 +1,73 @@
+[
+  {
+    "is_utility": 0.06940828772464933,
+    "name": "combo__target__failure8_mfe015_to_m020__plus__target__frequency_entry1300",
+    "oos_utility": 0.014236316499900006,
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2
+    },
+    "robust_score": 0.033546506428562266,
+    "stage": "combination"
+  },
+  {
+    "is_utility": 0.06940828772464933,
+    "name": "combo__target__failure8_mfe015_to_m020__plus__target__frequency_entry1300_combined_score6",
+    "oos_utility": 0.014236316499900006,
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 6,
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2
+    },
+    "robust_score": 0.033546506428562266,
+    "stage": "combination"
+  },
+  {
+    "is_utility": 0.05841886876712778,
+    "name": "target__frequency_entry1300",
+    "oos_utility": 0.008092976402174802,
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00"
+    },
+    "robust_score": 0.025707038729908344,
+    "stage": "targeted"
+  },
+  {
+    "is_utility": 0.05841886876712778,
+    "name": "target__frequency_entry1300_combined_score6",
+    "oos_utility": 0.008092976402174802,
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 6,
+      "param_overrides.entry_window_end": "13:00:00"
+    },
+    "robust_score": 0.025707038729908344,
+    "stage": "targeted"
+  },
+  {
+    "is_utility": 0.05841886876712778,
+    "name": "combo__target__frequency_entry1300__plus__target__frequency_entry1300_combined_score6",
+    "oos_utility": 0.008092976402174802,
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 6,
+      "param_overrides.entry_window_end": "13:00:00"
+    },
+    "robust_score": 0.025707038729908344,
+    "stage": "combination"
+  },
+  {
+    "is_utility": 0.017598550095424076,
+    "name": "target__failure8_mfe015_to_m020",
+    "oos_utility": 0.018171209321939535,
+    "patch": {
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2
+    },
+    "robust_score": 0.017970778592659123,
+    "stage": "targeted"
+  }
+]

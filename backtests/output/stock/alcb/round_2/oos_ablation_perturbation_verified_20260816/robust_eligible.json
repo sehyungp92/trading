@@ -1,0 +1,218 @@
+[
+  {
+    "is_utility": 0.26730210631079254,
+    "name": "perturb__rvol_threshold__1p1",
+    "oos_utility": 0.040844623771494726,
+    "patch": {
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "robust_score": 0.12010474266024895,
+    "stage": "perturbation"
+  },
+  {
+    "is_utility": 0.23624780813365193,
+    "name": "combo__perturb__failure_stop_to_r__m0p1__plus__perturb__rvol_threshold__1p1",
+    "oos_utility": 0.05537178673212541,
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.1,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "robust_score": 0.11867839422265969,
+    "stage": "combination"
+  },
+  {
+    "is_utility": 0.23903706305669395,
+    "name": "combo__perturb__rvol_threshold__1p1__plus__perturb__mfe_conviction_floor_r__0p0",
+    "oos_utility": 0.05079776813073451,
+    "patch": {
+      "param_overrides.mfe_conviction_floor_r": 0.0,
+      "param_overrides.rvol_threshold": 1.1
+    },
+    "robust_score": 0.11668152135482032,
+    "stage": "combination"
+  },
+  {
+    "is_utility": 0.08118594284299568,
+    "name": "combo__perturb__failure_stop_to_r__m0p1__plus__perturb__entry_window_end__1330",
+    "oos_utility": 0.07188257736579633,
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.failure_stop_to_r": -0.1
+    },
+    "robust_score": 0.0751387552828161,
+    "stage": "combination"
+  },
+  {
+    "is_utility": 0.1063453741991737,
+    "name": "combo__perturb__entry_window_end__1330__plus__target__failure8_mfe015_to_m020",
+    "oos_utility": 0.046853767762541305,
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2
+    },
+    "robust_score": 0.06767583001536263,
+    "stage": "combination"
+  },
+  {
+    "is_utility": 0.07767656549385504,
+    "name": "combo__perturb__entry_window_end__1330__plus__perturb__mfe_conviction_floor_r__0p0",
+    "oos_utility": 0.05724538662238542,
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00",
+      "param_overrides.mfe_conviction_floor_r": 0.0
+    },
+    "robust_score": 0.0643962992273998,
+    "stage": "combination"
+  },
+  {
+    "is_utility": 0.10300669364196444,
+    "name": "perturb__entry_window_end__1330",
+    "oos_utility": 0.040641014671214115,
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00"
+    },
+    "robust_score": 0.062469002310976726,
+    "stage": "perturbation"
+  },
+  {
+    "is_utility": 0.03513081930487696,
+    "name": "ablate__use_combined_quality_gate",
+    "oos_utility": 0.05236484479071253,
+    "patch": {
+      "ablation.use_combined_quality_gate": false
+    },
+    "robust_score": 0.04633293587067008,
+    "stage": "ablation"
+  },
+  {
+    "is_utility": 0.041210525815311636,
+    "name": "combo__perturb__failure_stop_to_r__m0p1__plus__target__frequency_entry1300",
+    "oos_utility": 0.046406151188735485,
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.failure_stop_to_r": -0.1
+    },
+    "robust_score": 0.044587682308037134,
+    "stage": "combination"
+  },
+  {
+    "is_utility": 0.041210525815311636,
+    "name": "combo__perturb__failure_stop_to_r__m0p1__plus__target__frequency_entry1300_combined_score6",
+    "oos_utility": 0.046406151188735485,
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 6,
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.failure_stop_to_r": -0.1
+    },
+    "robust_score": 0.044587682308037134,
+    "stage": "combination"
+  },
+  {
+    "is_utility": 0.006211886389372125,
+    "name": "combo__perturb__mfe_conviction_floor_r__0p0__plus__target__failure8_mfe015_to_m020",
+    "oos_utility": 0.04806571029311162,
+    "patch": {
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2,
+      "param_overrides.mfe_conviction_floor_r": 0.0
+    },
+    "robust_score": 0.0334168719268028,
+    "stage": "combination"
+  },
+  {
+    "is_utility": -0.0019837847755721032,
+    "name": "ablate__combined_breakout_min_rvol",
+    "oos_utility": 0.05236484479071253,
+    "patch": {
+      "param_overrides.combined_breakout_min_rvol": 0.0
+    },
+    "robust_score": 0.03334282444251291,
+    "stage": "ablation"
+  },
+  {
+    "is_utility": 0.05841886876712778,
+    "name": "target__frequency_entry1300",
+    "oos_utility": 0.008092976402174802,
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00"
+    },
+    "robust_score": 0.025707038729908344,
+    "stage": "targeted"
+  },
+  {
+    "is_utility": 0.05841886876712778,
+    "name": "target__frequency_entry1300_combined_score6",
+    "oos_utility": 0.008092976402174802,
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 6,
+      "param_overrides.entry_window_end": "13:00:00"
+    },
+    "robust_score": 0.025707038729908344,
+    "stage": "targeted"
+  },
+  {
+    "is_utility": -0.018099887015511594,
+    "name": "perturb__failure_stop_to_r__m0p1",
+    "oos_utility": 0.0461259663271609,
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.1
+    },
+    "robust_score": 0.023646917657225527,
+    "stage": "perturbation"
+  },
+  {
+    "is_utility": 0.017598550095424076,
+    "name": "target__failure8_mfe015_to_m020",
+    "oos_utility": 0.018171209321939535,
+    "patch": {
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2
+    },
+    "robust_score": 0.017970778592659123,
+    "stage": "targeted"
+  },
+  {
+    "is_utility": -0.01829315067337515,
+    "name": "ablate__mfe_conviction_floor_r",
+    "oos_utility": 0.02590522245366634,
+    "patch": {
+      "param_overrides.mfe_conviction_floor_r": 0.0
+    },
+    "robust_score": 0.01043579185920182,
+    "stage": "ablation"
+  },
+  {
+    "is_utility": -0.01829315067337515,
+    "name": "perturb__mfe_conviction_floor_r__0p0",
+    "oos_utility": 0.02590522245366634,
+    "patch": {
+      "param_overrides.mfe_conviction_floor_r": 0.0
+    },
+    "robust_score": 0.01043579185920182,
+    "stage": "perturbation"
+  },
+  {
+    "is_utility": 0.005905017878352935,
+    "name": "ablate__mfe_conviction_check_bars",
+    "oos_utility": 0.004722866566628938,
+    "patch": {
+      "param_overrides.mfe_conviction_check_bars": 12
+    },
+    "robust_score": 0.005136619525732337,
+    "stage": "ablation"
+  },
+  {
+    "is_utility": -0.008382776596460707,
+    "name": "ablate__fr_cpr_threshold",
+    "oos_utility": 0.003256380159363977,
+    "patch": {
+      "param_overrides.fr_cpr_threshold": 0.0
+    },
+    "robust_score": -0.0008173247051746621,
+    "stage": "ablation"
+  }
+]

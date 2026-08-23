@@ -56,7 +56,7 @@ _GRADE_STRENGTH: dict[str, float] = {
 
 _ENTRY_GATES: tuple[str, ...] = (
     "session", "news", "regime", "pullback", "confirmation",
-    "entry_plan", "stop_validation", "daily_room", "asset_context", "score_min",
+    "entry_plan", "stop_validation", "daily_room", "etf_context", "score_min",
 )
 
 
@@ -160,8 +160,8 @@ def route_entry(
          "contribution": "composite_quality"},
         {"factor_name": "confirmations_count", "factor_value": len(set(confirmations)),
          "threshold": cfg.confirmation_required, "contribution": "signal_confluence"},
-        {"factor_name": "asset_context_score", "factor_value": meta.get("asset_context_score"),
-         "threshold": cfg.asset_context_min_score, "contribution": "cross_asset_alignment"},
+        {"factor_name": "etf_context_score", "factor_value": meta.get("etf_context_score"),
+         "threshold": cfg.etf_context_min_score, "contribution": "traded_etf_alignment"},
         {"factor_name": "depth_atr", "factor_value": meta.get("depth"),
          "contribution": "pullback_depth"},
         {"factor_name": "rr_planned", "factor_value": meta.get("rr"), "contribution": "reward_risk"},

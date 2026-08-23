@@ -1,6 +1,7 @@
 from dataclasses import replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -9,6 +10,8 @@ import backtests.shared.auto.phase_runner as phase_runner_module
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.types import EndOfRoundArtifacts, GateCriterion, GateResult, GreedyResult, PhaseAnalysis
 from backtests.stock.analysis.iaric_pullback_diagnostics import (
+    _entry_variant_result,
+    _half_hour_bucket,
     _threshold_sweep_rows,
     compute_pullback_diagnostic_snapshot,
     pullback_full_diagnostic,
@@ -31,9 +34,13 @@ from backtests.stock.auto.config_mutator import mutate_iaric_config
 from backtests.stock.config_iaric import IARICBacktestConfig
 from backtests.stock.auto.iaric.phase_scoring import (
     V5R1_PHASE_HARD_REJECTS,
+    V5R1_PHASE_SCORING_WEIGHTS,
+    V5R2_PHASE_HARD_REJECTS,
     V5R2_PHASE_SCORING_WEIGHTS,
     score_v5r1_pullback_phase,
+    score_v5r2_pullback_phase,
 )
+from backtests.stock.auto.iaric.phase_scoring import compute_pullback_phase_metrics
 
 from backtests.stock.auto.iaric.plugin import IARICPullbackPlugin, select_pullback_branch
 from backtests.stock.auto.runners.run_live_aligned_ablation_perturbation import _perturbation_candidates
@@ -174,10 +181,111 @@ def test_v5r1_guardrails_score_conservative_open_scored_baseline():
     assert score_v5r1_pullback_phase(1, metrics) > 0.0
 
 
+def test_v5r1_entry_score_is_immutable_and_exactly_seven_components() -> None:
+    first = V5R1_PHASE_SCORING_WEIGHTS[1]
+    assert len(first) == 7
+    assert sum(first.values()) == pytest.approx(1.0)
+    assert all(weights == first for weights in V5R1_PHASE_SCORING_WEIGHTS.values())
+    assert set(first) == {
+        "entry_potential_total_r",
+        "entry_potential_avg_r",
+        "entry_opportunity_recall",
+        "entry_discrimination_lift_r",
+        "expected_total_r",
+        "robust_avg_r",
+        "robust_high_quality_frequency",
+    }
+
+
+def test_entry_opportunity_metrics_reward_selected_potential_and_discrimination() -> None:
+    day = date(2026, 1, 5)
+    trade = SimpleNamespace(
+        r_multiple=0.4,
+        entry_time=datetime(2026, 1, 5, tzinfo=timezone.utc),
+        exit_reason="EOD_FLATTEN",
+        hold_bars=1,
+        is_winner=True,
+        metadata={"mfe_r": 1.0},
+    )
+    metrics = compute_pullback_phase_metrics(
+        [trade],
+        candidate_ledger={
+            day: [
+                {"disposition": "entered", "actual_r": 0.4, "actual_mfe_r": 1.0, "opportunity_capacity": 1},
+                {"disposition": "entry_score_reject", "shadow_r": -0.2, "shadow_mfe_r": 0.2, "opportunity_capacity": 1},
+            ]
+        },
+    )
+
+    assert metrics["entry_potential_total_r"] == pytest.approx(1.0)
+    assert metrics["entry_potential_avg_r"] == pytest.approx(1.0)
+    assert metrics["entry_opportunity_recall"] == pytest.approx(1.0)
+    assert metrics["entry_discrimination_lift_r"] == pytest.approx(0.8)
+
+
 def test_v5r2_score_stays_normalized_and_limited_to_seven_components():
     for weights in V5R2_PHASE_SCORING_WEIGHTS.values():
         assert len(weights) <= 7
         assert sum(weights.values()) == pytest.approx(1.0)
+
+
+def test_v5r2_score_discriminates_loss_making_candidates() -> None:
+    weak = {
+        "net_profit": -3_600.0,
+        "expected_total_r": -90.0,
+        "avg_r": -0.060,
+        "profit_factor": 0.60,
+        "sharpe": -3.0,
+        "max_drawdown_pct": 0.36,
+        "total_trades": 1_550.0,
+    }
+    improved = dict(weak)
+    improved.update(
+        net_profit=-2_400.0,
+        expected_total_r=-55.0,
+        avg_r=-0.035,
+        profit_factor=0.76,
+        sharpe=-1.8,
+        max_drawdown_pct=0.27,
+    )
+
+    weak_score = score_v5r2_pullback_phase(1, weak)
+    improved_score = score_v5r2_pullback_phase(1, improved)
+    assert 0.0 < weak_score < improved_score < 1.0
+
+
+def test_v5r2_recovered_baseline_passes_progressive_quality_gates() -> None:
+    recovered = {
+        "net_profit": 807.15,
+        "total_trades": 760.0,
+        "avg_r": 0.0142684,
+        "expected_total_r": 10.84398,
+        "profit_factor": 1.180955,
+        "sharpe": 0.760132,
+        "max_drawdown_pct": 0.036133,
+    }
+
+    for phase in V5R2_PHASE_HARD_REJECTS:
+        assert IARICPullbackPlugin._phase_reject_reason(
+            phase, recovered, V5R2_PHASE_HARD_REJECTS[phase]
+        ) == ""
+    assert 0.5 < score_v5r2_pullback_phase(1, recovered) < 1.0
+
+
+def test_v5r2_quality_gates_reject_negative_alpha() -> None:
+    negative = {
+        "net_profit": -1.0,
+        "total_trades": 760.0,
+        "avg_r": -0.0001,
+        "expected_total_r": -0.076,
+        "profit_factor": 0.999,
+        "sharpe": -0.01,
+        "max_drawdown_pct": 0.04,
+    }
+
+    assert IARICPullbackPlugin._phase_reject_reason(
+        1, negative, V5R2_PHASE_HARD_REJECTS[1]
+    )
 
 
 def test_iaric_current_round_candidates_target_strategy_settings_surface():
@@ -234,6 +342,37 @@ def test_v5r1_gate_allows_avg_r_tradeoff_when_expected_total_r_improves():
     plugin._baseline_metrics = lambda: reference
 
     criteria = plugin._v5r1_gate_criteria(1, metrics, PhaseState())
+
+    assert all(item.passed for item in criteria)
+
+
+def test_v5r1_gate_uses_additive_tolerance_for_negative_reference_metrics() -> None:
+    reference = {
+        "total_trades": 242.0,
+        "avg_r": -0.012551480641924991,
+        "expected_total_r": -3.0374583153458476,
+        "profit_factor": 0.92019,
+        "sharpe": -0.22696,
+        "max_drawdown_pct": 0.06634,
+        "entry_potential_total_r": 73.0808,
+        "entry_opportunity_recall": 0.280564,
+    }
+    candidate = {
+        **reference,
+        "total_trades": 174.0,
+        "avg_r": -0.014411385992633639,
+        "expected_total_r": -2.507581162718253,
+        "profit_factor": 0.921767,
+        "sharpe": -0.187163,
+        "max_drawdown_pct": 0.065548,
+        "entry_potential_total_r": 63.8629,
+        "entry_opportunity_recall": 0.187782,
+    }
+    plugin = IARICPullbackPlugin.__new__(IARICPullbackPlugin)
+    plugin._phase_hard_rejects = V5R1_PHASE_HARD_REJECTS
+    plugin._baseline_metrics = lambda: reference
+
+    criteria = plugin._v5r1_gate_criteria(1, candidate, PhaseState())
 
     assert all(item.passed for item in criteria)
 
@@ -353,6 +492,7 @@ def test_pullback_full_diagnostic_uses_new_sections_and_downgrades_old_ones():
     )
 
     assert "Executive Verdicts" in report
+    assert "Alpha Capture & Thesis Alignment" in report
     assert "Signal Funnel & Gate Attribution" in report
     assert "Selector Frontier & Filter Attribution" in report
     assert "Capacity & Replacement Analysis" in report
@@ -364,6 +504,44 @@ def test_pullback_full_diagnostic_uses_new_sections_and_downgrades_old_ones():
     assert "Positive Contribution / Alpha Source" in report
     assert "RSI Exit Threshold Sensitivity" not in report
     assert "Hold Duration Analysis" not in report
+
+
+def test_entry_timing_diagnostics_use_rth_offsets_and_exchange_time():
+    session_open = datetime(2026, 7, 6, 13, 30, tzinfo=timezone.utc)
+    timestamps = np.array(
+        [session_open - timedelta(hours=1)]
+        + [session_open + timedelta(minutes=5 * idx) for idx in range(14)],
+        dtype=object,
+    )
+    opens = np.array([50.0] + [100.0 + idx for idx in range(14)])
+
+    class _Replay:
+        def get_5m_arrays_for_date(self, symbol, trade_date):
+            del symbol, trade_date
+            return {
+                "time": timestamps,
+                "open": opens,
+                "high": opens + 1.0,
+                "low": opens - 1.0,
+                "close": opens + 0.5,
+            }
+
+    trade = SimpleNamespace(
+        symbol="AAA",
+        entry_time=session_open + timedelta(minutes=5),
+        risk_per_share=5.0,
+    )
+    open_result = _entry_variant_result(trade, _Replay(), "open")
+    delay_result = _entry_variant_result(trade, _Replay(), "delay_30m")
+
+    assert open_result is not None
+    assert delay_result is not None
+    assert open_result["entry_price"] == pytest.approx(100.0)
+    assert open_result["label"] == "RTH open (non-causal)"
+    assert delay_result["entry_price"] == pytest.approx(106.0)
+    assert delay_result["label"] == "RTH +30m"
+    assert _half_hour_bucket(datetime(2026, 7, 6, 13, 35, tzinfo=timezone.utc)) == "09:30 ET"
+    assert _half_hour_bucket(datetime(2026, 1, 5, 14, 35, tzinfo=timezone.utc)) == "09:30 ET"
 
 
 def test_snapshot_exposes_shadow_and_selection_quality_fields():

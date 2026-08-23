@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import os
@@ -120,6 +121,52 @@ def _write_json(path: Path, payload: Any) -> None:
     temp.replace(path)
 
 
+def _config_fingerprint(mutations: Any) -> str:
+    encoded = json.dumps(_json_safe(mutations), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _execution_code_fingerprint() -> str:
+    """Hash economic execution code, excluding report-only runner text."""
+    paths = {
+        REPO_ROOT / "backtests" / "stock" / "config_alcb.py",
+        REPO_ROOT / "backtests" / "stock" / "auto" / "config_mutator.py",
+        REPO_ROOT / "backtests" / "stock" / "auto" / "scoring.py",
+        REPO_ROOT / "backtests" / "stock" / "data" / "replay_cache.py",
+    }
+    for root in (
+        REPO_ROOT / "backtests" / "stock" / "engine",
+        REPO_ROOT / "backtests" / "stock" / "auto" / "alcb",
+        REPO_ROOT / "strategies" / "stock" / "alcb",
+    ):
+        paths.update(root.rglob("*.py"))
+    digest = hashlib.sha256()
+    for path in sorted(paths, key=lambda item: str(item).lower()):
+        digest.update(str(path.relative_to(REPO_ROOT)).replace("\\", "/").encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _data_source_fingerprint() -> str:
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
+
+    return ResearchReplayEngine(DATA_DIR, require_bundle=False).data_fingerprint()
+
+
+def _candidate_checkpoint_fingerprint(
+    execution_fingerprint: str,
+    candidates: list[Candidate],
+) -> str:
+    return _config_fingerprint(
+        {
+            "execution_fingerprint": execution_fingerprint,
+            "candidate_specs": [asdict(candidate) for candidate in candidates],
+        }
+    )
+
+
 def _metric_subset(metrics: dict[str, Any]) -> dict[str, Any]:
     return {key: _json_safe(metrics.get(key)) for key in CORE_METRICS if key in metrics}
 
@@ -204,6 +251,20 @@ def _literal_removal_audit(base: dict[str, Any]) -> list[dict[str, Any]]:
     base_ablation, base_settings = _effective_settings(base)
     rows: list[dict[str, Any]] = []
     for key in sorted(base):
+        if key == "intraday_session_policy":
+            rows.append(
+                {
+                    "key": key,
+                    "literal_removal_changes_effective_config": False,
+                    "effective_before": base[key],
+                    "effective_after": ALCBBacktestConfig().intraday_session_policy,
+                    "note": (
+                        "structural replay invariant; deliberately not ablated because changing the "
+                        "session policy changes the information set rather than an alpha mutation"
+                    ),
+                }
+            )
+            continue
         variant = dict(base)
         variant.pop(key)
         ablation, settings = _effective_settings(variant)
@@ -240,8 +301,10 @@ def _counterfactual_controls() -> dict[str, Any]:
     return {
         "ablation.use_adaptive_trail": False,
         "ablation.use_combined_quality_gate": False,
+        "ablation.use_daily_stop": False,
         "ablation.use_mfe_conviction_exit": False,
         "ablation.use_or_width_min": False,
+        "ablation.use_orb_entry_range_gate": False,
         "ablation.use_partial_takes": True,
         "param_overrides.adaptive_trail_late_activate_r": 0.25,
         "param_overrides.adaptive_trail_late_distance_r": 0.20,
@@ -249,12 +312,19 @@ def _counterfactual_controls() -> dict[str, Any]:
         # No pre-feature value exists.  999 removes only the late tightening
         # phase while retaining the mid-phase trail after start_bars.
         "param_overrides.adaptive_trail_tighten_bars": 999,
+        "param_overrides.base_risk_fraction": 0.0065,
         "param_overrides.block_combined_regime_b": False,
+        "param_overrides.breakout_distance_cap_r": 1.10,
         "param_overrides.carry_min_cpr": 0.40,
         "param_overrides.carry_min_r": 0.0,
-        "param_overrides.combined_avwap_cap_pct": 0.0,
+        "param_overrides.combined_avwap_cap_pct": 0.003,
         "param_overrides.combined_breakout_min_rvol": 0.0,
         "param_overrides.combined_breakout_score_min": 0,
+        "param_overrides.daily_stop_r": 3.0,
+        "param_overrides.entry_detail_size_mults": {
+            "OR_BREAKOUT:5:!bar_vol_surge": 0.55,
+        },
+        "param_overrides.entry_score_blocklist": [],
         "param_overrides.entry_window_end": clock_time(12, 0),
         "param_overrides.flow_reversal_min_hold_bars": 0,
         "param_overrides.fr_cpr_threshold": 0.0,
@@ -263,12 +333,20 @@ def _counterfactual_controls() -> dict[str, Any]:
         "param_overrides.mfe_conviction_check_bars": 12,
         "param_overrides.mfe_conviction_floor_r": 0.0,
         "param_overrides.mfe_conviction_min_r": 0.15,
+        "param_overrides.heat_cap_r": 4.0,
+        "param_overrides.max_positions": 6,
         "param_overrides.opening_range_bars": 12,
         "param_overrides.or_width_min_pct": 0.0,
-        "param_overrides.pdh_avwap_cap_pct": 0.0,
+        "param_overrides.orb_entry_range_cap_r": 1.25,
+        "param_overrides.pdh_avwap_cap_pct": 0.005,
         "param_overrides.pdh_size_mult": 1.0,
+        "param_overrides.portfolio_daily_stop_r": 4.0,
+        "param_overrides.qe_stage1_bars": 8,
         "param_overrides.regime_mult_b": 0.50,
         "param_overrides.rvol_threshold": 1.50,
+        "param_overrides.sector_mult_financials": 0.50,
+        "param_overrides.selection_long_count": 20,
+        "param_overrides.stop_atr_multiple": 1.0,
         "param_overrides.failure_stop_bars": 0,
         "param_overrides.failure_stop_mfe_max_r": 0.0,
         "param_overrides.failure_stop_current_r_max": -999.0,
@@ -360,27 +438,55 @@ def _candidate_catalog(base: dict[str, Any]) -> list[Candidate]:
         "Restore every granular Round-2-vs-Round-1 difference together.",
         lineage="round 2 exact delta",
     )
+    add(
+        "control__evaluator_empty_patch",
+        "ablation",
+        "parity_control",
+        {},
+        "Verify that the batch evaluator exactly reproduces the separately replayed baseline.",
+        lineage="evaluation parity",
+    )
+    for repeat in range(1, 9):
+        add(
+            f"control__evaluator_repeat_{repeat}",
+            "ablation",
+            "parity_control",
+            {},
+            "Repeat the empty patch within one pooled batch to detect worker/replay state leakage.",
+            lineage="evaluation parity repeat",
+        )
 
     numeric_grids: dict[str, list[Any]] = {
         "param_overrides.adaptive_trail_late_activate_r": [0.15, 0.18, 0.25, 0.30],
         "param_overrides.adaptive_trail_late_distance_r": [0.08, 0.10, 0.15, 0.18, 0.20],
         "param_overrides.adaptive_trail_start_bars": [20, 22, 28, 30],
         "param_overrides.adaptive_trail_tighten_bars": [22, 28, 30, 35],
+        "param_overrides.base_risk_fraction": [0.0065, 0.0075, 0.0080],
+        "param_overrides.breakout_distance_cap_r": [0.75, 0.90, 1.10, 1.25],
         "param_overrides.combined_avwap_cap_pct": [0.002, 0.0025, 0.004, 0.005],
         "param_overrides.combined_breakout_min_rvol": [2.2, 2.3, 2.7, 3.0],
         "param_overrides.combined_breakout_score_min": [4, 6],
+        "param_overrides.daily_stop_r": [2.0, 2.75, 3.0],
         "param_overrides.flow_reversal_min_hold_bars": [8, 10, 14, 16],
         "param_overrides.fr_cpr_threshold": [0.20, 0.25, 0.35, 0.40],
         "param_overrides.fr_mfe_grace_r": [0.10, 0.15, 0.25, 0.30],
         "param_overrides.mfe_conviction_check_bars": [12, 14, 18, 20],
         "param_overrides.mfe_conviction_floor_r": [-0.25, -0.10, -0.05, 0.0],
         "param_overrides.mfe_conviction_min_r": [0.10, 0.15, 0.25, 0.30],
+        "param_overrides.heat_cap_r": [3.5, 4.0, 5.0, 5.5],
+        "param_overrides.max_positions": [5, 6, 8, 9],
         "param_overrides.opening_range_bars": [5, 7, 8, 9],
         "param_overrides.or_width_min_pct": [0.0010, 0.0020, 0.0025, 0.0030],
+        "param_overrides.orb_entry_range_cap_r": [1.0, 1.25, 1.75, 2.0],
         "param_overrides.pdh_avwap_cap_pct": [0.003, 0.004, 0.006, 0.008],
         "param_overrides.pdh_size_mult": [0.35, 0.50, 0.65, 0.90, 1.00],
+        "param_overrides.portfolio_daily_stop_r": [2.5, 3.0, 4.0, 4.5],
+        "param_overrides.qe_stage1_bars": [6, 8, 12, 14],
         "param_overrides.regime_mult_b": [0.50, 0.60, 0.80, 0.90, 1.00],
-        "param_overrides.rvol_threshold": [1.80, 1.90, 2.10, 2.20, 2.30],
+        "param_overrides.rvol_threshold": [1.10, 1.20, 1.30, 1.50, 1.60, 1.70, 1.80, 1.90, 2.10, 2.20, 2.30],
+        "param_overrides.sector_mult_financials": [0.40, 0.50, 0.80, 1.00],
+        "param_overrides.selection_long_count": [20, 25, 35, 40],
+        "param_overrides.stop_atr_multiple": [0.60, 0.70, 0.90, 1.00],
         "param_overrides.failure_stop_bars": [6, 8, 12, 14, 16],
         "param_overrides.failure_stop_mfe_max_r": [0.10, 0.15, 0.25, 0.30],
         "param_overrides.failure_stop_current_r_max": [-0.20, -0.10, 0.10, 0.20],
@@ -459,41 +565,182 @@ def _candidate_catalog(base: dict[str, Any]) -> list[Candidate]:
             lineage="rule removed by Round 2",
         )
 
+    # Phase 2 is intentionally constructed from the reproduced OOS weakness:
+    # frequency is lower than IS, COMBINED and score 6/7 cohorts are weak, and
+    # all 0-24 bar cohorts are negative.  No symbol, date, or sector exclusions
+    # are permitted because those would be direct holdout fits.
     targeted: list[tuple[str, dict[str, Any], str]] = [
         (
-            "target__rvol190_pdh065",
-            {"param_overrides.rvol_threshold": 1.90, "param_overrides.pdh_size_mult": 0.65},
-            "Recover frequency via RVOL 1.9 while cautiously increasing the positive-PDH sleeve.",
+            "target__or6_geometry",
+            {"param_overrides.opening_range_bars": 6},
+            "Interpolate between the high-return 5-bar peak and the promoted 8-bar geometry.",
         ),
         (
-            "target__rvol190_pdh090",
-            {"param_overrides.rvol_threshold": 1.90, "param_overrides.pdh_size_mult": 0.90},
-            "Frequency recovery plus stronger PDH monetization.",
-        ),
-        (
-            "target__rvol190_score_gradient",
+            "target__or5_daily_stop300",
             {
-                "param_overrides.rvol_threshold": 1.90,
+                "param_overrides.opening_range_bars": 5,
+                "param_overrides.portfolio_daily_stop_r": 3.0,
+            },
+            "Retain 5-bar frequency while tightening the portfolio daily-loss ceiling.",
+        ),
+        (
+            "target__or5_daily_stop250",
+            {
+                "param_overrides.opening_range_bars": 5,
+                "param_overrides.portfolio_daily_stop_r": 2.5,
+            },
+            "Stress a stricter daily-loss ceiling around the 5-bar geometry.",
+        ),
+        (
+            "target__or5_heat400_capacity6",
+            {
+                "param_overrides.opening_range_bars": 5,
+                "param_overrides.heat_cap_r": 4.0,
+                "param_overrides.max_positions": 6,
+            },
+            "Constrain simultaneous 5-bar exposure using the prior-round capacity controls.",
+        ),
+        (
+            "target__or5_base_risk0065",
+            {
+                "param_overrides.opening_range_bars": 5,
+                "param_overrides.base_risk_fraction": 0.0065,
+            },
+            "Test whether modest risk scaling makes the 5-bar return/frequency uplift drawdown-safe.",
+        ),
+        (
+            "target__or5_orb_cap125",
+            {
+                "param_overrides.opening_range_bars": 5,
+                "param_overrides.orb_entry_range_cap_r": 1.25,
+            },
+            "Tighten completed-bar entry geometry inside the 5-bar opening range.",
+        ),
+        (
+            "target__or5_failure8",
+            {
+                "param_overrides.opening_range_bars": 5,
+                "param_overrides.failure_stop_bars": 8,
+            },
+            "Pair the 5-bar frequency uplift with earlier failed-trade containment.",
+        ),
+        (
+            "target__or5_score67_sizing",
+            {
+                "param_overrides.opening_range_bars": 5,
                 "param_overrides.entry_score_size_mults": {
                     **score_map,
-                    "OR_BREAKOUT:4": 0.90,
-                    "OR_BREAKOUT:5": 0.85,
-                    "OR_BREAKOUT:6": 1.05,
-                    "COMBINED_BREAKOUT:7": 1.20,
-                    "PDH_BREAKOUT:6": 0.65,
+                    "OR_BREAKOUT:6": 0.75,
+                    "OR_BREAKOUT:7": 0.60,
+                    "COMBINED_BREAKOUT:6": 0.70,
+                    "COMBINED_BREAKOUT:7": 0.70,
+                    "PDH_BREAKOUT:7": 0.70,
                 },
             },
-            "Align sizing with the monotonic OOS score gradient while retaining frequency recovery.",
+            "Continuously downsize the weak score-6/7 cohorts inside the 5-bar geometry.",
         ),
         (
-            "target__rvol190_failstop8",
-            {"param_overrides.rvol_threshold": 1.90, "param_overrides.failure_stop_bars": 8},
-            "Add frequency but accelerate protection of the entirely negative short-hold cohort.",
+            "target__or5_daily300_score67",
+            {
+                "param_overrides.opening_range_bars": 5,
+                "param_overrides.portfolio_daily_stop_r": 3.0,
+                "param_overrides.entry_score_size_mults": {
+                    **score_map,
+                    "OR_BREAKOUT:6": 0.75,
+                    "OR_BREAKOUT:7": 0.60,
+                    "COMBINED_BREAKOUT:6": 0.70,
+                    "COMBINED_BREAKOUT:7": 0.70,
+                    "PDH_BREAKOUT:7": 0.70,
+                },
+            },
+            "Apply both portfolio and continuous trade-level risk controls to the 5-bar geometry.",
         ),
         (
-            "target__rvol190_failstop12",
-            {"param_overrides.rvol_threshold": 1.90, "param_overrides.failure_stop_bars": 12},
-            "Test whether slower failure classification preserves recovered entries.",
+            "target__or5_heat400_daily300",
+            {
+                "param_overrides.opening_range_bars": 5,
+                "param_overrides.heat_cap_r": 4.0,
+                "param_overrides.portfolio_daily_stop_r": 3.0,
+            },
+            "Constrain both concurrent and daily portfolio risk around the 5-bar geometry.",
+        ),
+        (
+            "target__or5_rvol150",
+            {
+                "param_overrides.opening_range_bars": 5,
+                "param_overrides.rvol_threshold": 1.5,
+            },
+            "Offset the earlier geometry with a modestly stricter volume floor.",
+        ),
+        (
+            "target__or5_entry1200",
+            {
+                "param_overrides.opening_range_bars": 5,
+                "param_overrides.entry_window_end": clock_time(12, 0),
+            },
+            "Offset the earlier opening range with a shorter entry window.",
+        ),
+        (
+            "target__or5_stop090",
+            {
+                "param_overrides.opening_range_bars": 5,
+                "param_overrides.stop_atr_multiple": 0.9,
+            },
+            "Test a wider structural stop to reduce noise exits under earlier range geometry.",
+        ),
+        (
+            "target__or6_daily_stop300",
+            {
+                "param_overrides.opening_range_bars": 6,
+                "param_overrides.portfolio_daily_stop_r": 3.0,
+            },
+            "Test the interpolated 6-bar geometry with a tighter portfolio daily stop.",
+        ),
+        (
+            "target__frequency_rvol130",
+            {"param_overrides.rvol_threshold": 1.30},
+            "Recover participation with a small RVOL relaxation.",
+        ),
+        (
+            "target__frequency_entry1300",
+            {"param_overrides.entry_window_end": clock_time(13, 0)},
+            "Recover participation by extending the entry window by 30 minutes.",
+        ),
+        (
+            "target__frequency_selection35",
+            {"param_overrides.selection_long_count": 35},
+            "Expose five more daily long candidates without changing trade logic.",
+        ),
+        (
+            "target__frequency_capacity8_heat500",
+            {"param_overrides.max_positions": 8, "param_overrides.heat_cap_r": 5.0},
+            "Test whether portfolio capacity, rather than signal scarcity, limits frequency.",
+        ),
+        (
+            "target__frequency_rvol130_combined_score6",
+            {
+                "param_overrides.rvol_threshold": 1.30,
+                "param_overrides.combined_breakout_score_min": 6,
+            },
+            "Add lower-RVOL opportunities while containing the negative OOS COMBINED sleeve.",
+        ),
+        (
+            "target__frequency_entry1300_combined_score6",
+            {
+                "param_overrides.entry_window_end": clock_time(13, 0),
+                "param_overrides.combined_breakout_score_min": 6,
+            },
+            "Extend time coverage while containing the negative OOS COMBINED sleeve.",
+        ),
+        (
+            "target__frequency_selection35_capacity8",
+            {"param_overrides.selection_long_count": 35, "param_overrides.max_positions": 8},
+            "Test scanner breadth and portfolio capacity together.",
+        ),
+        (
+            "target__frequency_rvol130_failure8",
+            {"param_overrides.rvol_threshold": 1.30, "param_overrides.failure_stop_bars": 8},
+            "Pair a modest frequency expansion with earlier failed-trade containment.",
         ),
         (
             "target__failure8_mfe015_to_m020",
@@ -505,101 +752,63 @@ def _candidate_catalog(base: dict[str, Any]) -> list[Candidate]:
             "Earlier but more selective/tighter protection for the negative 0-24 bar cohort.",
         ),
         (
-            "target__failure12_mfe025_to_m020",
+            "target__flow_patience12_cpr025",
             {
-                "param_overrides.failure_stop_bars": 12,
-                "param_overrides.failure_stop_mfe_max_r": 0.25,
-                "param_overrides.failure_stop_to_r": -0.20,
+                "param_overrides.flow_reversal_min_hold_bars": 12,
+                "param_overrides.fr_cpr_threshold": 0.25,
             },
-            "Give trades longer to mature, then retain more capital on failed paths.",
+            "Reduce premature flow exits while keeping the reversal check selective.",
         ),
         (
-            "target__adaptive_activate018_distance010",
+            "target__contain_combined_score6_rvol250",
             {
-                "param_overrides.adaptive_trail_late_activate_r": 0.18,
-                "param_overrides.adaptive_trail_late_distance_r": 0.10,
+                "param_overrides.combined_breakout_score_min": 6,
+                "param_overrides.combined_breakout_min_rvol": 2.50,
             },
-            "Protect the large profitable 25+ bar cohort earlier and more tightly.",
+            "Conservatively contain the small negative COMBINED cohort without touching other routes.",
         ),
         (
-            "target__adaptive_activate025_distance015",
+            "target__contain_score67_sizing",
             {
-                "param_overrides.adaptive_trail_late_activate_r": 0.25,
-                "param_overrides.adaptive_trail_late_distance_r": 0.15,
+                "param_overrides.entry_score_size_mults": {
+                    **score_map,
+                    "OR_BREAKOUT:6": 0.75,
+                    "OR_BREAKOUT:7": 0.60,
+                    "COMBINED_BREAKOUT:6": 0.70,
+                    "COMBINED_BREAKOUT:7": 0.70,
+                    "PDH_BREAKOUT:7": 0.70,
+                },
             },
-            "Relax Round-2 trail tightness to check for truncation overfit.",
+            "Downsize the negative OOS score-6/7 cohorts continuously rather than hard-blocking them.",
         ),
         (
-            "target__pdh_cap006_size075",
-            {"param_overrides.pdh_avwap_cap_pct": 0.006, "param_overrides.pdh_size_mult": 0.75},
-            "Slightly broaden and monetize PDH entries without changing other entry families.",
-        ),
-        (
-            "target__pdh_cap008_size065",
-            {"param_overrides.pdh_avwap_cap_pct": 0.008, "param_overrides.pdh_size_mult": 0.65},
-            "Broaden PDH frequency with moderate sizing.",
-        ),
-        (
-            "target__combined_rvol23_cap004_score5",
+            "target__geometry125_combined_score6",
             {
-                "param_overrides.combined_breakout_min_rvol": 2.30,
-                "param_overrides.combined_avwap_cap_pct": 0.004,
-                "param_overrides.combined_breakout_score_min": 5,
+                "param_overrides.orb_entry_range_cap_r": 1.25,
+                "param_overrides.combined_breakout_score_min": 6,
             },
-            "Recover combined-breakout frequency while retaining a score floor.",
+            "Tighten completed-bar entry geometry while containing weak COMBINED signals.",
         ),
         (
-            "target__combined_rvol22_cap005_score5",
+            "target__pdh_size090",
+            {"param_overrides.pdh_size_mult": 0.90},
+            "Monetize the positive and high-frequency PDH sleeve without changing selection.",
+        ),
+        (
+            "target__frequency_rvol130_pdh090",
             {
-                "param_overrides.combined_breakout_min_rvol": 2.20,
-                "param_overrides.combined_avwap_cap_pct": 0.005,
-                "param_overrides.combined_breakout_score_min": 5,
+                "param_overrides.rvol_threshold": 1.30,
+                "param_overrides.pdh_size_mult": 0.90,
             },
-            "Broader combined-breakout frequency recovery stress test.",
+            "Combine modest frequency recovery with the strongest OOS entry sleeve.",
         ),
         (
-            "target__entry1300_rvol21",
-            {"param_overrides.entry_window_end": clock_time(13, 0), "param_overrides.rvol_threshold": 2.10},
-            "Trade a longer window but offset it with a higher RVOL floor.",
-        ),
-        (
-            "target__entry1300_rvol19",
-            {"param_overrides.entry_window_end": clock_time(13, 0), "param_overrides.rvol_threshold": 1.90},
-            "Aggressive frequency recovery, included as a boundary/overfit check.",
-        ),
-        (
-            "target__orb_quality_size60",
+            "target__daily_stop300_failure8",
             {
-                "ablation.use_orb_quality_gate": True,
-                "param_overrides.orb_quality_score_min": 60.0,
-                "param_overrides.orb_quality_size_floor": 0.60,
-                "param_overrides.orb_quality_top_score": 85.0,
-                "param_overrides.orb_quality_top_mult": 1.10,
+                "param_overrides.portfolio_daily_stop_r": 3.0,
+                "param_overrides.failure_stop_bars": 8,
             },
-            "Continuously downsize the weak 60-70 quality bucket without a hard frequency cut.",
-        ),
-        (
-            "target__orb_quality_size70",
-            {
-                "ablation.use_orb_quality_gate": True,
-                "param_overrides.orb_quality_score_min": 60.0,
-                "param_overrides.orb_quality_size_floor": 0.70,
-                "param_overrides.orb_quality_top_score": 85.0,
-                "param_overrides.orb_quality_top_mult": 1.10,
-            },
-            "Milder continuous quality sizing.",
-        ),
-        (
-            "target__rvol190_quality_size70",
-            {
-                "param_overrides.rvol_threshold": 1.90,
-                "ablation.use_orb_quality_gate": True,
-                "param_overrides.orb_quality_score_min": 60.0,
-                "param_overrides.orb_quality_size_floor": 0.70,
-                "param_overrides.orb_quality_top_score": 85.0,
-                "param_overrides.orb_quality_top_mult": 1.10,
-            },
-            "Pair frequency recovery with continuous quality-based risk control.",
+            "Test repeated early-loss containment at both trade and daily portfolio levels.",
         ),
     ]
     for name, patch, thesis in targeted:
@@ -626,10 +835,19 @@ def _lineage_coverage(
             for candidate in ablations
             if candidate.atomic_key.startswith(f"{key}[")
         ]
+        structural = key == "intraday_session_policy"
         output.append(
             {
                 "key": key,
-                "coverage": "direct_atomic" if direct else "nested_members" if nested else "missing",
+                "coverage": (
+                    "structural_invariant"
+                    if structural
+                    else "direct_atomic"
+                    if direct
+                    else "nested_members"
+                    if nested
+                    else "missing"
+                ),
                 "candidate_names": direct or nested,
                 "literal_removal_changes_effective_config": audit["literal_removal_changes_effective_config"],
             }
@@ -657,6 +875,7 @@ def _diagnostics_consistent(diagnostics: dict[str, Any], metrics: dict[str, Any]
     return (
         int(diagnostics.get("trade_count", -1)) == int(metrics.get("total_trades", -2))
         and int(diagnostics.get("loss_count", -1)) == int(metrics.get("losing_trades", -2))
+        and "daily" in diagnostics
     )
 
 
@@ -703,6 +922,7 @@ def _trade_diagnostics(trades: Iterable[Any]) -> dict[str, Any]:
             "worst_10_share": concentration(10),
         },
         "worst_trades": losses[:20],
+        "daily": grouped("date", lambda row: str(row.get("exit_time", ""))[:10]),
         "monthly": grouped("month", lambda row: str(row.get("exit_time", ""))[:7]),
         "symbol": grouped("symbol", lambda row: row.get("symbol")),
         "entry_type": grouped("entry_type", lambda row: row.get("entry_type")),
@@ -758,9 +978,15 @@ def _run_context(mutations: dict[str, Any], start: str, end: str) -> dict[str, A
         end_date=end,
         initial_equity=INITIAL_EQUITY,
         max_workers=1,
+        allow_projected_rth_data=True,
     )
     try:
-        return plugin._run_config(mutations, store_context=True, collect_diagnostics=False)
+        # store_context=True attaches ALCBShadowTracker.  The tracker is useful
+        # for funnel diagnostics, but it currently changes realized trades and
+        # therefore is not execution-equivalent to the batch workers.  The
+        # returned context contains trades even with both diagnostic flags off,
+        # so use the worker-equivalent path for all economic baselines.
+        return plugin._run_config(mutations, store_context=False, collect_diagnostics=False)
     finally:
         plugin.close_pool()
 
@@ -776,11 +1002,27 @@ def _evaluate_candidates(
     baseline_metrics: dict[str, Any],
     batch_size: int,
     evaluator_kind: str,
+    execution_fingerprint: str,
 ) -> dict[str, dict[str, Any]]:
+    checkpoint_fingerprint = _candidate_checkpoint_fingerprint(execution_fingerprint, candidates)
     existing: dict[str, dict[str, Any]] = {}
     if output_path.exists():
         payload = _load_json(output_path)
-        existing = dict(payload.get("results", {}))
+        if payload.get("checkpoint_fingerprint") == checkpoint_fingerprint:
+            requested_names = {candidate.name for candidate in candidates}
+            existing = {
+                name: row
+                for name, row in dict(payload.get("results", {})).items()
+                if name in requested_names
+            }
+            # Baselines can be corrected independently of the expensive candidate
+            # economics.  Always refresh derived comparisons on resume.
+            for row in existing.values():
+                metrics = row.get("metrics", {})
+                row["utility_vs_baseline"] = utility(metrics, baseline_metrics) if metrics else -999.0
+                row["strict_return_frequency_uplift"] = (
+                    _strict_uplift(metrics, baseline_metrics) if metrics else False
+                )
     # A rejected result may reflect a transient runner/config-serialization
     # defect rather than a strategy rejection.  Retrying it on resume is safe
     # because successful candidates remain checkpointed by name.
@@ -790,6 +1032,17 @@ def _evaluate_candidates(
         if candidate.name not in existing or existing[candidate.name].get("rejected")
     ]
     if not pending:
+        _write_json(
+            output_path,
+            {
+                "window": {"start": start, "end": end},
+                "checkpoint_fingerprint": checkpoint_fingerprint,
+                "baseline_metrics": _metric_subset(baseline_metrics),
+                "completed": len(existing),
+                "requested": len(candidates),
+                "results": existing,
+            },
+        )
         print(f"resume: {output_path.name} already has all {len(candidates)} result(s)", flush=True)
         return existing
 
@@ -859,6 +1112,7 @@ def _evaluate_candidates(
                 output_path,
                 {
                     "window": {"start": start, "end": end},
+                    "checkpoint_fingerprint": checkpoint_fingerprint,
                     "baseline_metrics": _metric_subset(baseline_metrics),
                     "completed": len(existing),
                     "requested": len(candidates),
@@ -1325,6 +1579,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--allow-legacy-data", action="store_true")
     parser.add_argument("--top-is-per-stage", type=int, default=14)
     parser.add_argument("--skip-combinations", action="store_true")
+    parser.add_argument("--baseline-only", action="store_true")
     return parser.parse_args()
 
 
@@ -1340,10 +1595,22 @@ def main() -> None:
     os.environ["TRADING_REQUIRE_FROZEN_DATA"] = "false"
 
     base = _load_json(BASE_CONFIG_PATH)
-    baseline_is = _load_json(BASE_IS_METRICS_PATH)
-    baseline_is_trades = _load_json(BASE_IS_TRADES_PATH)
+    base_fingerprint = _config_fingerprint(base)
+    code_fingerprint = _execution_code_fingerprint()
+    data_fingerprint = _data_source_fingerprint()
     literal_audit = _literal_removal_audit(base)
     candidates = _candidate_catalog(base)
+    execution_fingerprint = _config_fingerprint(
+        {
+            "audit_execution_version": 2,
+            "base_config_fingerprint": base_fingerprint,
+            "code_fingerprint": code_fingerprint,
+            "data_fingerprint": data_fingerprint,
+            "windows": {"is": [IS_START, IS_END], "oos": [OOS_START, OOS_END]},
+            "initial_equity": INITIAL_EQUITY,
+            "execution_mode": "worker_parity_no_shadow",
+        }
+    )
     lineage_coverage = _lineage_coverage(literal_audit, candidates)
     catalog = {candidate.name: candidate for candidate in candidates}
     _write_json(output_dir / "run_spec.json", {
@@ -1351,6 +1618,9 @@ def main() -> None:
         "data_authority": "diagnostic-only repaired legacy filename cache",
         "authoritative_bundle_available": False,
         "base_config": str(BASE_CONFIG_PATH),
+        "execution_fingerprint": execution_fingerprint,
+        "code_fingerprint": code_fingerprint,
+        "data_fingerprint": data_fingerprint,
         "windows": {"is": {"start": IS_START, "end": IS_END}, "oos": {"start": OOS_START, "end": OOS_END}},
         "max_workers": args.max_workers,
         "batch_size": args.batch_size,
@@ -1367,45 +1637,111 @@ def main() -> None:
 
     baseline_path = output_dir / "baseline_diagnostics.json"
     baseline_payload = _load_json(baseline_path) if baseline_path.exists() else None
-    if baseline_payload and _diagnostics_consistent(
-        baseline_payload["oos"]["diagnostics"], baseline_payload["oos"]["metrics"]
-    ):
+    baseline_is_valid = bool(
+        baseline_payload
+        and baseline_payload.get("base_config_fingerprint") == base_fingerprint
+        and baseline_payload.get("execution_fingerprint") == execution_fingerprint
+        and baseline_payload.get("execution_mode") == "worker_parity_no_shadow"
+        and _diagnostics_consistent(
+            baseline_payload["is"]["diagnostics"], baseline_payload["is"]["metrics"]
+        )
+    )
+    baseline_oos_valid = bool(
+        baseline_payload
+        and baseline_payload.get("base_config_fingerprint") == base_fingerprint
+        and baseline_payload.get("execution_fingerprint") == execution_fingerprint
+        and baseline_payload.get("execution_mode") == "worker_parity_no_shadow"
+        and _diagnostics_consistent(
+            baseline_payload["oos"]["diagnostics"], baseline_payload["oos"]["metrics"]
+        )
+    )
+    if baseline_is_valid and baseline_oos_valid:
+        baseline_is = baseline_payload["is"]["metrics"]
         baseline_oos = baseline_payload["oos"]["metrics"]
+        baseline_is_diag = baseline_payload["is"]["diagnostics"]
         baseline_oos_diag = baseline_payload["oos"]["diagnostics"]
         print("resume: loaded baseline diagnostics", flush=True)
     else:
         started = time.perf_counter()
+        print("run IS baseline with trade diagnostics", flush=True)
+        is_context = _run_context(base, IS_START, IS_END)
+        baseline_is = _metric_subset(is_context["metrics"])
+        baseline_is_diag = _trade_diagnostics(is_context["trades"])
         print("run OOS baseline with trade diagnostics", flush=True)
         context = _run_context(base, OOS_START, OOS_END)
         baseline_oos = _metric_subset(context["metrics"])
         baseline_oos_diag = _trade_diagnostics(context["trades"])
         baseline_payload = {
-            "is": {"window": {"start": IS_START, "end": IS_END}, "metrics": _metric_subset(baseline_is), "diagnostics": _trade_diagnostics(baseline_is_trades)},
+            "base_config_fingerprint": base_fingerprint,
+            "execution_fingerprint": execution_fingerprint,
+            "code_fingerprint": code_fingerprint,
+            "data_fingerprint": data_fingerprint,
+            "execution_mode": "worker_parity_no_shadow",
+            "is": {"window": {"start": IS_START, "end": IS_END}, "metrics": baseline_is, "diagnostics": baseline_is_diag},
             "oos": {"window": {"start": OOS_START, "end": OOS_END}, "metrics": baseline_oos, "diagnostics": baseline_oos_diag},
             "elapsed_seconds": time.perf_counter() - started,
         }
         _write_json(baseline_path, baseline_payload)
-    baseline_is_diag = baseline_payload["is"]["diagnostics"]
 
-    print(f"screen {len(candidates)} atomic/perturbation/targeted candidates on OOS", flush=True)
+    if args.baseline_only:
+        print(f"baseline complete: {baseline_path}", flush=True)
+        return
+
+    phase1_candidates = [candidate for candidate in candidates if candidate.stage != "targeted"]
+    targeted_candidates = [candidate for candidate in candidates if candidate.stage == "targeted"]
+    print(f"phase 1: screen {len(phase1_candidates)} granular ablation/perturbation candidates on OOS", flush=True)
     oos_results = _evaluate_candidates(
-        candidates,
+        phase1_candidates,
         base,
         start=OOS_START,
         end=OOS_END,
         max_workers=args.max_workers,
-        output_path=output_dir / "oos_screen.json",
+        output_path=output_dir / "oos_phase1_screen.json",
         baseline_metrics=baseline_oos,
         batch_size=args.batch_size,
         evaluator_kind=args.evaluator,
+        execution_fingerprint=execution_fingerprint,
     )
+    parity_names = ["control__evaluator_empty_patch", *[f"control__evaluator_repeat_{index}" for index in range(1, 9)]]
+    parity_failures = [
+        name
+        for name in parity_names
+        if oos_results.get(name, {}).get("metrics") != _metric_subset(baseline_oos)
+    ]
+    if parity_failures:
+        raise RuntimeError(
+            "OOS evaluator parity failed; candidate economics are not interpretable: "
+            + ", ".join(parity_failures)
+        )
+    print(
+        f"phase 2: screen {len(targeted_candidates)} weakness-targeted candidates after baseline attribution",
+        flush=True,
+    )
+    targeted_oos = _evaluate_candidates(
+        targeted_candidates,
+        base,
+        start=OOS_START,
+        end=OOS_END,
+        max_workers=args.max_workers,
+        output_path=output_dir / "oos_targeted_screen.json",
+        baseline_metrics=baseline_oos,
+        batch_size=args.batch_size,
+        evaluator_kind=args.evaluator,
+        execution_fingerprint=execution_fingerprint,
+    )
+    oos_results.update(targeted_oos)
 
     validate_names = set(_top_names(oos_results, "perturbation", args.top_is_per_stage))
     validate_names.update(_top_names(oos_results, "targeted", args.top_is_per_stage))
     validate_names.update(
         candidate.name
         for candidate in candidates
-        if candidate.stage == "ablation" and candidate.category != "supplemental_bundle"
+        if candidate.stage == "ablation"
+        and candidate.category != "supplemental_bundle"
+        and (
+            candidate.category != "parity_control"
+            or candidate.name == "control__evaluator_empty_patch"
+        )
     )
     is_candidates = [catalog[name] for name in sorted(validate_names)]
     print(f"validate {len(is_candidates)} candidates on full IS", flush=True)
@@ -1420,8 +1756,11 @@ def main() -> None:
         baseline_metrics=baseline_is,
         batch_size=max(4, min(args.batch_size, 8)),
         evaluator_kind=args.evaluator,
+        execution_fingerprint=execution_fingerprint,
     )
     _attach_is_assessment(is_results, baseline_is, is_path)
+    if is_results.get("control__evaluator_empty_patch", {}).get("metrics") != _metric_subset(baseline_is):
+        raise RuntimeError("IS evaluator parity failed; candidate economics are not interpretable.")
 
     combo_catalog: dict[str, Candidate] = {}
     if not args.skip_combinations:
@@ -1439,6 +1778,7 @@ def main() -> None:
                 baseline_metrics=baseline_oos,
                 batch_size=args.batch_size,
                 evaluator_kind=args.evaluator,
+                execution_fingerprint=execution_fingerprint,
             )
             oos_results.update(combo_oos)
             top_combo_names = _top_names(combo_oos, "combination", min(10, len(combo_candidates)))
@@ -1454,6 +1794,7 @@ def main() -> None:
                 baseline_metrics=baseline_is,
                 batch_size=max(4, min(args.batch_size, 8)),
                 evaluator_kind=args.evaluator,
+                execution_fingerprint=execution_fingerprint,
             )
             _attach_is_assessment(combo_is, baseline_is, combo_is_path)
             is_results.update(combo_is)
@@ -1475,12 +1816,15 @@ def main() -> None:
         if (
             not final_payload
             or final_payload.get("name") != recommended_name
+            or final_payload.get("execution_mode") != "worker_parity_no_shadow"
+            or final_payload.get("metrics") != _metric_subset(recommended_oos_metrics)
             or not _diagnostics_consistent(final_payload.get("diagnostics", {}), final_payload.get("metrics", {}))
         ):
             print(f"run final trade-level diagnostics for {recommended_name}", flush=True)
             context = _run_context(recommended_config, OOS_START, OOS_END)
             final_payload = {
                 "name": recommended_name,
+                "execution_mode": "worker_parity_no_shadow",
                 "metrics": _metric_subset(context["metrics"]),
                 "diagnostics": _trade_diagnostics(context["trades"]),
             }

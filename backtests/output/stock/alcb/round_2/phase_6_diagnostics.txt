@@ -1,11 +1,11 @@
 ======================================================================
 ALCB ROUND-3 RESIDUAL ALPHA PHASE 6 SNAPSHOT
 ======================================================================
-Focus: Round-3 structural synthesis
-Score 0.6236 -> 0.7729 with 1 accepted mutations.
+Focus: Aggressive-leaning portfolio and exit synthesis
+Score 0.8225 -> 0.8343 with 1 accepted mutations.
 
-Core: trades=589, net_profit=+13848.07, expectancy_dollar=+23.51, expected_total_r=+160.83, pf=2.207, dd=2.9%, trades/month=22.75
-Quality: signal_quality=0.523, timing_quality=0.962, extended_avwap_inverse=1.000, bar9_inverse=0.885, late_entry_quality=1.000, score_monotonicity=0.318
-Management: profit_protection=0.667, short24_inv=0.310, flow_mfe_inv=0.983, mfe_capture_eff=0.825, sizing_alignment=1.000, long_hold_capture=0.993, inv_dd=0.756
-Focus metric deltas: expected_total_r=+147.467->+160.828, trades_per_month=+22.828->+22.751, net_profit=+11704.460->+13848.070, profit_factor=+2.069->+2.207, expectancy_dollar=+19.805->+23.511, signal_quality=+0.533->+0.523, timing_quality=+0.947->+0.962, sizing_alignment=+1.000->+1.000, profit_protection=+0.670->+0.667
-Hard floors: max_dd_pct=4.70%, min_expectancy_dollar=18.2201, min_expected_total_r=143.0432, min_extended_avwap_inverse=0.9000, min_flow_mfe_exit_inverse=0.8359, min_mfe_capture_efficiency=0.7000, min_net_profit=11119.2370, min_pf=1.9657, min_profit_protection=0.5691, min_short_hold_24_drag_inverse=0.2527, min_signal_quality=0.5000, min_sizing_alignment=0.9000, min_timing_quality=0.8332, min_trades_per_month=21.6867
+Core: trades=1459, net_profit=+16458.11, expectancy_dollar=+11.28, expected_total_r=+167.92, pf=1.612, dd=3.9%, trades/month=63.08
+Quality: signal_quality=0.404, timing_quality=0.611, extended_avwap_inverse=1.000, bar9_inverse=0.500, late_entry_quality=0.334, score_monotonicity=0.347
+Management: profit_protection=0.435, short24_inv=0.000, flow_mfe_inv=0.471, mfe_capture_eff=0.876, sizing_alignment=1.000, long_hold_capture=0.984, inv_dd=0.678
+Focus metric deltas: expected_total_r=+162.288->+167.917, net_profit=+16162.530->+16458.110, trades_per_month=+62.302->+63.080, expectancy=+0.113->+0.115, profit_factor=+1.606->+1.612, max_drawdown_pct=+0.039->+0.039, sharpe=+4.052->+4.092
+Hard floors: max_dd_pct=4.94%, min_expectancy_dollar=10.2067, min_expected_total_r=157.4189, min_net_profit=15677.6541, min_pf=1.5093, min_signal_quality=0.3713, min_trades_per_month=59.8097

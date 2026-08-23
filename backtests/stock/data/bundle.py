@@ -66,12 +66,16 @@ def build_frozen_bundle(
     daily_symbols: list[str],
     timeframes: tuple[str, ...] = ("1d", "30m", "5m"),
     session_policy_by_timeframe: dict[str, str] | None = None,
+    what_to_show_by_timeframe: dict[str, str] | None = None,
     require_clean: bool = True,
 ) -> dict[str, Any]:
     repo_root = Path(repo_root).resolve()
     authority_root = _resolve(authority_root, repo_root)
     session_policy_by_timeframe = session_policy_by_timeframe or {
         timeframe: RTH_SESSION_POLICY for timeframe in timeframes
+    }
+    what_to_show_by_timeframe = what_to_show_by_timeframe or {
+        timeframe: "TRADES" for timeframe in timeframes
     }
     normalized_intraday = [symbol.upper().strip() for symbol in intraday_symbols]
     normalized_daily = list(dict.fromkeys(symbol.upper().strip() for symbol in daily_symbols))
@@ -84,6 +88,7 @@ def build_frozen_bundle(
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "session_policy": session_policy_by_timeframe[timeframe],
+                "what_to_show": what_to_show_by_timeframe[timeframe],
             }
             for symbol in symbols
         )
@@ -165,6 +170,7 @@ def verify_frozen_bundle(
     require_clean: bool = True,
     expected_universe: list[str] | None = None,
     expected_session_policy_by_timeframe: dict[str, str] | None = None,
+    expected_what_to_show_by_timeframe: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     repo_root = Path(repo_root).resolve()
     bundle = json.loads(Path(bundle_path).read_text(encoding="utf-8"))
@@ -209,6 +215,10 @@ def verify_frozen_bundle(
             expected_policy = expected_session_policy_by_timeframe.get(key[1])
             if expected_policy and identity.get("session_policy") != expected_policy:
                 errors.append(f"session policy mismatch for {key[0]}:{key[1]}")
+        if expected_what_to_show_by_timeframe is not None:
+            expected_what = expected_what_to_show_by_timeframe.get(key[1])
+            if expected_what and identity.get("what_to_show") != expected_what:
+                errors.append(f"what-to-show mismatch for {key[0]}:{key[1]}")
         object_path = _resolve(entry.get("object_path", ""), repo_root)
         receipt_path = _resolve(entry.get("receipt_path", ""), repo_root)
         input_paths.extend([object_path, receipt_path])
@@ -246,6 +256,7 @@ def verify_frozen_bundle(
             str(item.get("symbol", "")).upper(),
             str(item.get("timeframe", "")).lower(),
             str(item.get("dataset_identity", {}).get("session_policy", "")),
+            str(item.get("dataset_identity", {}).get("what_to_show", "")).upper(),
         )
         for item in bundle.get("entries", [])
     }
@@ -285,6 +296,7 @@ class FrozenBundleResolver:
         require_clean: bool = True,
         expected_universe: list[str] | None = None,
         expected_session_policy_by_timeframe: dict[str, str] | None = None,
+        expected_what_to_show_by_timeframe: dict[str, str] | None = None,
     ) -> "FrozenBundleResolver":
         report = verify_frozen_bundle(
             bundle_path,
@@ -292,6 +304,7 @@ class FrozenBundleResolver:
             require_clean=require_clean,
             expected_universe=expected_universe,
             expected_session_policy_by_timeframe=expected_session_policy_by_timeframe,
+            expected_what_to_show_by_timeframe=expected_what_to_show_by_timeframe,
         )
         if not report["valid"]:
             raise ValueError("frozen stock bundle verification failed: " + "; ".join(report["errors"]))
@@ -344,20 +357,22 @@ def _bundle_entry(reference: dict[str, Any], repo_root: Path) -> dict[str, Any]:
     }
 
 
-def _reference_key(reference: dict[str, Any]) -> tuple[str, str, str]:
+def _reference_key(reference: dict[str, Any]) -> tuple[str, str, str, str]:
     identity = reference.get("dataset_identity", {})
     return (
         str(identity.get("symbol", "")).upper(),
         str(identity.get("timeframe", "")).lower(),
         str(identity.get("session_policy", "")),
+        str(identity.get("what_to_show", "")).upper(),
     )
 
 
-def _requirement_key(requirement: dict[str, Any]) -> tuple[str, str, str]:
+def _requirement_key(requirement: dict[str, Any]) -> tuple[str, str, str, str]:
     return (
         str(requirement.get("symbol", "")).upper(),
         str(requirement.get("timeframe", "")).lower(),
         str(requirement.get("session_policy", "")),
+        str(requirement.get("what_to_show", "")).upper(),
     )
 
 

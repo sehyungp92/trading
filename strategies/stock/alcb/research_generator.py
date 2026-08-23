@@ -12,6 +12,7 @@ from typing import Any
 
 from ib_async import IB, ScannerSubscription, Stock
 
+from ..volume_units import dollar_volume
 from .artifact_store import persist_research_snapshot
 from .config import ScannerSettings, StrategySettings
 from .models import Bar, MarketResearch, ResearchDailyBar, ResearchSnapshot, ResearchSymbol, SectorResearch
@@ -287,7 +288,7 @@ def _sector_metrics(universe: dict[str, ResearchSymbol]) -> dict[str, SectorRese
             for symbol in items
             if len(symbol.daily_bars) >= 20
         ) if items else 0.0
-        participation = fmean(min(symbol.adv20_usd / 100_000_000.0, 2.0) for symbol in items) if items else 0.0
+        participation = fmean(min(symbol.adv20_usd / 10_000_000_000.0, 2.0) for symbol in items) if items else 0.0
         metrics[sector] = SectorResearch(name=sector, flow_trend_20d=flow / 1_000_000_000.0, breadth_20d=breadth, participation=participation)
     return metrics
 
@@ -346,7 +347,7 @@ async def generate_research_snapshot(
             point_value=1.0,
             sector=sector,
             price=float(daily_bars[-1].close),
-            adv20_usd=fmean(bar.close * bar.volume for bar in daily_bars[-20:]),
+            adv20_usd=fmean(dollar_volume(bar.close, bar.volume) for bar in daily_bars[-20:]),
             median_spread_pct=_median_spread_pct(details),
             earnings_within_sessions=10,
             blacklist_flag=False,

@@ -1,0 +1,93 @@
+{
+  "Communication Services": {
+    "average_loser_r": -1.4275333746187586,
+    "average_r": 0.43985169766400656,
+    "average_winner_r": 1.4701331168544978,
+    "commission": 421.6816287333828,
+    "gross_pnl": 7373.071266765632,
+    "median_r": 0.8564146730620406,
+    "net_pnl": 6951.389638032249,
+    "profit_factor": 1.8665877251454086,
+    "total_r": 19.793326394880296,
+    "trades": 45,
+    "win_rate": 0.6444444444444445
+  },
+  "Consumer Discretionary": {
+    "average_loser_r": -1.7434673761383273,
+    "average_r": 0.5192963595503238,
+    "average_winner_r": 2.1355561707565034,
+    "commission": 486.39970419263864,
+    "gross_pnl": 10031.184845277316,
+    "median_r": 0.5555020134983691,
+    "net_pnl": 9544.785141084678,
+    "profit_factor": 1.7148463343669098,
+    "total_r": 24.926225258415545,
+    "trades": 48,
+    "win_rate": 0.5833333333333334
+  },
+  "Consumer Staples": {
+    "average_loser_r": -0.8488192525267111,
+    "average_r": 0.2988684667508676,
+    "average_winner_r": 1.733478115847841,
+    "commission": 194.51864373678046,
+    "gross_pnl": 1522.3868535608965,
+    "median_r": -0.1302363673121698,
+    "net_pnl": 1327.868209824116,
+    "profit_factor": 1.633778320355231,
+    "total_r": 5.379632401515616,
+    "trades": 18,
+    "win_rate": 0.4444444444444444
+  },
+  "Financials": {
+    "average_loser_r": -1.4743285240432418,
+    "average_r": 0.5300805390534702,
+    "average_winner_r": 1.832946430066333,
+    "commission": 728.5808070565574,
+    "gross_pnl": 11940.104483114992,
+    "median_r": 0.5027233709671743,
+    "net_pnl": 11211.523676058436,
+    "profit_factor": 1.9126792561701313,
+    "total_r": 34.985315577529036,
+    "trades": 66,
+    "win_rate": 0.6060606060606061
+  },
+  "Healthcare": {
+    "average_loser_r": -1.2251650317315483,
+    "average_r": 0.1621954796057493,
+    "average_winner_r": 1.3126895621781425,
+    "commission": 736.5970921234729,
+    "gross_pnl": 5268.928416945839,
+    "median_r": 0.32974545291357565,
+    "net_pnl": 4532.331324822366,
+    "profit_factor": 1.2920293486368037,
+    "total_r": 12.164660970431196,
+    "trades": 75,
+    "win_rate": 0.5466666666666666
+  },
+  "Industrials": {
+    "average_loser_r": -1.477157190379847,
+    "average_r": 0.2537504511697815,
+    "average_winner_r": 1.3355677271382993,
+    "commission": 138.34775454500158,
+    "gross_pnl": 481.9913500031513,
+    "median_r": 0.815222839674295,
+    "net_pnl": 343.6435954581496,
+    "profit_factor": 1.4466357252553321,
+    "total_r": 3.2987558652071596,
+    "trades": 13,
+    "win_rate": 0.6153846153846154
+  },
+  "Technology": {
+    "average_loser_r": -1.344628258420895,
+    "average_r": -0.2230132802925278,
+    "average_winner_r": 1.3327752377564976,
+    "commission": 638.3217207712529,
+    "gross_pnl": -5382.531097494116,
+    "median_r": -0.2668222981636785,
+    "net_pnl": -6020.852818265368,
+    "profit_factor": 0.7145751668434447,
+    "total_r": -16.502982741647056,
+    "trades": 74,
+    "win_rate": 0.4189189189189189
+  }
+}

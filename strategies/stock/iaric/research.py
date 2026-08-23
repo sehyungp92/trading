@@ -14,6 +14,7 @@ from statistics import fmean, median
 
 from .artifact_store import load_research_snapshot, persist_watchlist_artifact
 from .config import StrategySettings
+from .core.lanes import is_aperture_only_item
 from .diagnostics import JsonlDiagnostics
 from .models import (
     HeldPositionDirective,
@@ -38,6 +39,135 @@ def _entry_gap_pct(symbol: ResearchSymbol) -> float:
     if prev_close <= 0:
         return 0.0
     return (symbol.daily_bars[-1].open - prev_close) / prev_close * 100.0
+
+
+def _earnings_risk(symbol: ResearchSymbol) -> bool:
+    sessions = symbol.earnings_within_sessions
+    return sessions is not None and int(sessions) <= 3
+
+
+def _aperture_context(symbol: ResearchSymbol) -> tuple[float, int, float, float]:
+    """Return a broad, causal opportunity-likelihood rank and its context.
+
+    This rank is not an entry score.  It only allocates a finite live data
+    aperture toward names most likely to produce a reversion event.  The five
+    fixed components are economically signed and deliberately coarse; the
+    completed-bar event score remains the actual discriminator.
+    """
+
+    bars = symbol.daily_bars
+    atr_value = max(float(symbol.daily_atr_estimate), float(symbol.tick_size), 1e-9)
+    if len(bars) < 25:
+        return 0.0, 0, 0.0, 0.0
+    closes = [float(bar.close) for bar in bars]
+    latest = closes[-1]
+    consecutive_down = 0
+    for index in range(len(closes) - 1, 0, -1):
+        if closes[index] < closes[index - 1]:
+            consecutive_down += 1
+        else:
+            break
+    five_day_return = latest / closes[-6] - 1.0 if closes[-6] > 0 else 0.0
+    sma20 = fmean(closes[-20:])
+    prior_sma20 = fmean(closes[-25:-5])
+    sma20_slope_atr = (sma20 - prior_sma20) / atr_value
+    recent = bars[-5:]
+    recent_high = max(float(bar.high) for bar in recent)
+    recent_low = min(float(bar.low) for bar in recent)
+    latest_width = max(float(bars[-1].high) - float(bars[-1].low), 1e-9)
+    components = {
+        "recent_decline": min(max((closes[-6] - latest) / (3.0 * atr_value), 0.0), 1.0),
+        "down_sequence": min(float(consecutive_down) / 4.0, 1.0),
+        "near_five_day_low": min(max((recent_high - latest) / max(recent_high - recent_low, 1e-9), 0.0), 1.0),
+        "weak_latest_close": min(max((float(bars[-1].high) - latest) / latest_width, 0.0), 1.0),
+        "trend_support": min(max((sma20_slope_atr + 0.5) / 1.5, 0.0), 1.0),
+    }
+    score = 100.0 * (
+        0.30 * components["recent_decline"]
+        + 0.25 * components["down_sequence"]
+        + 0.20 * components["near_five_day_low"]
+        + 0.15 * components["weak_latest_close"]
+        + 0.10 * components["trend_support"]
+    )
+    return float(score), int(consecutive_down), float(five_day_return), float(sma20_slope_atr)
+
+
+def _build_aperture_item(
+    *,
+    snapshot: ResearchSnapshot,
+    symbol: ResearchSymbol,
+    regime: RegimeSnapshot,
+    settings: StrategySettings,
+    sector_scores: dict[str, float],
+    sector_weights: dict[str, float],
+    context_score: float,
+    consecutive_down: int,
+    five_day_return: float,
+    sma20_slope_atr: float,
+) -> WatchlistItem:
+    last = symbol.daily_bars[-1]
+    anchor_index, anchor_type = select_anchor(symbol, settings)
+    avwap_ref = compute_daily_avwap_approx(symbol, anchor_index)
+    band = settings.avwap_band_pct
+    return WatchlistItem(
+        symbol=symbol.symbol,
+        exchange=symbol.exchange,
+        primary_exchange=symbol.primary_exchange,
+        currency=symbol.currency,
+        tick_size=symbol.tick_size,
+        point_value=symbol.point_value,
+        sector=symbol.sector,
+        regime_score=regime.score,
+        regime_tier=regime.tier,
+        regime_risk_multiplier=regime.risk_multiplier,
+        sector_score=sector_scores.get(symbol.sector, 0.0),
+        sector_rank_weight=sector_weights.get(symbol.sector, 0.3),
+        sponsorship_score=0.0,
+        sponsorship_state="NEUTRAL",
+        persistence=_persistence(symbol),
+        intensity_z=0.0,
+        accel_z=0.0,
+        rs_percentile=50.0,
+        leader_pass=False,
+        trend_pass=True,
+        trend_strength=_trend_strength(symbol),
+        earnings_risk_flag=_earnings_risk(symbol),
+        blacklist_flag=symbol.blacklist_flag,
+        anchor_date=symbol.daily_bars[anchor_index].trade_date,
+        anchor_type=anchor_type,
+        acceptance_pass=True,
+        avwap_ref=avwap_ref,
+        avwap_band_lower=avwap_ref * (1.0 - band),
+        avwap_band_upper=avwap_ref * (1.0 + band),
+        daily_atr_estimate=symbol.daily_atr_estimate,
+        intraday_atr_seed=max(symbol.intraday_atr_seed, symbol.daily_atr_estimate / max(symbol.price, 1e-9)),
+        daily_rank=context_score / 100.0,
+        tradable_flag=False,
+        conviction_bucket="APERTURE",
+        conviction_multiplier=settings.pb_aperture_sizing_mult,
+        recommended_risk_r=settings.pb_aperture_sizing_mult,
+        average_30m_volume=max(symbol.average_30m_volume, 0.0),
+        expected_5m_volume=max(symbol.expected_5m_volume, 0.0),
+        expected_5m_profile=tuple(symbol.expected_5m_profile),
+        information_state_available=bool(symbol.information_state_available),
+        flow_proxy_gate_pass=True,
+        # Keep this below every admitted incumbent V2 score.  It is an aperture
+        # allocation rank, not permission for OPEN_SCORED_ENTRY.
+        daily_signal_score=min(float(context_score), 49.0),
+        trigger_types=["APERTURE"],
+        trigger_tier="APERTURE",
+        trend_tier="BROAD",
+        sizing_mult=settings.pb_aperture_sizing_mult,
+        cdd_value=consecutive_down,
+        entry_rsi=50.0,
+        previous_close=float(last.close),
+        aperture_candidate=True,
+        aperture_context_score=float(context_score),
+        previous_high=float(last.high),
+        previous_low=float(last.low),
+        five_day_return=float(five_day_return),
+        sma20_slope_atr=float(sma20_slope_atr),
+    )
 
 
 def _zscore_map(values: dict[str, float]) -> dict[str, float]:
@@ -309,7 +439,7 @@ def build_watchlist_item(
         leader_pass=leader_pass,
         trend_pass=trend_pass,
         trend_strength=trend_strength,
-        earnings_risk_flag=(symbol.earnings_within_sessions or 99) <= 3,
+        earnings_risk_flag=_earnings_risk(symbol),
         blacklist_flag=symbol.blacklist_flag,
         anchor_date=symbol.daily_bars[anchor_index].trade_date,
         anchor_type=anchor_type,
@@ -326,6 +456,8 @@ def build_watchlist_item(
         recommended_risk_r=conviction_multiplier,
         average_30m_volume=max(symbol.average_30m_volume, 0.0),
         expected_5m_volume=max(symbol.expected_5m_volume, 0.0),
+        expected_5m_profile=tuple(symbol.expected_5m_profile),
+        information_state_available=bool(symbol.information_state_available),
         entry_gap_pct=_entry_gap_pct(symbol),
         flow_proxy_gate_pass=flow_proxy_gate_pass,
     )
@@ -352,6 +484,13 @@ def build_held_position_directives(snapshot: ResearchSnapshot, settings: Strateg
                 time_stop_deadline=held.entry_time + timedelta(minutes=settings.time_stop_minutes),
                 carry_eligible_flag=held.carry_eligible_flag,
                 flow_reversal_flag=_flow_reversal_flag(symbol, lookback=settings.flow_reversal_lookback) if symbol else False,
+                issuer=held.symbol,
+                sector=symbol.sector if symbol else "",
+                exchange=symbol.exchange if symbol else "SMART",
+                primary_exchange=symbol.primary_exchange if symbol else "",
+                currency=symbol.currency if symbol else "USD",
+                tick_size=symbol.tick_size if symbol else 0.01,
+                point_value=symbol.point_value if symbol else 1.0,
             )
         )
     return directives
@@ -369,19 +508,27 @@ def _pullback_daily_selection(
     """Pullback V2 daily selection using 7-trigger scoring."""
     # Build SPY benchmark closes for relative strength
     spy = snapshot.symbols.get("SPY")
-    benchmark_closes: np.ndarray | None = None
-    if spy and spy.daily_bars:
+    benchmark_closes: np.ndarray | None = (
+        np.asarray(snapshot.benchmark_closes, dtype=np.float64)
+        if snapshot.benchmark_closes
+        else None
+    )
+    benchmark_dates: list[object] | None = (
+        list(snapshot.benchmark_dates) if snapshot.benchmark_dates else None
+    )
+    if benchmark_closes is None and spy and spy.daily_bars:
         benchmark_closes = np.array([b.close for b in spy.daily_bars], dtype=np.float64)
+        benchmark_dates = [bar.trade_date for bar in spy.daily_bars]
 
     # Compute indicators for all universe symbols
     indicators_cache: dict[str, dict[str, np.ndarray]] = {}
     for sym_name, sym in universe.items():
-        ind = compute_indicator_cache(sym, benchmark_closes)
+        ind = compute_indicator_cache(sym, benchmark_closes, benchmark_dates)
         if ind:
             indicators_cache[sym_name] = ind
 
     # Score and rank candidates
-    candidates = build_daily_watchlist(universe, indicators_cache, cfg)
+    candidates = build_daily_watchlist(universe, indicators_cache, cfg, regime_tier=regime.tier)
 
     # Build watchlist items for candidates
     peers_by_sector: dict[str, list[ResearchSymbol]] = {}
@@ -397,6 +544,13 @@ def _pullback_daily_selection(
         trend_tier_val = compute_trend_tier(symbol, ind, cfg)
         if trend_tier_val == "EXCLUDED":
             diag.log_filter(sym_name, "trend_tier", False, "excluded")
+            continue
+
+        effective_signal_floor = cfg.pb_v2_signal_floor
+        if regime.tier == "B" and cfg.pb_v2_signal_floor_tier_b > 0:
+            effective_signal_floor = cfg.pb_v2_signal_floor_tier_b
+        if score < effective_signal_floor:
+            diag.log_filter(sym_name, "daily_signal_floor", False, f"score_{score:.2f}_below_{effective_signal_floor:.2f}")
             continue
 
         # CDD hard filter (research parity)
@@ -420,20 +574,22 @@ def _pullback_daily_selection(
 
         # Flow policy: rescue candidates
         rescue_candidate = False
-        if cfg.pb_flow_policy == "soft_penalty_rescue":
-            if symbol.flow_proxy_history:
-                last_flow = symbol.flow_proxy_history[-1:]
-                if last_flow and last_flow[0] < 0:
-                    if score >= cfg.pb_daily_rescue_min_score:
-                        rescue_candidate = True
-                        sizing_mult *= cfg.pb_rescue_size_mult
-                    else:
-                        diag.log_filter(sym_name, "flow", False, "negative_flow_below_rescue")
-                        continue
+        flow_negative = bool(symbol.flow_proxy_history and symbol.flow_proxy_history[-1] < 0)
+        if flow_negative and cfg.pb_flow_policy == "hard_reject":
+            diag.log_filter(sym_name, "flow", False, "negative_flow_hard_reject")
+            continue
+        if flow_negative and cfg.pb_flow_policy == "soft_penalty_rescue":
+            if score >= cfg.pb_daily_rescue_min_score:
+                rescue_candidate = True
+                sizing_mult *= cfg.pb_rescue_size_mult
+            else:
+                diag.log_filter(sym_name, "flow", False, "negative_flow_below_rescue")
+                continue
 
         # Extract daily EMA10 and RSI14 for intraday exit chain
         ema10_val = 0.0
         rsi14_val = 0.0
+        entry_rsi = 50.0
         if "ema10" in ind and len(ind["ema10"]) > 0:
             v = float(ind["ema10"][-1])
             if not np.isnan(v):
@@ -442,6 +598,10 @@ def _pullback_daily_selection(
             v = float(ind["rsi14"][-1])
             if not np.isnan(v):
                 rsi14_val = v
+        if "rsi2" in ind and len(ind["rsi2"]) > 0:
+            v = float(ind["rsi2"][-1])
+            if not np.isnan(v):
+                entry_rsi = v
 
         # Compute T1-compat fields for backward compatibility
         rs_percentile = _leader_percentile(symbol, peers_by_sector.get(symbol.sector, [symbol]))
@@ -475,7 +635,7 @@ def _pullback_daily_selection(
             leader_pass=True,
             trend_pass=trend_tier_val == "STRONG",
             trend_strength=trend_strength,
-            earnings_risk_flag=(symbol.earnings_within_sessions or 99) <= 3,
+            earnings_risk_flag=_earnings_risk(symbol),
             blacklist_flag=symbol.blacklist_flag,
             anchor_date=symbol.daily_bars[anchor_index].trade_date if symbol.daily_bars else snapshot.trade_date,
             anchor_type=anchor_type,
@@ -492,6 +652,8 @@ def _pullback_daily_selection(
             recommended_risk_r=sizing_mult,
             average_30m_volume=max(symbol.average_30m_volume, 0.0),
             expected_5m_volume=max(symbol.expected_5m_volume, 0.0),
+            expected_5m_profile=tuple(symbol.expected_5m_profile),
+            information_state_available=bool(symbol.information_state_available),
             entry_gap_pct=_entry_gap_pct(symbol),
             flow_proxy_gate_pass=not rescue_candidate,
             # Pullback V2 fields
@@ -504,8 +666,43 @@ def _pullback_daily_selection(
             cdd_value=cdd_value,
             ema10_daily=ema10_val,
             rsi14_daily=rsi14_val,
+            entry_rsi=entry_rsi,
+            previous_close=float(symbol.daily_bars[-1].close) if symbol.daily_bars else 0.0,
+            aperture_candidate=bool(
+                cfg.pb_aperture_enabled
+                and cfg.pb_aperture_include_incumbent
+            ),
         )
         items.append(item)
+
+    if cfg.pb_aperture_enabled:
+        incumbent_symbols = {item.symbol for item in items}
+        aperture_rows: list[tuple[float, str, int, float, float]] = []
+        for symbol_name, symbol in universe.items():
+            if symbol_name in incumbent_symbols or len(symbol.daily_bars) < 25:
+                continue
+            context_score, consecutive_down, five_day_return, sma20_slope_atr = _aperture_context(symbol)
+            aperture_rows.append(
+                (context_score, symbol_name, consecutive_down, five_day_return, sma20_slope_atr)
+            )
+        aperture_rows.sort(key=lambda row: (-row[0], row[1]))
+        for context_score, symbol_name, consecutive_down, five_day_return, sma20_slope_atr in aperture_rows[
+            : max(int(cfg.pb_aperture_max_symbols), 0)
+        ]:
+            items.append(
+                _build_aperture_item(
+                    snapshot=snapshot,
+                    symbol=universe[symbol_name],
+                    regime=regime,
+                    settings=cfg,
+                    sector_scores=sector_scores,
+                    sector_weights=sector_weights,
+                    context_score=context_score,
+                    consecutive_down=consecutive_down,
+                    five_day_return=five_day_return,
+                    sma20_slope_atr=sma20_slope_atr,
+                )
+            )
 
     return items
 
@@ -626,6 +823,18 @@ def daily_selection_from_snapshot(
     diag = diagnostics or JsonlDiagnostics(cfg.diagnostics_dir, enabled=False)
     regime = compute_market_regime(snapshot, cfg)
     diag.log_regime({"score": regime.score, "tier": regime.tier, "risk_multiplier": regime.risk_multiplier})
+    if cfg.strategy_mode == "daily_residual_reversion":
+        # Residual reversal is deliberately unconditional on the legacy
+        # directional regime tier.  Cross-sectional dispersion and execution
+        # quality are causal score inputs; a Tier-C veto would discard many of
+        # the dislocations the sleeve is designed to harvest.
+        from .daily_residual_selection import build_daily_residual_artifact
+
+        return build_daily_residual_artifact(
+            snapshot=snapshot,
+            settings=cfg,
+            regime=regime,
+        )
     if regime.tier == "C":
         return WatchlistArtifact(
             trade_date=snapshot.trade_date,
@@ -647,9 +856,54 @@ def daily_selection_from_snapshot(
     else:
         items = _legacy_daily_selection(snapshot, cfg, diag, regime, universe, sector_scores, sector_weights)
 
-    ranked = sorted(items, key=lambda item: item.daily_rank, reverse=True)
+    if cfg.pb_v2_enabled:
+        core_items = sorted(
+            (
+                item for item in items
+                if not item.rescue_flow_candidate and not is_aperture_only_item(item)
+            ),
+            key=lambda item: (-item.daily_signal_score, -item.daily_rank, item.entry_rsi),
+        )
+        rescue_items = sorted(
+            (
+                item for item in items
+                if item.rescue_flow_candidate and not is_aperture_only_item(item)
+            ),
+            key=lambda item: (-item.daily_signal_score, item.entry_rsi),
+        )
+        aperture_items = sorted(
+            (item for item in items if is_aperture_only_item(item)),
+            key=lambda item: (-item.aperture_context_score, item.symbol),
+        )
+        core_total = len(core_items)
+        ranked = []
+        for rank, item in enumerate(core_items, start=1):
+            rank_pct = 50.0 if core_total == 1 else rank / core_total * 100.0
+            ranked.append(replace(item, entry_rank=rank, entry_rank_pct=rank_pct))
+        for rescue_rank, item in enumerate(rescue_items, start=1):
+            ranked.append(replace(item, entry_rank=core_total + rescue_rank, entry_rank_pct=100.0))
+        incumbent_total = len(ranked)
+        aperture_total = len(aperture_items)
+        for aperture_rank, item in enumerate(aperture_items, start=1):
+            rank_pct = 50.0 if aperture_total == 1 else aperture_rank / aperture_total * 100.0
+            ranked.append(
+                replace(
+                    item,
+                    entry_rank=incumbent_total + aperture_rank,
+                    entry_rank_pct=rank_pct,
+                )
+            )
+    else:
+        ranked = sorted(items, key=lambda item: item.daily_rank, reverse=True)
     tradable_ratio = 0.30 if regime.tier == "A" else 0.20
-    tradable_count = min(len(ranked), max(1 if ranked else 0, int(len(ranked) * tradable_ratio)))
+    # The replay engine evaluates every artifact item.  Making the full capped
+    # artifact actionable when the aperture is enabled gives live the identical
+    # candidate set and removes the old hidden overflow-parity mismatch.
+    tradable_count = (
+        len(ranked)
+        if cfg.pb_aperture_enabled
+        else min(len(ranked), max(1 if ranked else 0, int(len(ranked) * tradable_ratio)))
+    )
     tradable: list[WatchlistItem] = []
     overflow: list[WatchlistItem] = []
     for index, item in enumerate(ranked):

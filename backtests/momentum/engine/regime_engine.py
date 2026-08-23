@@ -30,8 +30,8 @@ from strategies.momentum.nq_regime.core.logic import on_fill as core_on_fill
 from strategies.momentum.nq_regime.core.logic import on_order_update as core_on_order_update
 from strategies.momentum.nq_regime.core.state import AuthorizationEvent, BarData, FillEvent, OrderUpdateEvent, RegimeCoreState
 from strategies.momentum.nq_regime.modules import liquidity_reversion, second_wind, structural_expansion
-from strategies.scalp._shared.nq_contract import spec_for
-from strategies.scalp._shared.time_utils import session_date, to_et
+from strategies.momentum.nq_regime.contract import spec_for
+from strategies.momentum.nq_regime.time_utils import session_date
 
 
 @dataclass

@@ -26,6 +26,7 @@ class ShadowSetup:
     momentum_score: int = 0
     rvol_at_rejection: float = 0.0
     entry_type: str = ""
+    opportunity_id: str = ""
     # Updated bar-by-bar
     active: bool = True
     bars_held: int = 0
@@ -48,6 +49,7 @@ class ALCBShadowTracker:
         self._active_shadows: list[ShadowSetup] = []
         self._completed: list[ShadowSetup] = []
         self._funnel: dict[str, int] = {}
+        self._seen_opportunities: set[str] = set()
 
     # ------------------------------------------------------------------
     # Recording
@@ -57,13 +59,18 @@ class ALCBShadowTracker:
         """Increment funnel counter."""
         self._funnel[stage] = self._funnel.get(stage, 0) + 1
 
-    def record_rejection(self, setup: ShadowSetup) -> None:
-        """Record a rejected entry for shadow simulation."""
+    def record_rejection(self, setup: ShadowSetup) -> bool:
+        """Record one rejected opportunity, deduplicated across later bars."""
+        if setup.opportunity_id and setup.opportunity_id in self._seen_opportunities:
+            return False
+        if setup.opportunity_id:
+            self._seen_opportunities.add(setup.opportunity_id)
         rps = abs(setup.entry_price - setup.stop_price)
         setup.risk_per_share = rps if rps > 0 else 1.0
         setup.max_price = setup.entry_price
         setup.min_price = setup.entry_price
         self._active_shadows.append(setup)
+        return True
 
     # ------------------------------------------------------------------
     # Bar-by-bar update

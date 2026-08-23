@@ -25,6 +25,7 @@ from backtests.stock.data.bundle import (
 )
 from backtests.stock.data.calendar import RTH_SESSION_POLICY
 from backtests.stock.data.downloader import REFERENCE_SYMBOLS
+from backtests.stock.data.update_intraday import IARIC_RESIDUAL_DAILY_REFERENCES
 from strategies.stock.live_universe import BACKTESTED_INTRADAY_STOCK_SYMBOLS
 
 
@@ -43,16 +44,40 @@ def snapshot_legacy(args: argparse.Namespace) -> None:
 
 def build_bundle(args: argparse.Namespace) -> None:
     intraday = list(BACKTESTED_INTRADAY_STOCK_SYMBOLS)
-    daily = list(dict.fromkeys([*intraday, *REFERENCE_SYMBOLS]))
+    daily = list(
+        dict.fromkeys(
+            [
+                *intraday,
+                *(
+                    IARIC_RESIDUAL_DAILY_REFERENCES
+                    if args.profile == "iaric-residual"
+                    else REFERENCE_SYMBOLS
+                ),
+            ]
+        )
+    )
+    timeframes = (
+        ("1d",)
+        if args.profile == "iaric-residual"
+        else tuple(args.timeframes.split(","))
+    )
     payload = build_frozen_bundle(
         repo_root=REPO_ROOT,
         authority_root=Path(args.authority_root),
         output_path=Path(args.output),
         intraday_symbols=intraday,
         daily_symbols=daily,
-        timeframes=tuple(args.timeframes.split(",")),
+        timeframes=timeframes,
         session_policy_by_timeframe={
-            timeframe: RTH_SESSION_POLICY for timeframe in args.timeframes.split(",")
+            timeframe: RTH_SESSION_POLICY for timeframe in timeframes
+        },
+        what_to_show_by_timeframe={
+            timeframe: (
+                "ADJUSTED_LAST"
+                if args.profile == "iaric-residual" and timeframe == "1d"
+                else "TRADES"
+            )
+            for timeframe in timeframes
         },
         require_clean=not args.allow_dirty,
     )
@@ -239,6 +264,7 @@ def build_parser() -> argparse.ArgumentParser:
     bundle.add_argument("--authority-root", default=str(DEFAULT_AUTHORITY_ROOT))
     bundle.add_argument("--output", required=True)
     bundle.add_argument("--timeframes", default="1d,30m,5m")
+    bundle.add_argument("--profile", choices=["all", "iaric-residual"], default="all")
     bundle.add_argument("--allow-dirty", action="store_true")
     bundle.set_defaults(handler=build_bundle)
 

@@ -47,7 +47,7 @@ def _artifact(trade_date: date) -> CandidateArtifact:
         tick_size=0.01,
         point_value=1.0,
         sector="Technology",
-        adv20_usd=25_000_000.0,
+        adv20_usd=2_500_000_000.0,
         median_spread_pct=0.001,
         selection_score=87,
         selection_detail={"compression": 40, "momentum": 47},

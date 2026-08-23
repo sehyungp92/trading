@@ -157,13 +157,10 @@ class TPCSymbolConfig:
     max_open_risk_r: float = 1.5
     max_position_notional_pct: float = 6.0
 
-    asset_context_enabled: bool = False
-    asset_context_min_score: float = -1.0
-    # A negative completed daily context vote is qualitatively different from
-    # a neutral vote. Strategies may opt into a hard veto instead of allowing
-    # an opposing daily trend to be cancelled out by shorter-timeframe votes.
-    asset_context_block_opposed_daily: bool = False
-    asset_context_symbol: str = ""
+    # TPC is ETF-only. This score is built exclusively from the traded ETF's
+    # completed 4h DI and moving-average state; it has no futures dependency.
+    etf_context_enabled: bool = False
+    etf_context_min_score: float = -1.0
 
     primary_windows_et: tuple[tuple[int, int, int, int], ...] = ()
     avoid_windows_et: tuple[tuple[int, int, int, int], ...] = ((11, 0, 12, 0),)
@@ -197,11 +194,9 @@ SYMBOL_CONFIGS: dict[str, TPCSymbolConfig] = {
         t1_partial_pct=0.70,
         t1_stop_r=0.35,
         addon_min_score=12,
-        asset_context_enabled=True,
-        asset_context_min_score=-0.1,
-        asset_context_block_opposed_daily=True,
+        etf_context_enabled=True,
+        etf_context_min_score=-0.1,
         shorts_require_a_plus=True,
-        asset_context_symbol="NQ",
         primary_exchange="NASDAQ",
     ),
     "GLD": TPCSymbolConfig(
@@ -216,13 +211,12 @@ SYMBOL_CONFIGS: dict[str, TPCSymbolConfig] = {
         confirmation_combo_mode="structure_or_vwap",
         score_a_min=11,
         score_b_min=10,
-        asset_context_enabled=True,
+        etf_context_enabled=True,
         require_structure_confirmation=True,
         max_extension_atr_mult=1.5,
         min_ma50_slope_atr_4h=0.04,
         min_ma100_slope_atr_4h=0.06,
         require_di_alignment=True,
-        asset_context_symbol="GC",
         primary_exchange="ARCA",
     ),
 }

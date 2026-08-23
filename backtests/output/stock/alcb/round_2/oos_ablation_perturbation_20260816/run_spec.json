@@ -1,0 +1,25 @@
+{
+  "authoritative_bundle_available": false,
+  "base_config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\optimized_config.json",
+  "batch_size": 8,
+  "candidate_count": 263,
+  "candidate_counts_by_stage": {
+    "ablation": 62,
+    "perturbation": 171,
+    "targeted": 30
+  },
+  "data_authority": "diagnostic-only repaired legacy filename cache",
+  "evaluator": "process",
+  "generated_at_utc": "2026-08-16T19:51:44.491789+00:00",
+  "max_workers": 4,
+  "windows": {
+    "is": {
+      "end": "2026-03-01",
+      "start": "2024-03-25"
+    },
+    "oos": {
+      "end": "2026-05-01",
+      "start": "2026-03-02"
+    }
+  }
+}

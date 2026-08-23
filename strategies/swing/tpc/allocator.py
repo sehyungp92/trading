@@ -10,7 +10,7 @@ def score_setup(
     confirmations: list[str],
     rr_ratio: float,
     has_news_risk: bool,
-    asset_context_score: float,
+    etf_context_score: float,
     daily_has_room: bool,
     *,
     orderly_pullback: bool = True,
@@ -24,7 +24,7 @@ def score_setup(
             confirmations,
             rr_ratio,
             has_news_risk,
-            asset_context_score,
+            etf_context_score,
             daily_has_room,
             orderly_pullback=orderly_pullback,
             atr_healthy=atr_healthy,
@@ -40,7 +40,7 @@ def score_setup(
     score += 1 if atr_healthy else 0
     score += 2 if rr_ratio >= 2.0 else 0
     score += 1 if not has_news_risk else 0
-    score += 1 if asset_context_score > 0 else 0
+    score += 1 if etf_context_score > 0 else 0
     score += 1 if daily_has_room else 0
     return score
 
@@ -51,7 +51,7 @@ def _score_setup_alpha7(
     confirmations: list[str],
     rr_ratio: float,
     has_news_risk: bool,
-    asset_context_score: float,
+    etf_context_score: float,
     daily_has_room: bool,
     *,
     orderly_pullback: bool,
@@ -71,7 +71,7 @@ def _score_setup_alpha7(
     score += 2 if has_vwap else 0
     score += 1 if has_volume else 0
     score += (2 if rr_ratio >= 2.0 else 0) + (1 if daily_has_room else 0)
-    score += (1 if atr_healthy else 0) + (1 if asset_context_score > 0 and not has_news_risk else 0)
+    score += (1 if atr_healthy else 0) + (1 if etf_context_score > 0 and not has_news_risk else 0)
     return score
 
 

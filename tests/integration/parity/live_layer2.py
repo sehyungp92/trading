@@ -11,7 +11,7 @@ from tests.integration.parity.live_oms import settle_callbacks as _settle_callba
 from tests.integration.parity.source_inputs import (
     bar_objects,
     iaric_artifact,
-    iaric_minute_bars,
+    iaric_completed_5m_bars,
     iaric_quote,
     iaric_state_snapshot,
     momentum_r1b_raw_timeline,
@@ -290,9 +290,11 @@ async def drive_layer2_live_inputs(fixture: Mapping[str, Any], engines: Mapping[
         symbols = sorted({str(row.get("symbol", "")).upper() for row in fixture.get("bars", []) if row.get("symbol")})
         for symbol in symbols:
             engine.on_quote(symbol, iaric_quote(fixture, symbol))
-            for bar in iaric_minute_bars(fixture, symbol):
-                engine.on_bar(symbol, bar)
+            for bar in iaric_completed_5m_bars(fixture, symbol):
+                engine.on_completed_5m_bar(symbol, bar)
                 await _settle_callbacks()
+        engine.flush_all_completed_5m_batches()
+        await _settle_callbacks()
 
 
 async def drive_momentum_r1b_raw_timeline(

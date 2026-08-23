@@ -23,8 +23,8 @@ ROUND3_DIR = STRATEGY_DIR / "round_3"
 MANIFEST_PATH = STRATEGY_DIR / "rounds_manifest.json"
 RESTORE_ARCHIVE = (
     STRATEGY_DIR
-    / "archived_rounds"
-    / "20260723T180854Z_pre_final_risk_optimization_round2"
+    / "archive"
+    / "20260723_1808_pre_final_risk_r2"
 )
 RESTORE_ROUND2 = RESTORE_ARCHIVE / "round_2"
 RESTORE_MANIFEST = RESTORE_ARCHIVE / "rounds_manifest.json"
@@ -232,7 +232,7 @@ def main() -> int:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     migration_backup = (
         STRATEGY_DIR
-        / "archived_rounds"
+        / "archive"
         / f"{timestamp}_pre_round3_lineage_correction"
     )
     _assert_within(migration_backup, STRATEGY_DIR)

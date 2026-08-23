@@ -43,6 +43,7 @@ def build_entry_order(
     exchange_timestamp: datetime | None = None,
     trace_id: str = "",
     lineage_context: dict[str, Any] | None = None,
+    ttl_seconds: int = 30,
 ) -> OMSOrder:
     instrument = build_stock_instrument(item)
     return OMSOrder(
@@ -55,7 +56,7 @@ def build_entry_order(
         order_type=OrderType.LIMIT,
         limit_price=limit_price,
         role=OrderRole.ENTRY,
-        entry_policy=EntryPolicy(ttl_seconds=30, max_reprices=0),
+        entry_policy=EntryPolicy(ttl_seconds=max(int(ttl_seconds), 1), max_reprices=0),
         risk_context=RiskContext(
             stop_for_risk=stop_for_risk,
             planned_entry_price=limit_price,
@@ -69,7 +70,52 @@ def build_entry_order(
     )
 
 
-def build_stop_order(item: WatchlistItem, account_id: str, qty: int, stop_price: float) -> OMSOrder:
+def build_market_entry(
+    item: WatchlistItem | Any,
+    account_id: str,
+    qty: int,
+    planned_entry_price: float,
+    stop_for_risk: float,
+    *,
+    client_order_id: str,
+    signal_id: str = "daily_residual_reversion",
+    exchange_timestamp: datetime | None = None,
+) -> OMSOrder:
+    """Build a next-open market entry from a pre-session residual decision."""
+
+    instrument = build_stock_instrument(item)
+    return OMSOrder(
+        client_order_id=client_order_id,
+        strategy_id=STRATEGY_ID,
+        account_id=account_id,
+        instrument=instrument,
+        side=OrderSide.BUY,
+        qty=int(qty),
+        order_type=OrderType.MARKET,
+        role=OrderRole.ENTRY,
+        entry_policy=EntryPolicy(ttl_seconds=4 * 60 * 60, max_reprices=0),
+        risk_context=RiskContext(
+            stop_for_risk=float(stop_for_risk),
+            planned_entry_price=float(planned_entry_price),
+            risk_budget_tag="IARIC_RESIDUAL",
+            signal_id=signal_id,
+            exchange_timestamp=exchange_timestamp,
+            lineage_context={
+                "sleeve_id": "daily_residual_reversion",
+                "entry_clock": "next_session_open",
+            },
+        ),
+    )
+
+
+def build_stop_order(
+    item: WatchlistItem,
+    account_id: str,
+    qty: int,
+    stop_price: float,
+    *,
+    oca_group: str = "",
+) -> OMSOrder:
     instrument = build_stock_instrument(item)
     return OMSOrder(
         client_order_id=f"{item.symbol}-stop-{uuid.uuid4().hex[:12]}",
@@ -82,10 +128,19 @@ def build_stop_order(item: WatchlistItem, account_id: str, qty: int, stop_price:
         stop_price=stop_price,
         role=OrderRole.STOP,
         tif="GTC",
+        oca_group=oca_group,
+        oca_type=1 if oca_group else 0,
     )
 
 
-def build_market_exit(item: WatchlistItem, account_id: str, qty: int, role: OrderRole = OrderRole.EXIT) -> OMSOrder:
+def build_market_exit(
+    item: WatchlistItem,
+    account_id: str,
+    qty: int,
+    role: OrderRole = OrderRole.EXIT,
+    *,
+    oca_group: str = "",
+) -> OMSOrder:
     instrument = build_stock_instrument(item)
     return OMSOrder(
         client_order_id=f"{item.symbol}-exit-{uuid.uuid4().hex[:12]}",
@@ -96,6 +151,8 @@ def build_market_exit(item: WatchlistItem, account_id: str, qty: int, role: Orde
         qty=qty,
         order_type=OrderType.MARKET,
         role=role,
+        oca_group=oca_group,
+        oca_type=1 if oca_group else 0,
     )
 
 

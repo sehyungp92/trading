@@ -21,6 +21,7 @@ class ALCBCoreState:
     last_decision_code: str = "IDLE"
     last_decision_details: dict[str, Any] = field(default_factory=dict)
     last_bar_ts: datetime | None = None
+    daily_realized_r: float = 0.0
 
 
 @dataclass(slots=True)

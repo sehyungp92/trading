@@ -1,3 +1,0 @@
-2026-05-23 22:31:34,341 INFO research.backtests.shared.auto.phase.08f6f983986e.7: Starting phase 7 with 0 candidates
-2026-05-23 22:31:37,879 WARNING research.backtests.shared.auto.phase.08f6f983986e.7: Baseline rejected by hard rejects: phase7_short_hold_24_drag_inverse (0.3096 < 0.3200). Candidates must still beat this score AND pass hard rejects to be accepted.
-2026-05-23 22:31:39,922 INFO research.backtests.shared.auto.phase.08f6f983986e.7: Phase 7 complete: 0.0000 -> 0.0000 (0 accepted)

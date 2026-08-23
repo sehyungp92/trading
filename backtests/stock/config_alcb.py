@@ -5,6 +5,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from backtests.stock.config import SlippageConfig, UniverseConfig
+from backtests.stock.data.calendar import (
+    EXTENDED_SESSION_POLICY,
+    RAW_SESSION_POLICY,
+    RTH_SESSION_POLICY,
+)
 
 
 @dataclass(frozen=True)
@@ -67,6 +72,10 @@ class ALCBBacktestConfig:
     tier: int = 1
     data_dir: Path = field(default_factory=lambda: Path("backtests/stock/data/raw"))
     warmup_days: int = 250
+    # ALCB is a regular-hours opening-range strategy.  Keep this explicit so
+    # legacy extended-hours results can be reproduced without contaminating
+    # the corrected default replay.
+    intraday_session_policy: str = RTH_SESSION_POLICY
     slippage: SlippageConfig = field(default_factory=SlippageConfig)
     universe: UniverseConfig = field(default_factory=UniverseConfig)
     ablation: ALCBAblationFlags = field(default_factory=ALCBAblationFlags)
@@ -82,3 +91,15 @@ class ALCBBacktestConfig:
     # Logging
     verbose: bool = False
     log_trades: bool = True
+
+    def __post_init__(self) -> None:
+        allowed = {
+            RTH_SESSION_POLICY,
+            EXTENDED_SESSION_POLICY,
+            RAW_SESSION_POLICY,
+        }
+        if self.intraday_session_policy not in allowed:
+            raise ValueError(
+                f"unsupported ALCB intraday session policy: "
+                f"{self.intraday_session_policy}"
+            )

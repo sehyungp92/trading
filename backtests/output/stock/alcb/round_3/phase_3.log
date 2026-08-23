@@ -1,3 +1,0 @@
-2026-05-23 22:22:29,474 INFO research.backtests.shared.auto.phase.08f6f983986e.3: Starting phase 3 with 0 candidates
-2026-05-23 22:22:37,445 WARNING research.backtests.shared.auto.phase.08f6f983986e.3: Baseline rejected by hard rejects: phase3_short_hold_24_drag_inverse (0.3158 < 0.3200). Candidates must still beat this score AND pass hard rejects to be accepted.
-2026-05-23 22:22:39,691 INFO research.backtests.shared.auto.phase.08f6f983986e.3: Phase 3 complete: 0.0000 -> 0.0000 (0 accepted)

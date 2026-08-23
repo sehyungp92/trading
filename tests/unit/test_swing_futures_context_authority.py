@@ -77,6 +77,24 @@ def _write_single_contract_source(data_dir: Path, symbol: str, month: str, con_i
     )
 
 
+def _write_etf_source(data_dir: Path, symbol: str = "QQQ") -> None:
+    data_dir.mkdir(parents=True, exist_ok=True)
+    specs = (("15m", "15min", 320), ("1h", "1h", 160), ("1d", "1D", 80))
+    for timeframe, frequency, periods in specs:
+        index = pd.date_range("2025-01-02T14:30:00Z", periods=periods, freq=frequency)
+        frame = pd.DataFrame(
+            {
+                "open": [100.0 + value * 0.01 for value in range(periods)],
+                "high": [100.5 + value * 0.01 for value in range(periods)],
+                "low": [99.5 + value * 0.01 for value in range(periods)],
+                "close": [100.25 + value * 0.01 for value in range(periods)],
+                "volume": [100.0] * periods,
+            },
+            index=index,
+        )
+        frame.to_parquet(data_dir / f"{symbol}_{timeframe}.parquet")
+
+
 def test_gc_uses_comex_bimonthly_contract_calendar() -> None:
     contracts = generate_futures_contracts(
         "GC",
@@ -94,13 +112,12 @@ def test_gc_uses_comex_bimonthly_contract_calendar() -> None:
     assert root_spec("GC").panama_min_gap_guard_points == pytest.approx(150.0)
 
 
-def test_tpc_selection_artifacts_exclude_five_minute_parents(tmp_path: Path) -> None:
-    artifacts = tpc_replay_source_artifacts(tmp_path)
+def test_tpc_selection_artifacts_are_traded_etfs_only(tmp_path: Path) -> None:
+    artifacts = tpc_replay_source_artifacts(tmp_path, symbols=("QQQ",))
 
-    assert artifacts
-    assert all("_5m." not in path.name for path in artifacts.values())
-    assert tmp_path / "NQ_1h.manifest.json" in artifacts.values()
-    assert tmp_path / "GC_futures_context.manifest.json" in artifacts.values()
+    assert set(artifacts) == {"QQQ_15m", "QQQ_1h", "QQQ_1d"}
+    assert all(path.parent == tmp_path for path in artifacts.values())
+    assert all(path.name.startswith("QQQ_") for path in artifacts.values())
 
 
 def test_promote_context_derives_and_certifies_both_timeframes(tmp_path: Path) -> None:
@@ -165,64 +182,32 @@ def test_certified_children_remain_valid_without_local_parent(tmp_path: Path) ->
     assert report.ok, report.errors
 
 
-def test_tpc_strict_loader_consumes_certified_children_without_local_parent(tmp_path: Path) -> None:
-    _write_single_contract_source(tmp_path, "NQ", "202603", "1001")
-    promote_derived_swing_futures_context(tmp_path, symbols=("NQ",))
-    etf = pd.read_parquet(tmp_path / "NQ_5m.parquet")[["open", "high", "low", "close", "volume"]]
-    etf.to_parquet(tmp_path / "QQQ_15m.parquet")
-    derive_context_frame(etf, "1h").to_parquet(tmp_path / "QQQ_1h.parquet")
-    derive_context_frame(etf, "1d").to_parquet(tmp_path / "QQQ_1d.parquet")
-    (tmp_path / "NQ_5m.parquet").unlink()
-    (tmp_path / "NQ_5m.manifest.json").unlink()
-    shutil.rmtree(tmp_path / "_physical_contracts")
+def test_tpc_loader_requires_only_traded_etf_bars(tmp_path: Path) -> None:
+    _write_etf_source(tmp_path)
 
-    bundle = load_tpc_replay_bundle(
-        tmp_path,
-        symbols=("QQQ",),
-        require_context_authority=True,
-    )
+    bundle = load_tpc_replay_bundle(tmp_path, symbols=("QQQ",))
 
-    assert bundle.data["QQQ"]["context_symbol"] == "NQ"
-    assert bundle.data["QQQ"]["context_indicators"]
+    assert set(bundle.data) == {"QQQ"}
+    assert set(bundle.data["QQQ"]) == {
+        "bars_15m", "bars_30m", "bars_1h", "bars_4h", "bars_daily",
+        "idx_30m", "idx_1h", "idx_4h", "idx_daily",
+    }
 
 
-def test_tpc_loader_can_keep_etf_data_separate_from_context_authority(tmp_path: Path) -> None:
+def test_tpc_loader_is_independent_of_legacy_futures_authority(tmp_path: Path) -> None:
     authority_dir = tmp_path / "authority"
     etf_dir = tmp_path / "etf"
     _write_single_contract_source(authority_dir, "NQ", "202603", "1001")
     promote_derived_swing_futures_context(authority_dir, symbols=("NQ",))
-    etf_dir.mkdir()
-    etf = pd.read_parquet(authority_dir / "NQ_5m.parquet")[["open", "high", "low", "close", "volume"]]
-    etf.to_parquet(etf_dir / "QQQ_15m.parquet")
-    derive_context_frame(etf, "1h").to_parquet(etf_dir / "QQQ_1h.parquet")
-    derive_context_frame(etf, "1d").to_parquet(etf_dir / "QQQ_1d.parquet")
+    _write_etf_source(etf_dir)
 
-    bundle = load_tpc_replay_bundle(
-        etf_dir,
-        symbols=("QQQ",),
-        require_context_authority=True,
-        context_data_dir=authority_dir,
-    )
-    artifacts = tpc_replay_source_artifacts(
-        etf_dir,
-        symbols=("QQQ",),
-        require_context_authority=True,
-        context_data_dir=authority_dir,
-    )
+    shutil.rmtree(authority_dir)
+    bundle = load_tpc_replay_bundle(etf_dir, symbols=("QQQ",))
+    artifacts = tpc_replay_source_artifacts(etf_dir, symbols=("QQQ",))
 
-    assert bundle.data["QQQ"]["context_indicators"]
-    assert artifacts["NQ_1h"] == authority_dir / "NQ_1h.parquet"
-
-    early = etf.iloc[[0]].copy()
-    early.index = early.index - pd.Timedelta(hours=2)
-    pd.concat([early, etf]).to_parquet(etf_dir / "QQQ_15m.parquet")
-    with pytest.raises(FuturesContextAuthorityError, match="does not cover the requested"):
-        load_tpc_replay_bundle(
-            etf_dir,
-            symbols=("QQQ",),
-            require_context_authority=True,
-            context_data_dir=authority_dir,
-        )
+    assert "bars_15m" in bundle.data["QQQ"]
+    assert all(path.parent == etf_dir for path in artifacts.values())
+    assert not any("NQ" in name or "GC" in name for name in artifacts)
 
 
 def test_publisher_rejects_unexplained_in_session_parent_gap(tmp_path: Path) -> None:
@@ -288,9 +273,9 @@ def test_validation_rejects_child_tampering(tmp_path: Path) -> None:
     assert any("hash" in error for error in portable_report.errors)
 
 
-def test_tpc_strict_loader_fails_before_using_unattested_context(tmp_path: Path) -> None:
-    with pytest.raises(FuturesContextAuthorityError, match="TPC futures-context authority failed"):
-        load_tpc_replay_bundle(tmp_path, require_context_authority=True)
+def test_tpc_loader_fails_when_traded_etf_inputs_are_missing(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        load_tpc_replay_bundle(tmp_path, symbols=("QQQ",))
 
 
 def test_source_contract_receipt_requires_con_id(tmp_path: Path) -> None:

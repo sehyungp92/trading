@@ -1,0 +1,23 @@
+{
+  "10": {
+    "average_r": 0.27912005041809984,
+    "method": "fixed_trade_set_round_trip_notional_delta",
+    "profit_factor": 1.458073663125434,
+    "total_r": 94.62169709173585,
+    "trades": 339
+  },
+  "30": {
+    "average_r": 0.21672026655140927,
+    "method": "fixed_trade_set_round_trip_notional_delta",
+    "profit_factor": 1.3397386781652358,
+    "total_r": 73.46817036092774,
+    "trades": 339
+  },
+  "40": {
+    "average_r": 0.18552037461806398,
+    "method": "fixed_trade_set_round_trip_notional_delta",
+    "profit_factor": 1.284264742161177,
+    "total_r": 62.89140699552369,
+    "trades": 339
+  }
+}

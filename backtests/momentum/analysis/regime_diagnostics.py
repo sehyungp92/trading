@@ -6,7 +6,7 @@ from typing import Any, Iterable
 
 import numpy as np
 
-from strategies.scalp._shared.nq_contract import spec_for
+from strategies.momentum.nq_regime.contract import spec_for
 
 MODULE_SPECS = {
     "second_wind": ("nq_1", "Second-Wind Continuation", "AM trend + compression + PM squeeze fire"),

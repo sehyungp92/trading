@@ -3,7 +3,7 @@ from __future__ import annotations
 from strategies.momentum.nq_regime import config
 from strategies.momentum.nq_regime.config import Grade, ModuleId
 from strategies.momentum.nq_regime.core.scoring import risk_pct_for_grade
-from strategies.scalp._shared.nq_contract import compute_contracts, spec_for
+from strategies.momentum.nq_regime.contract import compute_contracts, spec_for
 
 
 def compute_position_size(

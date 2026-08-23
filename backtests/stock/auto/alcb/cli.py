@@ -41,6 +41,7 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True):
         initial_equity=args.equity,
         max_workers=getattr(args, "max_workers", None),
         experiment_names=experiment_names,
+        allow_projected_rth_data=getattr(args, "allow_projected_rth_data", False),
     )
 
     round_manager = None
@@ -58,13 +59,19 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True):
             plugin.initial_mutations = sanitize_round2_seed(
                 round_manager.get_previous_mutations(
                     round_num,
-                    current_provenance=plugin.build_provenance(),
+                    current_provenance=(
+                        None if getattr(args, "allow_selection_drift", False)
+                        else plugin.build_provenance()
+                    ),
                 )
             )
         elif round_num > 2:
             plugin.initial_mutations = round_manager.get_previous_mutations(
                 round_num,
-                current_provenance=plugin.build_provenance(),
+                current_provenance=(
+                    None if getattr(args, "allow_selection_drift", False)
+                    else plugin.build_provenance()
+                ),
             )
 
     return PhaseRunner(
@@ -76,6 +83,7 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True):
         max_retries=getattr(args, "max_retries", 0),
         round_manager=round_manager,
         round_num=round_num,
+        allow_selection_drift=getattr(args, "allow_selection_drift", False),
     )
 
 
@@ -167,6 +175,22 @@ def _add_common(command: argparse.ArgumentParser) -> None:
     command.add_argument("--min-delta", type=float, default=0.001)
     command.add_argument("--max-retries", type=int, default=0)
     command.add_argument("--round", type=int, default=None)
+    command.add_argument(
+        "--allow-selection-drift",
+        action="store_true",
+        help=(
+            "Explicitly reuse the prior optimized config after structural code/scoring changes; "
+            "the new baseline is rerun and the round is marked selection_drift_accepted."
+        ),
+    )
+    command.add_argument(
+        "--allow-projected-rth-data",
+        action="store_true",
+        help=(
+            "Explicit diagnostic-only override for the recovered deterministic RTH projection "
+            "when no accepted frozen direct-RTH bundle exists."
+        ),
+    )
     command.add_argument("--experiments", nargs="*", help="Filter to specific experiment names")
 
 
@@ -179,17 +203,17 @@ def _build_standard_parser() -> argparse.ArgumentParser:
 
     phase_run = sub.add_parser("phase-run", help="Run a single ALCB phase")
     _add_common(phase_run)
-    phase_run.add_argument("--phase", type=int, required=True, choices=list(range(1, 9)))
+    phase_run.add_argument("--phase", type=int, required=True, choices=list(range(1, 7)))
 
     phase_auto = sub.add_parser("phase-auto", help="Run all ALCB phases")
     _add_common(phase_auto)
 
     phase_gate = sub.add_parser("phase-gate", help="Check a completed ALCB phase gate")
     _add_common(phase_gate)
-    phase_gate.add_argument("--phase", type=int, required=True, choices=list(range(1, 9)))
+    phase_gate.add_argument("--phase", type=int, required=True, choices=list(range(1, 7)))
 
     phase_diag = sub.add_parser("phase-diagnostics", help="Print ALCB phase diagnostics")
-    phase_diag.add_argument("--phase", type=int, required=True, choices=list(range(1, 9)))
+    phase_diag.add_argument("--phase", type=int, required=True, choices=list(range(1, 7)))
     phase_diag.add_argument("--output-dir", default="")
     phase_diag.add_argument("--round", type=int, default=None)
 

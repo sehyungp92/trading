@@ -174,11 +174,11 @@ def active_round3_exists(manager: RoundManager) -> bool:
 
 def latest_round3_archive(manager: RoundManager) -> Path:
     archives = [
-        path for path in (manager.strategy_dir / "archived_rounds").glob(f"*_{ARCHIVE_REASON}")
+        path for path in (manager.strategy_dir / "archive").glob(f"*_{ARCHIVE_REASON}")
         if path.is_dir()
     ]
     if not archives:
-        return manager.strategy_dir / "archived_rounds"
+        return manager.strategy_dir / "archive"
     return max(archives, key=lambda item: item.stat().st_mtime)
 
 

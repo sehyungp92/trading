@@ -16,6 +16,8 @@ from backtests.stock.auto.alcb.phase_candidates import (
 )
 from backtests.stock.auto.config_mutator import mutate_alcb_config
 from backtests.stock.auto.alcb.phase_scoring import (
+    IMMUTABLE_SCORING_WEIGHTS,
+    PHASE_SCORING_WEIGHTS,
     compute_alcb_phase_metrics,
     enrich_alcb_phase_metrics,
     score_alcb_phase,
@@ -28,7 +30,10 @@ from strategies.stock.alcb.models import Direction, MomentumSetup
 from strategies.stock.alcb.risk import (
     conditional_entry_blocked,
     conditional_entry_size_mult,
+    momentum_friction_gate_pass,
+    momentum_friction_to_risk,
 )
+from strategies.stock.alcb.signals import compute_momentum_score
 
 
 def _trade(
@@ -121,8 +126,65 @@ def test_round2_candidates_exclude_small_sample_sector_and_weekday_fits():
     assert "r2_tuesday075_fin025" not in {name for name, _ in all_candidates}
 
 
-def test_latest_optimized_param_overrides_match_live_defaults():
-    optimized_path = Path("backtests/output/stock/alcb/round_4/optimized_config.json")
+def test_immutable_score_has_exactly_seven_baseline_centered_components():
+    assert len(IMMUTABLE_SCORING_WEIGHTS) == 7
+    assert sum(IMMUTABLE_SCORING_WEIGHTS.values()) == pytest.approx(1.0)
+    assert all(weights == IMMUTABLE_SCORING_WEIGHTS for weights in PHASE_SCORING_WEIGHTS.values())
+
+    baseline = {
+        "total_trades": 1156,
+        "expected_total_r": 106.38602224538246,
+        "trades_per_month": 49.979758522727266,
+        "net_profit": 7747.940000000004,
+        "expectancy": 0.09202943100811632,
+        "profit_factor": 1.4632090327656573,
+        "max_drawdown_pct": 0.03428447090057068,
+        "sharpe": 3.130325868379215,
+    }
+    assert score_alcb_phase(1, baseline) == pytest.approx(0.5)
+
+
+def test_momentum_score_is_seven_factor_and_ignores_unreplayable_sector_flow():
+    first = _bar(10.5, high=10.6, low=10.0, volume=100.0)
+    current = _bar(12.0, high=12.0, low=10.0, volume=200.0)
+    settings = StrategySettings(cpr_threshold=0.6, adx_threshold=20.0)
+
+    score_positive, detail_positive = compute_momentum_score(
+        current, [first, current], 11.0, 10.0, 11.0, 10.5, 30.0, 1.0, settings,
+    )
+    score_missing, detail_missing = compute_momentum_score(
+        current, [first, current], 11.0, 10.0, 11.0, 10.5, 30.0, 0.0, settings,
+    )
+
+    assert score_positive == score_missing == 7
+    assert detail_positive == detail_missing
+    assert "sector_flow_pos" not in detail_positive
+
+
+def test_shared_momentum_friction_gate_is_quantity_independent_and_opt_in():
+    item = SimpleNamespace(median_spread_pct=0.001, tick_size=0.01, adv20_usd=6_000_000_000)
+    assert momentum_friction_to_risk(item, 100.0, 99.0) == pytest.approx(0.11)
+    assert momentum_friction_gate_pass(item, 100.0, 99.0, StrategySettings())
+    assert not momentum_friction_gate_pass(
+        item,
+        100.0,
+        99.0,
+        StrategySettings(use_momentum_friction_gate=True, max_friction_to_risk=0.10),
+    )
+    assert momentum_friction_gate_pass(
+        item,
+        100.0,
+        99.0,
+        StrategySettings(use_momentum_friction_gate=True, max_friction_to_risk=0.15),
+    )
+
+
+def test_latest_optimized_param_overrides_match_live_or_are_explicitly_provisional():
+    output_root = Path("backtests/output/stock/alcb")
+    manifest = json.loads((output_root / "rounds_manifest.json").read_text(encoding="utf-8"))
+    active_rounds = [row for row in manifest["rounds"] if not row.get("archived")]
+    latest_round = max(active_rounds, key=lambda row: int(row["round"]))
+    optimized_path = output_root / f"round_{latest_round['round']}" / "optimized_config.json"
     optimized = json.loads(optimized_path.read_text(encoding="utf-8"))
     backtest_config = mutate_alcb_config(ALCBBacktestConfig(), hydrate_time_mutations(optimized))
     backtest_settings = StrategySettings(**backtest_config.param_overrides)
@@ -135,10 +197,31 @@ def test_latest_optimized_param_overrides_match_live_defaults():
         field = key.split(".", 1)[1]
         backtest_value = getattr(backtest_settings, field)
         live_value = getattr(live_settings, field)
-        if backtest_value != live_value:
+        comparable_backtest = tuple(backtest_value) if isinstance(backtest_value, (list, tuple)) else backtest_value
+        comparable_live = tuple(live_value) if isinstance(live_value, (list, tuple)) else live_value
+        if comparable_backtest != comparable_live:
             mismatches[field] = (backtest_value, live_value)
 
-    assert mismatches == {}
+    if str(latest_round.get("provenance_status", "")).startswith("provisional_"):
+        def manifest_value(value):
+            if hasattr(value, "isoformat"):
+                return value.isoformat()
+            if isinstance(value, tuple):
+                return list(value)
+            return value
+
+        declared = latest_round.get("live_settings_mismatches")
+        observed = {
+            field: {
+                "candidate": manifest_value(values[0]),
+                "live": manifest_value(values[1]),
+            }
+            for field, values in mismatches.items()
+        }
+        assert latest_round.get("live_settings_sync_required") is True
+        assert declared == observed
+    else:
+        assert mismatches == {}
 
 
 def test_conditional_entry_blocklist_uses_completed_bar_cohorts():
@@ -159,12 +242,13 @@ def test_conditional_entry_size_mult_combines_bar_score_and_sector_overlays():
     settings = StrategySettings(
         entry_bar_size_mults={"11": 0.50},
         entry_score_size_mults={"OR_BREAKOUT:5": 0.80},
+        entry_detail_size_mults={"OR_BREAKOUT:5:!bar_vol_surge": 0.55},
         sector_entry_size_mults={"Financials:OR_BREAKOUT": 0.25},
     )
 
     mult = conditional_entry_size_mult("Financials", "OR_BREAKOUT", 11, 5, settings)
 
-    # 0.50 (bar=11) * 0.80 (OR_BREAKOUT:5) * 0.55 (default detail !bar_vol_surge) * 0.25 (sector)
+    # 0.50 (bar=11) * 0.80 (OR_BREAKOUT:5) * 0.55 (detail !bar_vol_surge) * 0.25 (sector)
     assert mult == pytest.approx(0.055)
 
 

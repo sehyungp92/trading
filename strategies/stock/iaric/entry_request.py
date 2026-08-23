@@ -7,7 +7,12 @@ from typing import Mapping
 from .config import StrategySettings
 from .core.state import IARICEntryRequest
 from .models import MarketSnapshot, PBSymbolState, PortfolioState, WatchlistItem
-from .risk import adjust_qty_for_portfolio_constraints, compute_order_quantity, weekday_sizing_multiplier
+from .risk import (
+    adjust_qty_for_portfolio_constraints,
+    compute_order_quantity,
+    route_sizing_multiplier,
+    weekday_sizing_multiplier,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,10 +39,20 @@ def build_ready_entry_request(
     if market.last_price is None or state.stop_level <= 0:
         return IARICEntryRequestBuild(None, "missing_market_or_stop", 0.0, float(state.sizing_mult), 1.0)
 
-    entry_price = float(market.ask if market.ask > 0 else market.last_price + item.tick_size)
+    if str(route).upper().endswith("_RETRACE_LIMIT"):
+        entry_price = float(state.target_entry_price)
+    else:
+        entry_price = float(market.ask if market.ask > 0 else market.last_price + item.tick_size)
+    if entry_price <= 0:
+        return IARICEntryRequestBuild(None, "missing_target_entry_price", 0.0, float(state.sizing_mult), 1.0)
     sizing_mult = float(state.sizing_mult)
     gap_up_mult = max(0.0, float(settings.pb_gap_up_size_mult)) if item.entry_gap_pct > 0 else 1.0
-    risk_unit = sizing_mult * weekday_sizing_multiplier(now, settings) * gap_up_mult
+    risk_unit = (
+        sizing_mult
+        * weekday_sizing_multiplier(now, settings)
+        * gap_up_mult
+        * route_sizing_multiplier(route, settings)
+    )
     qty = compute_order_quantity(
         account_equity=portfolio.account_equity,
         base_risk_fraction=portfolio.base_risk_fraction,

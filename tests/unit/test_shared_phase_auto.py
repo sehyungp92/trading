@@ -11,6 +11,7 @@ import backtests.stock.auto.iaric.plugin as pullback_plugin_module
 import backtests.stock.cli as stock_cli_module
 from backtests.momentum.auto.downturn.plugin import DownturnPlugin
 from backtests.shared.auto.phase_analyzer import analyze_phase
+from backtests.shared.auto.greedy_optimizer import run_greedy
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
@@ -46,6 +47,34 @@ def _greedy_result(*, base_score: float, final_score: float, accepted_count: int
         accepted_count=accepted_count,
         elapsed_seconds=0.0,
     )
+
+
+def test_greedy_result_persists_every_candidate_evaluation() -> None:
+    def evaluate(candidates, current_mutations):
+        base = float(current_mutations.get("base", 0.0))
+        return [
+            ScoredCandidate(
+                name=candidate.name,
+                score=base + float(candidate.mutations.get("value", 0.0)),
+                metrics={"value": float(candidate.mutations.get("value", 0.0))},
+            )
+            for candidate in candidates
+        ]
+
+    result = run_greedy(
+        [Experiment("weak", {"value": 0.5}), Experiment("strong", {"value": 1.0})],
+        {"base": 1.0},
+        evaluate,
+        max_rounds=1,
+        min_delta=0.0,
+    )
+
+    assert [(row["round_num"], row["name"]) for row in result.candidate_evaluations] == [
+        (0, "__baseline__"),
+        (1, "weak"),
+        (1, "strong"),
+    ]
+    assert result.candidate_evaluations[-1]["metrics"] == {"value": 1.0}
 
 
 def test_analyze_phase_respects_phase_specific_min_score_delta():

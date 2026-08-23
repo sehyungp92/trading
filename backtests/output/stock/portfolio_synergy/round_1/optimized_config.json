@@ -1,94 +1,85 @@
 {
-  "initial_equity": 25000.0,
-  "risk_stance": "aggressive_controlled",
-  "portfolio_rules": {
-    "reference_risk_pct": 0.006,
-    "heat_cap_R": 6.0,
-    "max_total_active_positions": 12,
-    "max_symbol_heat_R": 2.2,
-    "max_long_heat_R": 6.25,
-    "portfolio_daily_stop_R": 3.5,
-    "portfolio_weekly_stop_R": 8.0,
-    "max_single_strategy_trade_share": 0.72,
-    "max_single_strategy_risk_share": 0.72,
-    "drawdown_tiers": [
-      [
-        0.04,
-        1.0
-      ],
-      [
-        0.07,
-        0.75
-      ],
-      [
-        0.1,
-        0.4
-      ],
-      [
-        0.13,
-        0.0
-      ]
-    ]
-  },
-  "strategy_allocations": {
-    "IARIC_V5R1": {
-      "unit_risk_pct": 0.008,
-      "max_heat_R": 4.6,
-      "max_concurrent": 9,
-      "daily_stop_R": 2.75,
-      "priority": 0,
-      "role": "primary pullback alpha and frequency engine"
-    },
-    "ALCB_R3": {
-      "unit_risk_pct": 0.0065,
-      "max_heat_R": 3.25,
-      "max_concurrent": 6,
-      "daily_stop_R": 2.35,
-      "priority": 1,
-      "role": "intraday momentum complement and early-session alpha sleeve"
-    }
-  },
-  "dynamic_allocation": {
-    "enabled": true,
-    "lookback_trades": 60,
-    "min_mult": 0.65,
-    "max_mult": 1.22,
-    "positive_expectancy_boost": 0.1,
-    "negative_expectancy_cut": 0.18,
-    "drawdown_risk_floor": 0.4
+  "account_rules": {
+    "account_type": "reg_t_margin",
+    "allow_fractional_shares": false,
+    "annual_cash_interest_rate": 0.0,
+    "annual_margin_interest_rate": 0.08,
+    "enforce_shared_buying_power": true,
+    "initial_margin_long_pct": 0.5,
+    "initial_margin_short_pct": 0.6,
+    "maintenance_margin_long_pct": 0.25,
+    "maintenance_margin_short_pct": 0.3,
+    "max_gross_notional_pct": 1.75,
+    "max_net_notional_pct": 1.65,
+    "max_overnight_gross_notional_pct": 1.15,
+    "max_position_notional_pct": 0.2,
+    "max_symbol_notional_pct": 0.2,
+    "minimum_margin_buffer_pct": 0.1,
+    "oversize_action": "resize"
   },
   "cross_strategy_rules": {
-    "priority_order": [
-      "IARIC_V5R1",
-      "ALCB_R3"
-    ],
-    "candidate_rank_mode": "diagnostic_alpha_score",
-    "same_symbol_policy": "half_size",
-    "same_symbol_size_mult": 0.5,
-    "same_sector_heat_cap_R": 3.8,
-    "iaric_priority_headroom_R": 1.15
+    "alpha_admission_enabled": false,
+    "alpha_uncertainty_penalty": 0.0,
+    "apply_duplicate_native_limits": false,
+    "candidate_rank_mode": "expected_net_r",
+    "capacity_action": "block",
+    "intraday_reserved_heat_R": 0.0,
+    "intraday_reserved_slots": 0,
+    "minimum_capacity_size_mult": 0.35,
+    "minimum_expected_r": -99.0,
+    "same_sector_heat_cap_R": 99.0,
+    "same_symbol_policy": "none",
+    "same_symbol_size_mult": 1.0
   },
-  "strategy_filters": {
+  "dynamic_allocation": {
+    "enabled": false,
+    "lookback_trades": 60,
+    "max_mult": 1.0,
+    "min_mult": 1.0,
+    "negative_expectancy_cut": 0.0,
+    "positive_expectancy_boost": 0.0
+  },
+  "initial_equity": 25000.0,
+  "portfolio_rules": {
+    "drawdown_tiers": [
+      [
+        1.0,
+        1.0
+      ]
+    ],
+    "heat_cap_R": 24.0,
+    "max_long_heat_R": 24.0,
+    "max_single_strategy_risk_share": 1.0,
+    "max_single_strategy_trade_share": 1.0,
+    "max_symbol_heat_R": 8.0,
+    "max_total_active_positions": 19,
+    "portfolio_daily_stop_R": 8.0,
+    "portfolio_weekly_stop_R": 24.0,
+    "reference_risk_pct": 0.0025
+  },
+  "risk_stance": "aggressive_bounded_realism_round6",
+  "strategy_allocations": {
     "ALCB_R3": {
-      "financials_size_mult": 0.65,
-      "pdh_size_mult": 1.1,
-      "score5_no_surge_mult": 0.7
+      "daily_stop_R": 0.0,
+      "max_concurrent": 99,
+      "max_heat_R": 99.0,
+      "max_position_notional_pct": 0.2,
+      "priority": 0,
+      "role": "fixed Round-3 intraday breakout signal stream",
+      "unit_risk_pct": 0.008073
     },
-    "IARIC_V5R1": {
-      "delayed_confirm_min_quality": 0.0,
-      "gap_up_size_mult": 0.85,
-      "carry_route_size_mult": 0.75
+    "IARIC_RESIDUAL_R3": {
+      "daily_stop_R": 0.0,
+      "max_concurrent": 99,
+      "max_heat_R": 99.0,
+      "max_position_notional_pct": 0.18,
+      "priority": 0,
+      "role": "fixed Round-3 daily residual signal stream",
+      "unit_risk_pct": 0.0027312499999999997
     }
   },
-  "validation": {
-    "walk_forward_required": true,
-    "min_positive_slices": 4,
-    "completed_bar_and_fee_parity_required": true
-  },
-  "portfolio_rules.max_single_strategy_trade_share": 0.85,
-  "portfolio_rules.max_single_strategy_risk_share": 0.82,
-  "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
-  "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
-  "strategy_filters.IARIC_V5R1.gap_up_size_mult": 0.6,
-  "strategy_filters.ALCB_R3.score5_no_surge_mult": 0.45
+  "strategy_filters": {
+    "ALCB_R3": {},
+    "IARIC_RESIDUAL_R3": {}
+  }
 }

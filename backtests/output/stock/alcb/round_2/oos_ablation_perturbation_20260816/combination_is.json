@@ -1,0 +1,130 @@
+{
+  "baseline_metrics": {
+    "expectancy": 0.12049737138406266,
+    "expectancy_dollar": 11.79231500339443,
+    "expected_total_r": 177.4926280487243,
+    "losing_trades": 634,
+    "max_drawdown_pct": 0.038875280031415785,
+    "net_profit": 17370.079999999994,
+    "profit_factor": 1.666456409654326,
+    "sharpe": 4.439112514665017,
+    "sortino": 5.204353423580929,
+    "tail_loss_r": -1.067694798735127,
+    "total_trades": 1473,
+    "trades_per_month": 63.68528053977272,
+    "win_rate": 0.5695858791581806,
+    "winning_trades": 839
+  },
+  "completed": 3,
+  "requested": 3,
+  "results": {
+    "combo__target__failure8_mfe015_to_m020__plus__target__frequency_entry1300": {
+      "atomic_key": "",
+      "category": "pairwise_robust_singles",
+      "is_guardrail_pass": true,
+      "lineage": "exploratory pairwise synthesis",
+      "metrics": {
+        "expectancy": 0.11815757555681286,
+        "expectancy_dollar": 12.204860335195521,
+        "expected_total_r": 190.3518542220255,
+        "losing_trades": 727,
+        "max_drawdown_pct": 0.03457148529657164,
+        "net_profit": 19662.029999999984,
+        "profit_factor": 1.6839140611222465,
+        "sharpe": 4.615482706851815,
+        "sortino": 5.844597787134188,
+        "tail_loss_r": -1.0726685111443022,
+        "total_trades": 1611,
+        "trades_per_month": 69.65172230113636,
+        "win_rate": 0.5487274984481688,
+        "winning_trades": 884
+      },
+      "name": "combo__target__failure8_mfe015_to_m020__plus__target__frequency_entry1300",
+      "patch": {
+        "param_overrides.entry_window_end": "13:00:00",
+        "param_overrides.failure_stop_bars": 8,
+        "param_overrides.failure_stop_mfe_max_r": 0.15,
+        "param_overrides.failure_stop_to_r": -0.2
+      },
+      "reject_reason": "",
+      "rejected": false,
+      "stage": "combination",
+      "strict_return_frequency_uplift": true,
+      "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__failure8_mfe015_to_m020 + target__frequency_entry1300.",
+      "utility_vs_baseline": 0.06940828772464933
+    },
+    "combo__target__failure8_mfe015_to_m020__plus__target__frequency_entry1300_combined_score6": {
+      "atomic_key": "",
+      "category": "pairwise_robust_singles",
+      "is_guardrail_pass": true,
+      "lineage": "exploratory pairwise synthesis",
+      "metrics": {
+        "expectancy": 0.11815757555681286,
+        "expectancy_dollar": 12.204860335195521,
+        "expected_total_r": 190.3518542220255,
+        "losing_trades": 727,
+        "max_drawdown_pct": 0.03457148529657164,
+        "net_profit": 19662.029999999984,
+        "profit_factor": 1.6839140611222465,
+        "sharpe": 4.615482706851815,
+        "sortino": 5.844597787134188,
+        "tail_loss_r": -1.0726685111443022,
+        "total_trades": 1611,
+        "trades_per_month": 69.65172230113636,
+        "win_rate": 0.5487274984481688,
+        "winning_trades": 884
+      },
+      "name": "combo__target__failure8_mfe015_to_m020__plus__target__frequency_entry1300_combined_score6",
+      "patch": {
+        "param_overrides.combined_breakout_score_min": 6,
+        "param_overrides.entry_window_end": "13:00:00",
+        "param_overrides.failure_stop_bars": 8,
+        "param_overrides.failure_stop_mfe_max_r": 0.15,
+        "param_overrides.failure_stop_to_r": -0.2
+      },
+      "reject_reason": "",
+      "rejected": false,
+      "stage": "combination",
+      "strict_return_frequency_uplift": true,
+      "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__failure8_mfe015_to_m020 + target__frequency_entry1300_combined_score6.",
+      "utility_vs_baseline": 0.06940828772464933
+    },
+    "combo__target__frequency_entry1300__plus__target__frequency_entry1300_combined_score6": {
+      "atomic_key": "",
+      "category": "pairwise_robust_singles",
+      "is_guardrail_pass": true,
+      "lineage": "exploratory pairwise synthesis",
+      "metrics": {
+        "expectancy": 0.11838183421347948,
+        "expectancy_dollar": 12.319280350438039,
+        "expected_total_r": 189.1741710731402,
+        "losing_trades": 687,
+        "max_drawdown_pct": 0.03988249206125829,
+        "net_profit": 19686.209999999985,
+        "profit_factor": 1.6782949983254691,
+        "sharpe": 4.5457598792031195,
+        "sortino": 5.567314435953712,
+        "tail_loss_r": -1.074573696176757,
+        "total_trades": 1598,
+        "trades_per_month": 69.08966619318181,
+        "win_rate": 0.5700876095118899,
+        "winning_trades": 911
+      },
+      "name": "combo__target__frequency_entry1300__plus__target__frequency_entry1300_combined_score6",
+      "patch": {
+        "param_overrides.combined_breakout_score_min": 6,
+        "param_overrides.entry_window_end": "13:00:00"
+      },
+      "reject_reason": "",
+      "rejected": false,
+      "stage": "combination",
+      "strict_return_frequency_uplift": true,
+      "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__frequency_entry1300 + target__frequency_entry1300_combined_score6.",
+      "utility_vs_baseline": 0.05841886876712778
+    }
+  },
+  "window": {
+    "end": "2026-03-01",
+    "start": "2024-03-25"
+  }
+}

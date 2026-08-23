@@ -104,7 +104,7 @@ def _mutation_count(path: Path) -> int:
 
 
 def _find_default_baseline() -> Path:
-    root = Path("backtests/output/stock/iaric/archived_rounds")
+    root = Path("backtests/output/stock/iaric/archive")
     candidates = list(root.glob("*/round_3/optimized_config.json"))
     if not candidates:
         raise FileNotFoundError(f"No archived round_3 optimized config found under {root}.")
