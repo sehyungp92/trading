@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 from libs.oms.models.events import OMSEventType
 
+from strategies.core.actions import SubmitEntry, SubmitMarketExit
 from strategies.stock.iaric.config import StrategySettings
 from strategies.stock.iaric.core.daily_residual import (
     DailyResidualFill,
@@ -19,7 +20,12 @@ from strategies.stock.iaric.core.daily_residual import (
     plan_daily_residual_forced_exit,
 )
 from strategies.stock.iaric.diagnostics import JsonlDiagnostics
-from strategies.stock.iaric.models import RegimeSnapshot, WatchlistArtifact, WatchlistItem
+from strategies.stock.iaric.models import (
+    HeldPositionDirective,
+    RegimeSnapshot,
+    WatchlistArtifact,
+    WatchlistItem,
+)
 from strategies.stock.iaric.residual_engine import IARICDailyResidualEngine
 from strategies.stock.iaric.artifact_store import load_intraday_state
 from strategies.stock.iaric import research_generator as residual_research_generator
@@ -93,7 +99,7 @@ def _artifact() -> WatchlistArtifact:
         tradable=[item],
         overflow=[],
         strategy_mode="daily_residual_reversion",
-        selection_contract_version="daily_residual_shared_selector_v2",
+        selection_contract_version="daily_residual_shared_selector_v5",
         strategy_parameters={
             "factor_model": "market_only",
             "formation_sessions": 3,
@@ -114,6 +120,42 @@ def _artifact() -> WatchlistArtifact:
     )
 
 
+def _artifact_with_full_exit() -> WatchlistArtifact:
+    held = HeldPositionDirective(
+        symbol="AAPL",
+        entry_time=datetime(2024, 12, 20, 14, 30, tzinfo=timezone.utc),
+        entry_price=90.0,
+        size=100,
+        stop=80.0,
+        initial_r=2.0,
+        setup_tag="daily_residual_reversion",
+        time_stop_deadline=None,
+        carry_eligible_flag=False,
+        flow_reversal_flag=False,
+        issuer="AAPL",
+        sector="Technology",
+        primary_exchange="NASDAQ",
+        sleeve_id="daily_residual_reversion",
+        residual_factor_model="market_only",
+        residual_formation_sessions=3,
+        residual_volatility=0.02,
+        residual_initial_dislocation_r=3.0,
+        residual_held_sessions=7,
+        residual_last_processed_session=date(2025, 1, 2),
+        residual_pending_action="full_exit",
+        residual_pending_reason="residual_half_life_time_stop",
+        residual_pending_exit_fraction=1.0,
+        residual_qty_entry=100,
+        residual_entry_score=40.0,
+        residual_lane_id="test_peer_lane",
+        residual_model_contract_version="frozen_residual_model_v2",
+        residual_factor_names=("market",),
+        residual_factor_betas=(1.0,),
+        residual_model_estimation_session=date(2024, 12, 19),
+    )
+    return replace(_artifact(), held_positions=[held])
+
+
 def test_daily_residual_execution_persists_canonical_issuer_identity() -> None:
     item = replace(_item(), symbol="GOOGL")
     artifact = replace(_artifact(), items=[item], tradable=[item])
@@ -126,6 +168,67 @@ def test_daily_residual_execution_persists_canonical_issuer_identity() -> None:
     )
 
     assert state.symbols["GOOGL"].issuer == "ALPHABET"
+
+
+def test_shared_core_releases_staged_entry_only_after_full_exit_is_flat() -> None:
+    state = build_daily_residual_execution_state(
+        _artifact_with_full_exit(),
+        nav=100_000.0,
+        catastrophic_stop_atr=2.5,
+    )
+    preopen = datetime(2025, 1, 3, 13, 0, tzinfo=timezone.utc)
+
+    state, actions, events = plan_daily_residual_session_orders(
+        state,
+        ts=preopen,
+        allow_entries=True,
+    )
+
+    assert len(actions) == 1
+    assert isinstance(actions[0], SubmitMarketExit)
+    assert [event.code for event in events] == [
+        "RESIDUAL_MANAGEMENT_EXIT",
+        "RESIDUAL_ENTRY_DEFERRED",
+    ]
+    assert state.entry_orders_staged is True
+    assert state.entry_orders_planned is False
+    assert state.session_orders_planned is False
+
+    state, followups, _events = apply_daily_residual_fill(
+        state,
+        DailyResidualFill(
+            client_order_id=actions[0].client_order_id,
+            symbol="AAPL",
+            role="EXIT",
+            qty=40,
+            price=91.0,
+            ts=datetime(2025, 1, 3, 14, 30, tzinfo=timezone.utc),
+        ),
+    )
+    assert followups == ()
+    assert state.symbols["AAPL"].position.qty_open == 60
+    assert state.entry_orders_planned is False
+
+    state, followups, events = apply_daily_residual_fill(
+        state,
+        DailyResidualFill(
+            client_order_id=actions[0].client_order_id,
+            symbol="AAPL",
+            role="EXIT",
+            qty=60,
+            price=91.0,
+            ts=datetime(2025, 1, 3, 14, 30, 1, tzinfo=timezone.utc),
+        ),
+    )
+    assert len(followups) == 1
+    assert isinstance(followups[0], SubmitEntry)
+    assert followups[0].symbol == "MSFT"
+    assert [event.code for event in events] == [
+        "RESIDUAL_EXIT_FILLED",
+        "RESIDUAL_ENTRY_SELECTED",
+    ]
+    assert state.entry_orders_planned is True
+    assert state.session_orders_planned is True
 
 
 class _OMS:
@@ -149,6 +252,72 @@ class _OMS:
 
     def stream_events(self, _strategy_id):
         raise AssertionError("background event stream is disabled in this test")
+
+
+@pytest.mark.asyncio
+async def test_live_adapter_keeps_replacement_deferred_through_partial_cancel(
+    tmp_path: Path,
+) -> None:
+    oms = _OMS()
+    settings = replace(StrategySettings(), state_dir=tmp_path / "state")
+    live = IARICDailyResidualEngine(
+        oms_service=oms,
+        artifact=_artifact_with_full_exit(),
+        account_id="TEST",
+        nav=100_000.0,
+        settings=settings,
+        disable_background_tasks=True,
+    )
+    await live.advance(datetime(2025, 1, 3, 13, 0, tzinfo=timezone.utc))
+    assert len(oms.orders) == 1
+    exit_oms_id, exit_order = oms.orders[0]
+    assert exit_order.client_order_id.endswith("AAPL-EXIT")
+    persisted = load_intraday_state(date(2025, 1, 3), settings=settings)
+    assert persisted.meta["entry_orders_staged"] is True
+    restored = IARICDailyResidualEngine(
+        oms_service=oms,
+        artifact=_artifact_with_full_exit(),
+        account_id="TEST",
+        nav=100_000.0,
+        settings=settings,
+        disable_background_tasks=True,
+    )
+    restored.hydrate_state(persisted)
+    live = restored
+
+    await live._handle_fill(
+        SimpleNamespace(
+            oms_order_id=exit_oms_id,
+            payload={"qty": 40, "price": 91.0, "commission": 0.5},
+            timestamp=datetime(2025, 1, 3, 14, 30, tzinfo=timezone.utc),
+        )
+    )
+    assert len(oms.orders) == 1
+
+    await live._handle_terminal(
+        SimpleNamespace(
+            oms_order_id=exit_oms_id,
+            event_type=OMSEventType.ORDER_CANCELLED,
+            timestamp=datetime(2025, 1, 3, 14, 30, 1, tzinfo=timezone.utc),
+        )
+    )
+    assert len(oms.orders) == 2
+    emergency_oms_id, emergency_order = oms.orders[-1]
+    assert emergency_order.client_order_id.endswith("AAPL-FORCED-EXIT")
+    assert all(
+        not order.client_order_id.endswith("MSFT-ENTRY")
+        for _oms_id, order in oms.orders
+    )
+
+    await live._handle_fill(
+        SimpleNamespace(
+            oms_order_id=emergency_oms_id,
+            payload={"qty": 60, "price": 90.5, "commission": 0.5},
+            timestamp=datetime(2025, 1, 3, 14, 30, 2, tzinfo=timezone.utc),
+        )
+    )
+    assert len(oms.orders) == 3
+    assert oms.orders[-1][1].client_order_id.endswith("MSFT-ENTRY")
 
 
 @pytest.mark.asyncio

@@ -5,7 +5,7 @@ import asyncio
 import logging
 from contextlib import suppress
 from dataclasses import asdict
-from datetime import datetime, time, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -27,7 +27,6 @@ from .core.daily_residual import (
     DAILY_RESIDUAL_SLEEVE,
     DailyResidualExecutionState,
     DailyResidualFill,
-    DailyResidualSymbolState,
     apply_daily_residual_fill,
     build_daily_residual_execution_state,
     plan_daily_residual_forced_exit,
@@ -66,6 +65,7 @@ class IARICDailyResidualEngine:
             "daily_residual_shared_selector_v2",
             "daily_residual_shared_selector_v3",
             "daily_residual_shared_selector_v4",
+            "daily_residual_shared_selector_v5",
         }:
             raise ValueError("unsupported or missing residual selection contract")
         if artifact.strategy_parameters.get("entry_clock") != "next_session_open":
@@ -547,6 +547,7 @@ class IARICDailyResidualEngine:
                 "schema_version": self._state.schema_version,
                 "nav": self._state.nav,
                 "session_orders_planned": self._state.session_orders_planned,
+                "entry_orders_staged": self._state.entry_orders_staged,
                 "entry_orders_planned": self._state.entry_orders_planned,
                 "exit_orders_planned": self._state.exit_orders_planned,
                 "client_to_oms": dict(self._client_to_oms),
@@ -569,6 +570,9 @@ class IARICDailyResidualEngine:
             symbols={state.symbol: state for state in snapshot.symbols},
             session_orders_planned=bool(
                 snapshot.meta.get("session_orders_planned", False)
+            ),
+            entry_orders_staged=bool(
+                snapshot.meta.get("entry_orders_staged", False)
             ),
             entry_orders_planned=bool(snapshot.meta.get("entry_orders_planned", False)),
             exit_orders_planned=bool(snapshot.meta.get("exit_orders_planned", False)),
@@ -610,6 +614,9 @@ class IARICDailyResidualEngine:
             ),
             "pending_orders": len(self._oms_to_order),
             "session_orders_planned": self._state.session_orders_planned,
+            "entry_orders_staged": self._state.entry_orders_staged,
+            "entry_orders_planned": self._state.entry_orders_planned,
+            "exit_orders_planned": self._state.exit_orders_planned,
             "risk_halted": self._risk_halted,
             "decision_events": len(self._decision_events),
             "last_decision_code": self._state.last_decision_code,

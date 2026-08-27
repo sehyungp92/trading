@@ -663,7 +663,9 @@ def run_daily_residual_replay(
             for action in actions
             if isinstance(action, (SubmitEntry, SubmitPartialExit, SubmitMarketExit))
         ]
-        # Exits execute before new entries at the same open, releasing capital.
+        # Full exits must fill before the shared core emits capacity-dependent
+        # entries.  Appending those fill-triggered actions preserves the same
+        # lifecycle as live OMS execution rather than merely sorting submits.
         order_actions.sort(key=lambda action: isinstance(action, SubmitEntry))
         for action in order_actions:
             raw_open = _at(bundle, bundle.open, session, action.symbol)
@@ -677,9 +679,7 @@ def run_daily_residual_replay(
                 if is_entry
                 else ("PARTIAL_EXIT" if isinstance(action, SubmitPartialExit) else "EXIT")
             )
-            pre_position = state.symbols[action.symbol].position
-            pre_qty = pre_position.qty_open if pre_position else 0
-            state, _followups, fill_events = apply_daily_residual_fill(
+            state, followups, fill_events = apply_daily_residual_fill(
                 state,
                 DailyResidualFill(
                     client_order_id=action.client_order_id,
@@ -692,6 +692,11 @@ def run_daily_residual_replay(
                 ),
             )
             decision_events.extend(asdict(event) for event in fill_events)
+            order_actions.extend(
+                followup
+                for followup in followups
+                if isinstance(followup, SubmitEntry)
+            )
             if is_entry:
                 cash -= fill_price * action.qty + commission
                 item = artifact.by_symbol[action.symbol]

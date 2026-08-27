@@ -235,6 +235,7 @@ class DailyResidualExecutionState:
     nav: float
     symbols: dict[str, DailyResidualSymbolState] = field(default_factory=dict)
     session_orders_planned: bool = False
+    entry_orders_staged: bool = False
     entry_orders_planned: bool = False
     exit_orders_planned: bool = False
     last_decision_code: str = "IDLE"
@@ -947,13 +948,29 @@ def build_daily_residual_execution_state(
     return state
 
 
+def _daily_residual_full_exit_blockers(
+    state: DailyResidualExecutionState,
+) -> tuple[str, ...]:
+    """Return positions that must be flat before staged entries may be sent."""
+
+    return tuple(
+        symbol
+        for symbol in sorted(state.symbols)
+        if (
+            state.symbols[symbol].pending_management_action == "full_exit"
+            and state.symbols[symbol].position is not None
+            and state.symbols[symbol].position.qty_open > 0
+        )
+    )
+
+
 def plan_daily_residual_session_orders(
     state: DailyResidualExecutionState,
     *,
     ts: datetime,
     allow_entries: bool,
 ) -> tuple[DailyResidualExecutionState, tuple[NeutralAction, ...], tuple[DecisionEvent, ...]]:
-    """Plan next-open exits and entries exactly once using neutral actions."""
+    """Plan next-open orders, holding entries behind actual full-exit fills."""
 
     actions: list[NeutralAction] = []
     events: list[DecisionEvent] = []
@@ -1028,77 +1045,119 @@ def plan_daily_residual_session_orders(
         state.exit_orders_planned = True
 
     if not state.entry_orders_planned:
-        for symbol in sorted(state.symbols):
-            symbol_state = state.symbols[symbol]
-            if symbol_state.position is not None or symbol_state.planned_qty <= 0:
-                continue
-            if not allow_entries:
-                symbol_state.entry_skipped_reason = "missed_live_next_open_staging_cutoff"
+        entry_symbols = tuple(
+            symbol
+            for symbol in sorted(state.symbols)
+            if (
+                state.symbols[symbol].position is None
+                and state.symbols[symbol].planned_qty > 0
+            )
+        )
+        staged_now = False
+        if not entry_symbols:
+            state.entry_orders_staged = True
+            state.entry_orders_planned = True
+        elif not state.entry_orders_staged:
+            if allow_entries:
+                state.entry_orders_staged = True
+                staged_now = True
+            else:
+                for symbol in entry_symbols:
+                    symbol_state = state.symbols[symbol]
+                    symbol_state.entry_skipped_reason = (
+                        "missed_live_next_open_staging_cutoff"
+                    )
+                    events.append(
+                        DecisionEvent(
+                            code="RESIDUAL_ENTRY_SKIPPED",
+                            ts=ts,
+                            symbol=symbol,
+                            timeframe="1d",
+                            strategy_id="IARIC_v1",
+                            decision_kind="entry",
+                            details={"reason": symbol_state.entry_skipped_reason},
+                        )
+                    )
+                state.entry_orders_planned = True
+
+        full_exit_blockers = _daily_residual_full_exit_blockers(state)
+        if (
+            state.entry_orders_staged
+            and not state.entry_orders_planned
+            and full_exit_blockers
+        ):
+            if staged_now:
+                for symbol in entry_symbols:
+                    events.append(
+                        DecisionEvent(
+                            code="RESIDUAL_ENTRY_DEFERRED",
+                            ts=ts,
+                            symbol=symbol,
+                            timeframe="1d",
+                            strategy_id="IARIC_v1",
+                            decision_kind="entry",
+                            details={
+                                "reason": "awaiting_full_exit_fills",
+                                "blocking_symbols": full_exit_blockers,
+                            },
+                        )
+                    )
+        elif state.entry_orders_staged and not state.entry_orders_planned:
+            for symbol in entry_symbols:
+                symbol_state = state.symbols[symbol]
+                client_order_id = f"IARIC-RES-{state.trade_date}-{symbol}-ENTRY"
+                action = SubmitEntry(
+                    client_order_id=client_order_id,
+                    symbol=symbol,
+                    side="BUY",
+                    qty=symbol_state.planned_qty,
+                    order_type="MARKET",
+                    route=DAILY_RESIDUAL_SLEEVE,
+                    session="NEXT_OPEN",
+                    risk_context={
+                        "planned_entry_price": symbol_state.planned_entry_price,
+                        "initial_residual_risk_per_share": (
+                            symbol_state.planned_initial_risk_per_share
+                        ),
+                        "catastrophic_stop_price": symbol_state.planned_stop_price,
+                        # OMS order-risk validation receives the actual hard stop.
+                        # Economic R and sizing remain the separately supplied
+                        # residual-horizon risk so catastrophe distance is visible
+                        # as a multi-R tail exposure rather than relabelled as 1R.
+                        "stop_for_risk": symbol_state.planned_stop_price,
+                        "initial_dislocation_r": symbol_state.initial_dislocation_r,
+                    },
+                    metadata={
+                        "factor_model": symbol_state.factor_model,
+                        "formation_sessions": symbol_state.formation_sessions,
+                        "lane_id": symbol_state.residual_lane_id,
+                        "residual_model_contract_version": (
+                            symbol_state.residual_model_contract_version
+                        ),
+                        "entry_clock": "next_session_open",
+                    },
+                )
+                symbol_state.pending_client_order_id = client_order_id
+                symbol_state.pending_role = "ENTRY"
+                symbol_state.pending_remaining_qty = symbol_state.planned_qty
+                actions.append(action)
                 events.append(
                     DecisionEvent(
-                        code="RESIDUAL_ENTRY_SKIPPED",
+                        code="RESIDUAL_ENTRY_SELECTED",
                         ts=ts,
                         symbol=symbol,
                         timeframe="1d",
                         strategy_id="IARIC_v1",
                         decision_kind="entry",
-                        details={"reason": symbol_state.entry_skipped_reason},
+                        emitted_actions=(type(action).__name__,),
+                        details={
+                            "qty": symbol_state.planned_qty,
+                            "residual_z": symbol_state.residual_z,
+                            "factor_model": symbol_state.factor_model,
+                        },
                     )
                 )
-                continue
-            client_order_id = f"IARIC-RES-{state.trade_date}-{symbol}-ENTRY"
-            action = SubmitEntry(
-                client_order_id=client_order_id,
-                symbol=symbol,
-                side="BUY",
-                qty=symbol_state.planned_qty,
-                order_type="MARKET",
-                route=DAILY_RESIDUAL_SLEEVE,
-                session="NEXT_OPEN",
-                risk_context={
-                    "planned_entry_price": symbol_state.planned_entry_price,
-                    "initial_residual_risk_per_share": (
-                        symbol_state.planned_initial_risk_per_share
-                    ),
-                    "catastrophic_stop_price": symbol_state.planned_stop_price,
-                    # OMS order-risk validation receives the actual hard stop.
-                    # Economic R and sizing remain the separately supplied
-                    # residual-horizon risk so catastrophe distance is visible
-                    # as a multi-R tail exposure rather than relabelled as 1R.
-                    "stop_for_risk": symbol_state.planned_stop_price,
-                    "initial_dislocation_r": symbol_state.initial_dislocation_r,
-                },
-                metadata={
-                    "factor_model": symbol_state.factor_model,
-                    "formation_sessions": symbol_state.formation_sessions,
-                    "lane_id": symbol_state.residual_lane_id,
-                    "residual_model_contract_version": (
-                        symbol_state.residual_model_contract_version
-                    ),
-                    "entry_clock": "next_session_open",
-                },
-            )
-            symbol_state.pending_client_order_id = client_order_id
-            symbol_state.pending_role = "ENTRY"
-            symbol_state.pending_remaining_qty = symbol_state.planned_qty
-            actions.append(action)
-            events.append(
-                DecisionEvent(
-                    code="RESIDUAL_ENTRY_SELECTED",
-                    ts=ts,
-                    symbol=symbol,
-                    timeframe="1d",
-                    strategy_id="IARIC_v1",
-                    decision_kind="entry",
-                    emitted_actions=(type(action).__name__,),
-                    details={
-                        "qty": symbol_state.planned_qty,
-                        "residual_z": symbol_state.residual_z,
-                        "factor_model": symbol_state.factor_model,
-                    },
-                )
-            )
-        state.entry_orders_planned = True
+            state.entry_orders_planned = True
     state.session_orders_planned = state.entry_orders_planned and state.exit_orders_planned
     if events:
         state.last_decision_code = events[-1].code
@@ -1349,7 +1408,18 @@ def apply_daily_residual_fill(
             "role": fill.role,
         },
     )
-    return state, tuple(emitted_actions), (event,)
+    emitted_events = [event]
+    if fill.role in {"EXIT", "STOP"} and not state.entry_orders_planned:
+        state, released_entries, release_events = plan_daily_residual_session_orders(
+            state,
+            ts=fill.ts,
+            # Only a prior pre-open staging decision can authorize entries once
+            # the actual full-exit fills have released their capacity.
+            allow_entries=False,
+        )
+        emitted_actions.extend(released_entries)
+        emitted_events.extend(release_events)
+    return state, tuple(emitted_actions), tuple(emitted_events)
 
 
 def hydrate_daily_residual_symbol_state(

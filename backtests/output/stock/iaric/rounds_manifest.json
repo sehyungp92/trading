@@ -1,7 +1,7 @@
 {
   "active_round": 3,
   "family": "stock",
-  "generated_at_utc": "2026-08-23T17:26:13+00:00",
+  "generated_at_utc": "2026-08-27T19:11:29+00:00",
   "latest_archive": "archive/20260822_172818_pre_continuous_reconciled_round1",
   "round_sequence_note": "Round 2 remained a research workspace and was not canonicalized; the corrected-split result is the next official artifact package.",
   "rounds": [
@@ -94,13 +94,13 @@
     {
       "active": true,
       "artifact_sha256": {
-        "artifact_manifest": "1e2d7b62cdc4630a19d2ec75cf6ed9521a0a350e507dcd512517c5146f50b0b7",
+        "artifact_manifest": "5461fa0e66eeab65b9fefcf9d162615ed5ac5290c2877ab6a8caab8aaf7de6d8",
         "baseline_config": "4357c5a2c79c5f4095f838fe78670730ee449b8d575fb124cb0051fa0339db91",
         "data_contract": "ae776546871f35c24e13dd76fe1af2c74b07a847db8e8c02d2d508ddab1b968b",
         "final_candidate_comparison": "a8e0a2bd57b08e3281ede54af54ad3f850d9c95548050370ec9a22c7bae1b5e7",
         "final_concentration": "e5a581c9fab052913853080662fcaabaa23a1f68c8a2189ab20edb23c79377d6",
         "final_cost_stress": "5204204e96fe29c8d4ced65b4e8fcf8c01c3708c4922fb96858b1da5e9a42ae5",
-        "final_decision_events": "25641d37d11deef036af3d610df40365f960aa96d0280a150c33270965c4450d",
+        "final_decision_events": "0236989e985bf3a303bf0cd4d33a720650692ebed3323e6186bf1b16b87dd1a6",
         "final_drawdown_diagnostics": "1400cc0c3d11e19d20d26583410114c2d6c3ef0295d66332092d59198d48eed7",
         "final_equity_curve": "b6d5fd4be7b5fafe0e5ebf7d647f8af843da5fca6aef7310e538b480c755359f",
         "final_exits": "04d6dc5a3f2856209faf5c9323f2aff6402c283bc3da82aa02a9ef8c2e9773fd",
@@ -116,8 +116,8 @@
         "mutation_lineage": "736c7b8fb5f62f4d263ae4852245738aec508f7e20316d1c89caf5c86a7ef34d",
         "optimized_config": "5c3d534d0eb3734394b063575756aa2623222c4a0350ff6ddd32fa74f0cf63d9",
         "round_manifest": "b84068d6651ab2d87d7b4de1c86d2cd4cedd7b6b8e321dc3b67b8f8949935430",
-        "run_spec": "050df2b2ea52623433e501d99c811ec8971237ea5b3283631b95e343dd5af8fb",
-        "run_summary": "864418f922c7befbc9cefaf329495b754f529baf4ae8e7dde9c4390c2f49fd38",
+        "run_spec": "ed8bf1b227cf54f391bfa950de59fda759890aecbb387069d5e7d359beec19b8",
+        "run_summary": "e8dc68c781c57411097f4794bdb4f28e546e3c248cdbea17b3d1cc493114b69f",
         "selection_receipt": "26e39db50dc0d3ec5856674ab6e8461d21a61742ca866f50612b788e0d71665d"
       },
       "artifacts": {
@@ -188,7 +188,7 @@
         "used_for_selection": true
       },
       "status": "complete_round3_corrected_split_research_reference",
-      "timestamp": "2026-08-23T17:26:13+00:00",
+      "timestamp": "2026-08-27T19:11:29+00:00",
       "total_r": 117.97365642719959,
       "total_trades": 468,
       "trades_per_month": 20.1481612446959,
